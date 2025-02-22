@@ -26,7 +26,7 @@ const calculateSimilarity = async (
 ): Promise<number> => {
   if (!embedding1 || !embedding2) return 0;
   try {
-    return cosineSimilarity(embedding1, embedding2);
+    return cosineSimilarity(embedding1 as number[], embedding2 as number[]);
   } catch (error) {
     console.error('Error calculating similarity:', error);
     return 0;
@@ -161,7 +161,13 @@ export const askQuestion = async (
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : 0;
+          let timestamp: number;
+          if (typeof location.value === 'string' && location.value.includes(':')) {
+            const [minutes, seconds] = location.value.split(':').map(Number);
+            timestamp = (minutes * 60) + seconds;
+          } else {
+            timestamp = typeof location.value === 'number' ? location.value : 0;
+          }
           reference = `{{ref:youtube:${chunk.source.title}:${timestamp}}}`;
         } else {
           reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
