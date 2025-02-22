@@ -155,16 +155,16 @@ export const askQuestion = async (
   relevantContent: CombinedContent[]
 ): Promise<string> => {
   try {
-    // Format context with structured references
     const context = relevantContent
       .map(chunk => {
         const location = chunk.source.location;
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          reference = `{{ref:youtube:${chunk.source.title}:${location.value}}}`;
+          const timestamp = typeof location.value === 'number' ? location.value : 0;
+          reference = `{{ref:youtube:${chunk.source.title}:${timestamp}}}`;
         } else {
-          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value}}}`;
+          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
         }
         
         return `${chunk.text} ${reference}`;
@@ -175,28 +175,29 @@ export const askQuestion = async (
       messages: [
         {
           role: 'system',
-          content: `You are a helpful assistant that answers questions based on multiple sources. 
-          When citing content, immediately follow the cited text with its reference using this format:
-          
-          Reference formats:
-          - YouTube: {{ref:youtube:Video Title:timestamp}} (e.g., {{ref:youtube:My Video:6}} for 0:06)
-          - PDF: {{ref:pdf:filename:page_number}}
-          - PowerPoint: {{ref:pptx:filename:slide_number}}
-          - Text: {{ref:txt:filename:section_number}}
-          
-          Example: "The speed increased dramatically {{ref:youtube:My Video:6}} and then..."
-          
-          IMPORTANT:
-          1. For YouTube timestamps, use the number of seconds only (e.g., 6 for 0:06)
-          2. Do NOT include YouTube URLs in references, just use the video title and timestamp
-          3. Place references IMMEDIATELY after the text they refer to
-          4. Do not group references at the end
-          5. Each piece of cited text must have its reference right after it
-          6. Keep the original text exactly as provided in the context`
+          content: `You are a helpful assistant that answers questions based on provided content. Follow these STRICT guidelines for citing sources:
+
+1. ALWAYS place references IMMEDIATELY after the specific text they refer to, not at the end of sentences or paragraphs
+2. Use this exact format for references:
+   - YouTube: {{ref:youtube:Video Title:timestamp}}
+   - PDF: {{ref:pdf:filename:page_number}}
+   - PowerPoint: {{ref:pptx:filename:slide_number}}
+   - Text: {{ref:txt:filename:section_number}}
+
+3. Example of correct citation:
+   INCORRECT: "The speed increased dramatically and then plateaued. {{ref:youtube:My Video:6}}"
+   CORRECT: "The speed increased dramatically {{ref:youtube:My Video:6}} and then plateaued."
+
+4. Rules:
+   - Never group references at the end of paragraphs
+   - Break up long quotes if needed to place references correctly
+   - Keep the exact text from the source when citing
+   - For YouTube, use seconds only for timestamps (e.g., 6 for 0:06)
+   - Never include URLs in references`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context, citing sources where appropriate.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context, making sure to place each reference immediately after the specific text it refers to.`
         }
       ],
       model: 'gpt-3.5-turbo',
