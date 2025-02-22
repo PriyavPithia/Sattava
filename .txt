@@ -1,0 +1,23 @@
+[33mcommit 6f74a2f912a77eb439fcca53ea65d62393081120[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Priyav <priyavpithia7@gmail.com>
+Date:   Sat Feb 22 20:09:11 2025 +0300
+
+    chore: remove .env file from git
+
+[33mcommit f93bcc977ca91e03a51bfdf8e80949ceb4505aac[m
+Author: Priyav <priyavpithia7@gmail.com>
+Date:   Sat Feb 22 20:08:27 2025 +0300
+
+    refactor: move API keys to environment variables and fix TypeScript config
+
+[33mcommit d19e5c7fff4b5c39e475482987341edd83b80267[m
+Author: Priyav <priyavpithia7@gmail.com>
+Date:   Sat Feb 22 19:57:41 2025 +0300
+
+    remove .env file from git
+
+[33mcommit a06aea23b5549fd65ec29ec3db37ab9b032e3cc0[m
+Author: Priyav <priyavpithia7@gmail.com>
+Date:   Sat Feb 22 19:51:09 2025 +0300
+
+    Merge remote-tracking branch 'origin/main'
