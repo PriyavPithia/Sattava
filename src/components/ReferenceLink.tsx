@@ -53,9 +53,29 @@ const ReferenceLink: React.FC<ReferenceLinkProps> = ({ reference, onClick }) => 
   };
 
   const formatTimestamp = (value: string | number): string => {
-    const seconds = typeof value === 'string' ? parseInt(value) : value;
+    let seconds: number;
+    
+    // Handle MM:SS format
+    if (typeof value === 'string' && value.includes(':')) {
+      const [minutes, secs] = value.split(':').map(Number);
+      if (!isNaN(minutes) && !isNaN(secs)) {
+        seconds = (minutes * 60) + secs;
+      } else {
+        console.error('Invalid timestamp format:', value);
+        return '0:00';
+      }
+    } 
+    // Handle raw seconds
+    else {
+      seconds = typeof value === 'string' ? parseInt(value) : value;
+      if (isNaN(seconds)) {
+        console.error('Invalid timestamp value:', value);
+        return '0:00';
+      }
+    }
+    
     const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+    const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 

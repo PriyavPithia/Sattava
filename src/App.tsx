@@ -413,8 +413,8 @@ function App() {
               type: 'youtube' as ContentSource['type'],
               title: item.title,
               location: {
-                type: 'timestamp' as ContentLocation['type'],
-                value: typeof segment.start === 'string' ? parseInt(segment.start) : segment.start
+                type: 'timestamp',
+                value: Math.floor(segment.start)
               }
             }
           }));
@@ -823,7 +823,7 @@ function App() {
                   title: item.title,
                   location: {
                     type: 'timestamp',
-                    value: formatTime(segment.start)
+                    value: Math.floor(segment.start)
                   }
                 }
               });
@@ -1023,11 +1023,23 @@ function App() {
           const timestampStr = source.location.value.toString();
           let totalSeconds: number;
           
-          if (timestampStr.includes(':')) {
+          // Handle MM:SS format
+          if (typeof timestampStr === 'string' && timestampStr.includes(':')) {
             const [minutes, seconds] = timestampStr.split(':').map(Number);
-            totalSeconds = (minutes * 60) + seconds;
-          } else {
-            totalSeconds = parseInt(timestampStr);
+            if (!isNaN(minutes) && !isNaN(seconds)) {
+              totalSeconds = (minutes * 60) + seconds;
+            } else {
+              console.error('DEBUG: Invalid timestamp format:', timestampStr);
+              return;
+            }
+          } 
+          // Handle raw seconds
+          else {
+            totalSeconds = Number(timestampStr);
+            if (isNaN(totalSeconds)) {
+              console.error('DEBUG: Invalid timestamp value:', timestampStr);
+              return;
+            }
           }
           
           console.log('DEBUG: Setting timestamp:', totalSeconds);
