@@ -238,6 +238,7 @@ function App() {
         }
 
         if (content?.content && ['pdf', 'txt', 'ppt', 'pptx'].includes(video.type)) {
+          console.log('DEBUG: Found content in database:', content.content);
           const extractedContent = [{
             text: content.content,
             pageNumber: 1
@@ -251,11 +252,18 @@ function App() {
               ...col,
               items: col.items.map(item => 
                 item.id === video.id 
-                  ? { ...item, extractedContent }
+                  ? { 
+                      ...item, 
+                      content: content.content,
+                      extractedContent 
+                    }
                   : item
               )
             }))
           );
+        } else if (['pdf', 'txt', 'ppt', 'pptx'].includes(video.type)) {
+          console.error('DEBUG: No content found in database for file:', video.id);
+          setError('Failed to load file content. Please try uploading the file again.');
         }
       }
     } catch (error) {
@@ -266,7 +274,7 @@ function App() {
       } else {
         setExtractedText([]);
       }
-      throw error; // Re-throw to handle in the calling function
+      throw error;
     } finally {
       setLoadingTranscript(false);
     }
@@ -679,21 +687,21 @@ function App() {
         return '';
       };
 
-      // Process content and save to database concurrently
-      const [processedContent, content] = await Promise.all([
-        processContent(),
-        addContent(selectedCollection.id, {
-          title: file.name,
-          type: fileType,
-          content: extractedContent,
-          url: URL.createObjectURL(file)
-        })
-      ]);
+      // Process content first
+      const processedContent = await processContent();
+
+      // Then save to database with the processed content
+      const content = await addContent(selectedCollection.id, {
+        title: file.name,
+        type: fileType,
+        content: processedContent, // Save the processed content
+        url: file.name // Just use the filename as URL
+      });
 
       // Update with real content
       const newItem: VideoItem = {
         id: content.id,
-        url: content.url || '',
+        url: file.name,
         title: file.name,
         type: fileType,
         content: processedContent,
