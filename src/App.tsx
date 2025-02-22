@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FileText, Plus, Home, Upload } from 'lucide-react';
+import { FileText, Plus, Home, Upload, UserCircle, LogOut } from 'lucide-react';
 import OpenAI from 'openai';
 
 import { getDocument } from 'pdfjs-dist';
@@ -1073,6 +1073,25 @@ function App() {
               <NavLink to="/upload" icon={Upload}>Upload</NavLink>
               <NavLink to="/transcriptions" icon={FileText}>Transcriptions</NavLink>
             </nav>
+
+            {/* User Profile Section */}
+            <div className="p-4 border-t border-gray-200">
+              <div className="flex items-center space-x-3 mb-3">
+                <UserCircle className="w-8 h-8 text-gray-600" />
+                <div className="flex-1 truncate">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => signOut()}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
 
             <div className="p-4 border-t text-sm text-gray-600">
               © 2023 Transcription UI
