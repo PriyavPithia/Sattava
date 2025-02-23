@@ -180,36 +180,42 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   const findChunkByTimestamp = (timestamp: number) => {
     console.log('DEBUG: Finding chunk for timestamp:', timestamp);
     
-    // First try exact match
+    // Convert timestamp to seconds for comparison
+    const targetSeconds = timestamp;
+    console.log('DEBUG: Looking for target seconds:', targetSeconds);
+    
+    // Try to find the exact chunk that contains this timestamp
     let matchingChunk = transcriptChunks.find(chunk => {
-      const start = chunk.startTime || chunk.start || 0;
-      const end = chunk.endTime || 
-                 (chunk.startTime + (chunk.duration || 0)) || 
-                 (chunk.start + (chunk.duration || 0));
-      
-      // Use exact match with a small buffer
-      const isMatch = timestamp >= start && timestamp <= end;
-      console.log('DEBUG: Checking chunk:', { start, end, isMatch, text: chunk.text });
-      return isMatch;
+      const start = Math.floor(chunk.startTime || chunk.start || 0);
+      return start === Math.floor(targetSeconds);
     });
 
-    // If no exact match, find the closest chunk before the timestamp
-    if (!matchingChunk) {
-      console.log('DEBUG: No exact match, finding closest chunk before timestamp');
-      matchingChunk = transcriptChunks.reduce((closest, current) => {
-        const currentStart = current.startTime || current.start || 0;
-        
-        // Only consider chunks that start before our target timestamp
-        if (currentStart > timestamp) return closest;
-        
-        if (!closest) return current;
-        
-        const closestStart = closest.startTime || closest.start || 0;
-        return currentStart > closestStart ? current : closest;
-      }, null);
+    if (matchingChunk) {
+      console.log('DEBUG: Found exact match:', matchingChunk);
+      return matchingChunk;
     }
 
-    console.log('DEBUG: Found matching chunk:', matchingChunk);
+    // If no exact match, find the chunk that starts closest to but not after our timestamp
+    console.log('DEBUG: No exact match, finding closest chunk');
+    matchingChunk = transcriptChunks.reduce((closest, current) => {
+      const currentStart = Math.floor(current.startTime || current.start || 0);
+      if (!closest) return current;
+
+      const closestStart = Math.floor(closest.startTime || closest.start || 0);
+      
+      // If current chunk starts after target, keep the closest
+      if (currentStart > targetSeconds) return closest;
+      
+      // If closest chunk starts after target but current doesn't, use current
+      if (closestStart > targetSeconds && currentStart <= targetSeconds) return current;
+      
+      // Otherwise, use the one closer to our target
+      return Math.abs(currentStart - targetSeconds) < Math.abs(closestStart - targetSeconds)
+        ? current
+        : closest;
+    }, null);
+
+    console.log('DEBUG: Found closest match:', matchingChunk);
     return matchingChunk;
   };
 
