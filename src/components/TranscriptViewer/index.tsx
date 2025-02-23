@@ -132,17 +132,10 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       const element = transcriptRefs.current[index];
       
       if (element && containerRef.current) {
-        // Calculate scroll position to center the element
-        const container = containerRef.current;
-        const elementTop = element.offsetTop;
-        const elementHeight = element.clientHeight;
-        const containerHeight = container.clientHeight;
-        const scrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-
-        // Scroll into view
-        container.scrollTo({
-          top: scrollTop,
-          behavior: 'smooth'
+        // First scroll the element into view
+        element.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'center'
         });
 
         // Apply highlight
@@ -163,7 +156,37 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
         }, 100);
       }
     }
-  }, [highlightedReference, onSeek]);
+  }, [highlightedReference, onSeek, transcriptChunks]);
+
+  // Add a separate effect to handle initial scroll when chunks change
+  useEffect(() => {
+    if (!highlightedReference?.source?.type || highlightedReference.source.type !== 'youtube') {
+      return;
+    }
+
+    const location = highlightedReference.source.location as ContentLocation | undefined;
+    if (!location || location.type !== 'timestamp') return;
+
+    const targetSeconds = getTimestampInSeconds(location.value);
+    if (isNaN(targetSeconds)) return;
+
+    // Find the matching chunk after chunks have been updated
+    const matchingChunk = findChunkByTimestamp(targetSeconds);
+    if (matchingChunk) {
+      const index = matchingChunk.index;
+      const element = transcriptRefs.current[index];
+      
+      if (element) {
+        // Use requestAnimationFrame to ensure the scroll happens after the DOM is updated
+        requestAnimationFrame(() => {
+          element.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'center'
+          });
+        });
+      }
+    }
+  }, [transcriptChunks, highlightedReference]);
 
   const handleSegmentClick = (segment: any) => {
     const timestamp = segment.start || segment.startTime || 0;
