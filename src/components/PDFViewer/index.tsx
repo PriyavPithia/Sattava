@@ -72,21 +72,19 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     if (refType !== type) return false;
 
     if (type === 'txt') {
-      // For text files, compare section numbers
+      // For text files, compare section numbers (1-based)
       const sectionNumber = typeof highlightedReference.source.location.value === 'number' 
         ? highlightedReference.source.location.value 
         : parseInt(highlightedReference.source.location.value.toString(), 10);
       
-      return chunk.index === sectionNumber - 1 && // Convert to 0-based index
-             highlightedReference.text?.trim() === chunk.text?.trim();
+      return (chunk.index || 0) + 1 === sectionNumber;
     } else {
       // For PDF and other files, compare page numbers directly
       const pageNumber = typeof highlightedReference.source.location.value === 'number'
         ? highlightedReference.source.location.value
         : parseInt(highlightedReference.source.location.value.toString(), 10);
 
-      return chunk.pageNumber === pageNumber && 
-             highlightedReference.text?.trim() === chunk.text?.trim();
+      return chunk.pageNumber === pageNumber;
     }
   };
 
@@ -121,11 +119,17 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
               className="p-4 rounded-lg border border-gray-200 transition-colors"
             >
               {type === 'txt' ? (
-                <div className="text-sm text-gray-600 mb-2">Section {content.index}</div>
+                <div className={`text-sm text-gray-600 mb-2 ${isHighlighted(content) ? 'bg-yellow-100' : ''}`}>
+                  Section {(content.index || 0) + 1}
+                </div>
               ) : (
-                <div className="text-sm text-gray-600 mb-2">Page {content.pageNumber}</div>
+                <div className={`text-sm text-gray-600 mb-2 ${isHighlighted(content) ? 'bg-yellow-100' : ''}`}>
+                  Page {content.pageNumber}
+                </div>
               )}
-              <div className="text-gray-800 whitespace-pre-wrap">{content.text}</div>
+              <div className={`text-gray-800 whitespace-pre-wrap ${isHighlighted(content) ? 'bg-yellow-100' : ''}`}>
+                {content.text}
+              </div>
             </div>
           ))}
         </div>

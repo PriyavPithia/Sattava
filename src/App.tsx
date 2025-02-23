@@ -844,7 +844,7 @@ function App() {
                   title: item.title,
                   location: {
                     type: locationType,
-                    value: chunk.pageNumber || chunk.index || 0
+                    value: item.type === 'txt' ? (chunk.index || 0) + 1 : (chunk.pageNumber || chunk.index || 0)
                   }
                 }
               });
