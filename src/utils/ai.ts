@@ -161,7 +161,7 @@ export const askQuestion = async (
 
       const last = acc[acc.length - 1];
       
-      // Check if this is from the same video and within 10 seconds of the last reference
+      // Only combine if from same video and within 3 seconds (reduced from 10)
       if (
         last.source.type === 'youtube' &&
         current.source.type === 'youtube' &&
@@ -170,7 +170,7 @@ export const askQuestion = async (
         current.source.location?.type === 'timestamp' &&
         typeof last.source.location.value === 'number' &&
         typeof current.source.location.value === 'number' &&
-        Math.abs(current.source.location.value - last.source.location.value) <= 10
+        Math.abs(current.source.location.value - last.source.location.value) <= 3
       ) {
         // Combine the text and use the earlier timestamp
         return [
@@ -243,15 +243,18 @@ export const askQuestion = async (
    - For PowerPoint, use slide numbers (e.g., {{ref:pptx:Presentation.pptx:3}})
    - For text files, use section numbers (e.g., {{ref:txt:Notes.txt:2}})
    - NEVER convert PDF or PowerPoint references to text references
-   - Try to avoid using multiple references within the same sentence unless absolutely necessary
-   - When multiple pieces of information come from timestamps within 10 seconds of each other, combine them into a single reference`
+   - NEVER combine multiple pieces of information into a single sentence
+   - Each distinct piece of information should be its own sentence with its own reference
+   - Keep sentences short and focused on one piece of information
+   - Add a line break between each cited piece of information for better readability`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context, making sure to place each reference immediately after the specific text it refers to. Break up sentences if needed to place references correctly.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to:\n1. Place each reference immediately after its specific text\n2. Keep sentences short and focused\n3. Put each cited piece of information on its own line\n4. Never combine multiple pieces of information into one sentence`
         }
       ],
       model: 'gpt-3.5-turbo',
+      temperature: 0.5, // Lower temperature for more consistent formatting
     });
 
     return completion.choices[0].message.content || 'No answer found.';
