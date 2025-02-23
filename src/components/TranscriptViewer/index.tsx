@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { FileText, Timer, Filter, Clock, Loader2, RefreshCw } from 'lucide-react';
 import { useHighlight } from '../../contexts/HighlightContext';
+import { ContentLocation, ContentSource, CombinedContent } from '../../types';
 
 interface TranscriptViewerProps {
   videoUrl: string;
@@ -78,16 +79,21 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       return false;
     }
 
-    const timeValue = highlightedReference.source.location?.value;
-    if (!timeValue) return false;
+    const location = highlightedReference.source.location as ContentLocation | undefined;
+    if (!location || location.type !== 'timestamp') return false;
 
-    const refSeconds = getTimestampInSeconds(timeValue);
+    const refSeconds = getTimestampInSeconds(location.value);
+    if (isNaN(refSeconds)) return false;
 
     // Handle both grouped and ungrouped segments
-    const segmentStart = segment.start || segment.startTime;
-    const segmentEnd = segment.end || (segment.startTime + (segment.duration || 0));
+    const segmentStart = segment.start || segment.startTime || 0;
+    const segmentEnd = segment.end || 
+                      (segment.startTime + (segment.duration || 0)) || 
+                      (segmentStart + (segment.duration || 0));
 
-    return refSeconds >= segmentStart && refSeconds <= segmentEnd;
+    // Add a small buffer (e.g., 1 second) to handle exact matches
+    return refSeconds >= Math.floor(segmentStart) && 
+           refSeconds <= Math.ceil(segmentEnd);
   };
 
   // Updated scroll and highlight logic
@@ -96,10 +102,12 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       return;
     }
 
-    const timeValue = highlightedReference.source.location?.value;
-    if (!timeValue) return;
+    const location = highlightedReference.source.location as ContentLocation | undefined;
+    if (!location || location.type !== 'timestamp') return;
 
-    const targetSeconds = getTimestampInSeconds(timeValue);
+    const targetSeconds = getTimestampInSeconds(location.value);
+    if (isNaN(targetSeconds)) return;
+
     console.log('Looking for chunk with timestamp:', targetSeconds);
     
     // Find the matching chunk
@@ -127,12 +135,9 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
             element.style.backgroundColor = '';
           }
         }, 3000);
-
-        // Seek video
-        onSeek(targetSeconds);
       }
     }
-  }, [highlightedReference, transcriptChunks]);
+  }, [highlightedReference]);
 
   const findChunkByTimestamp = (timestamp: number) => {
     return transcriptChunks.find(chunk => {
