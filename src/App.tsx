@@ -189,6 +189,9 @@ function App() {
       setExtractedText([]);
       setLoadingTranscript(true);
       
+      // Reset timestamp and highlighting when initially viewing content
+      setCurrentTimestamp(0);
+      
       // Set the selected video immediately
       setSelectedVideo(video);
       
@@ -1030,12 +1033,8 @@ function App() {
     console.log('DEBUG: Found matching video:', video);
     
     if (video) {
-      // First set the selected video
-      setSelectedVideo(video);
-      
-      // Then handle the video selection
-      handleSelectVideo(video).then(() => {
-        // After video is selected and loaded, handle timestamp if present
+      // If it's the same video, just seek to the timestamp
+      if (selectedVideo?.id === video.id) {
         if (source.location?.type === 'timestamp') {
           const timestampStr = source.location.value.toString();
           let totalSeconds: number;
@@ -1056,9 +1055,37 @@ function App() {
             }, 2000);
           }
         }
-      }).catch(error => {
-        console.error('DEBUG: Error handling video selection:', error);
-      });
+      } else {
+        // First set the selected video
+        setSelectedVideo(video);
+        
+        // Then handle the video selection
+        handleSelectVideo(video).then(() => {
+          // After video is selected and loaded, handle timestamp if present
+          if (source.location?.type === 'timestamp') {
+            const timestampStr = source.location.value.toString();
+            let totalSeconds: number;
+            
+            // Handle MM:SS format
+            if (typeof timestampStr === 'string' && timestampStr.includes(':')) {
+              const [minutes, seconds] = timestampStr.split(':').map(Number);
+              totalSeconds = (minutes * 60) + seconds;
+            } else {
+              totalSeconds = parseInt(timestampStr);
+            }
+            
+            if (!isNaN(totalSeconds)) {
+              console.log('DEBUG: Setting timestamp:', totalSeconds);
+              // Add a longer delay to ensure the video is loaded
+              setTimeout(() => {
+                setCurrentTimestamp(totalSeconds);
+              }, 2000);
+            }
+          }
+        }).catch(error => {
+          console.error('DEBUG: Error handling video selection:', error);
+        });
+      }
     } else {
       console.error('DEBUG: No matching video found for:', source);
     }
