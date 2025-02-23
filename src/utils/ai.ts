@@ -26,10 +26,8 @@ const calculateSimilarity = async (
 ): Promise<number> => {
   if (!embedding1 || !embedding2) return 0;
   try {
-    // Since we've checked for null above, we can safely assert these are number arrays
-    const array1 = embedding1 as number[];
-    const array2 = embedding2 as number[];
-    return cosineSimilarity(array1, array2);
+    // Since we've checked for null above, we can safely use the arrays
+    return cosineSimilarity(embedding1, embedding2) || 0;
   } catch (error) {
     console.error('Error calculating similarity:', error);
     return 0;
@@ -253,30 +251,45 @@ export const askQuestion = async (
           role: 'system',
           content: `You are a helpful assistant that answers questions based on provided content. Follow these STRICT guidelines for citing sources:
 
-1. CRITICAL: Place references IMMEDIATELY after the specific piece of information they support, not at the end of sentences or paragraphs
-2. NEVER group references at the end of your response
-3. Break up sentences if needed to place references correctly
-4. Use exact quotes from the source material when possible
-5. Each piece of information should have its reference right after it
-6. EXTREMELY CRITICAL: For YouTube timestamps:
-   - They MUST be at least 15 seconds apart
-   - NEVER use timestamps that are less than 15 seconds apart
-   - For timestamps near the start of the video (first minute):
+1. ABSOLUTELY CRITICAL - INLINE CITATIONS:
+   - Place each reference IMMEDIATELY after the specific fact or quote it supports
+   - NEVER group references at the end of sentences
+   - NEVER group references at the end of paragraphs
+   - NEVER save references for the end of your response
+   - Break up sentences to place references correctly
+   - Each distinct piece of information must have its own reference right after it
+
+2. CITATION FORMAT:
+   - Use exact quotes whenever possible
+   - Keep references in their exact format
+   - Don't modify reference formats
+   - Don't combine references
+
+3. TIMESTAMP RULES:
+   - Must be at least 15 seconds apart
+   - For early video timestamps:
      * Choose only ONE timestamp from each 15-second segment
-     * If multiple pieces of information occur within the same 15-second segment,
-       pick the most important one and omit the others
-     * Do not try to combine information from nearby timestamps
-   - For all timestamps:
-     * Verify each timestamp is at least 15 seconds from ALL other timestamps
-     * If information appears at 0:02 and 0:08, choose only one
-     * If information appears at 0:05 and 0:15, choose only one
-     * Always round up to the next 15-second interval when choosing timestamps
+     * Pick the most important information if multiple occur in same segment
+   - Always verify timestamp spacing
 
-Example of CORRECT citation with proper timestamp spacing:
-"The first key point is introduced {{ref:youtube:Video1:0:15}}. Then after some practice, you'll notice improvement {{ref:youtube:Video1:0:30}}. Finally, mastery comes with dedication {{ref:youtube:Video1:0:45}}."
+Here are examples of CORRECT inline citations:
 
-Example of INCORRECT citation (timestamps too close):
-"We begin with the basics {{ref:youtube:Video1:0:02}} and quickly move to fundamentals {{ref:youtube:Video1:0:08}} before advancing {{ref:youtube:Video1:0:15}}."
+CORRECT (references immediately after each fact):
+"Learning a new skill requires patience {{ref:youtube:Video1:0:15}}. The brain needs time to process new information {{ref:youtube:Video1:0:30}}. Practice sessions should be structured {{ref:youtube:Video1:0:45}}."
+
+CORRECT (breaking up sentences for proper citation):
+"The first step is understanding the basics {{ref:youtube:Video1:1:00}}. Then you can move on to advanced concepts {{ref:youtube:Video1:1:15}}."
+
+Here are examples of INCORRECT citations:
+
+INCORRECT (grouped at end of sentence):
+"The process involves understanding basics and then moving to advanced concepts {{ref:youtube:Video1:1:00}} {{ref:youtube:Video1:1:15}}."
+
+INCORRECT (timestamps too close):
+"First understand the concept {{ref:youtube:Video1:0:02}} and then practice the basics {{ref:youtube:Video1:0:08}}."
+
+INCORRECT (references at end):
+"The learning process has several steps. First you need to understand the basics. Then you practice regularly. Finally, you test your knowledge {{ref:youtube:Video1:0:15}} {{ref:youtube:Video1:0:30}} {{ref:youtube:Video1:0:45}}."
 
 Format for references:
 - YouTube: {{ref:youtube:Video Title:MM:SS}}
@@ -285,21 +298,21 @@ Format for references:
 - Text: {{ref:txt:filename:section_number}}
 
 Additional rules:
-- Keep references in their exact format - don't modify them
-- For YouTube timestamps, always use MM:SS format
-- Don't convert between reference types
-- Don't include URLs in references
-- Don't summarize or paraphrase references at the end
-- Don't add any kind of "References:" section at the end
-- Double-check all timestamp differences before including them
-- When in doubt, skip timestamps that might be too close together`
+- Each fact must have its own reference immediately after
+- Never combine multiple facts under a single reference
+- Never save references for the end of sentences
+- Never group multiple references together
+- Break up compound sentences into simple ones
+- Each timestamp must be at least 15 seconds apart
+- When in doubt, break up the text and cite more frequently`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference IMMEDIATELY after the specific information it supports, and ensure all timestamps are at least 15 seconds apart. For early timestamps (first minute), be especially careful to maintain proper spacing.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to cite each piece of information IMMEDIATELY after mentioning it, never grouping citations at the end of sentences or paragraphs.`
         }
       ],
       model: 'gpt-3.5-turbo',
+      temperature: 0.5, // Add lower temperature for more consistent formatting
     });
 
     return completion.choices[0].message.content || 'No answer found.';
