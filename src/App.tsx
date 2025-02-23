@@ -411,7 +411,7 @@ function App() {
             text: segment.text,
             source: {
               type: 'youtube' as ContentSource['type'],
-              title: item.url,
+              title: item.title || item.url,
               location: {
                 type: 'timestamp',
                 value: Math.floor(segment.start)
@@ -820,7 +820,7 @@ function App() {
                 text: segment.text,
                 source: {
                   type: 'youtube' as const,
-                  title: item.url,
+                  title: item.title || item.url,
                   location: {
                     type: 'timestamp',
                     value: Math.floor(segment.start)
@@ -1011,9 +1011,12 @@ function App() {
     const video = selectedCollection?.items.find(item => {
       if (item.type !== source.type) return false;
       
-      // For YouTube videos, match by URL or title
+      // For YouTube videos, match by URL, title, or youtube_id
       if (item.type === 'youtube') {
-        return item.url === source.title || item.title === source.title;
+        const sourceTitle = source.title.toLowerCase();
+        return item.url.toLowerCase() === sourceTitle || 
+               item.title.toLowerCase() === sourceTitle ||
+               (item.youtube_id && sourceTitle.includes(item.youtube_id));
       }
       
       // For other types, match by title
