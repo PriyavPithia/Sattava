@@ -134,7 +134,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
 
     if (matchingChunk) {
       // Adjust index to match the correct chunk
-      const index = Math.max(0, matchingChunk.index - 2); // Subtract 2 from index but don't go below 0
+      const index = Math.max(0, matchingChunk.index - 3); // Subtract 2 from index but don't go below 0
       console.log('DEBUG: Adjusted index for scroll:', { originalIndex: matchingChunk.index, adjustedIndex: index });
       
       const element = transcriptRefs.current[index];

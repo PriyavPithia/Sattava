@@ -1112,12 +1112,12 @@ function App() {
           {/* Sidebar */}
           <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
             <div className="p-4 border-b border-gray-200">
-              <h1 className="text-xl font-semibold">Transcription UI</h1>
+              <h1 className="text-xl font-semibold">Sattva AI</h1>
             </div>
             
             <nav className="flex-1 p-4 space-y-2">
               <NavLink to="/" icon={Home}>Home</NavLink>
-              <NavLink to="/upload" icon={Upload}>Upload</NavLink>
+              <NavLink to="/upload" icon={Upload}>Knowledge Bases</NavLink>
               <NavLink to="/transcriptions" icon={FileText}>Transcriptions</NavLink>
             </nav>
 
