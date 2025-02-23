@@ -133,9 +133,9 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     console.log('DEBUG: Found matching chunk:', matchingChunk);
 
     if (matchingChunk) {
-      // Scroll to the exact matching chunk instead of adjusting the index
-      const index = matchingChunk.index;
-      console.log('DEBUG: Using exact index for scroll:', index);
+      // Scroll to 3 chunks before the matching chunk, but don't go below 0
+      const index = Math.max(0, matchingChunk.index - 3);
+      console.log('DEBUG: Adjusted index for scroll:', { originalIndex: matchingChunk.index, adjustedIndex: index });
       
       const element = transcriptRefs.current[index];
       
@@ -147,30 +147,31 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
 
         // Ensure the container is available
         if (containerRef.current) {
-          // Calculate scroll position to center the element
+          // Calculate scroll position to show the element at the top with some padding
           const container = containerRef.current;
-          const containerHeight = container.clientHeight;
           const elementTop = element.offsetTop;
-          const elementHeight = element.clientHeight;
-          const scrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
+          const padding = 20; // Add some padding at the top
           
           // Scroll to the element
           container.scrollTo({
-            top: scrollTop,
+            top: Math.max(0, elementTop - padding),
             behavior: 'smooth'
           });
         }
 
-        // Apply highlight to the matching chunk
-        element.style.transition = 'background-color 0.3s ease';
-        element.style.backgroundColor = '#fef3c7';
+        // Apply highlight to the original matching chunk
+        const highlightElement = transcriptRefs.current[matchingChunk.index];
+        if (highlightElement) {
+          highlightElement.style.transition = 'background-color 0.3s ease';
+          highlightElement.style.backgroundColor = '#fef3c7';
 
-        // Remove highlight after animation
-        setTimeout(() => {
-          if (element) {
-            element.style.backgroundColor = '';
-          }
-        }, 3000);
+          // Remove highlight after animation
+          setTimeout(() => {
+            if (highlightElement) {
+              highlightElement.style.backgroundColor = '';
+            }
+          }, 3000);
+        }
 
         // Seek video to the exact timestamp from the reference
         console.log('DEBUG: Seeking to timestamp:', targetSeconds);
