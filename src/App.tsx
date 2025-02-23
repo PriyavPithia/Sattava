@@ -411,7 +411,7 @@ function App() {
             text: segment.text,
             source: {
               type: 'youtube' as ContentSource['type'],
-              title: item.title,
+              title: item.url,
               location: {
                 type: 'timestamp',
                 value: Math.floor(segment.start)
@@ -820,7 +820,7 @@ function App() {
                 text: segment.text,
                 source: {
                   type: 'youtube' as const,
-                  title: item.title,
+                  title: item.url,
                   location: {
                     type: 'timestamp',
                     value: Math.floor(segment.start)
@@ -1008,9 +1008,17 @@ function App() {
     console.log('DEBUG: App handleReferenceClick called with:', source);
     
     // Find the video in the collection
-    const video = selectedCollection?.items.find(
-      item => item.type === source.type && item.title === source.title
-    );
+    const video = selectedCollection?.items.find(item => {
+      if (item.type !== source.type) return false;
+      
+      // For YouTube videos, match by URL or title
+      if (item.type === 'youtube') {
+        return item.url === source.title || item.title === source.title;
+      }
+      
+      // For other types, match by title
+      return item.title === source.title;
+    });
     
     console.log('DEBUG: Found matching video:', video);
     
