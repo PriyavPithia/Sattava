@@ -187,18 +187,21 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     const targetSeconds = timestamp;
     console.log('DEBUG: Looking for target seconds:', targetSeconds);
     
-    // Try to find the exact chunk that contains this timestamp
+    // First try to find a chunk that exactly contains this timestamp
     let matchingChunk = transcriptChunks.find(chunk => {
       const start = Math.floor(chunk.startTime || chunk.start || 0);
-      return start === Math.floor(targetSeconds);
+      const duration = chunk.duration || 0;
+      const end = start + duration;
+      
+      return targetSeconds >= start && targetSeconds <= end;
     });
 
     if (matchingChunk) {
-      console.log('DEBUG: Found exact match:', matchingChunk);
+      console.log('DEBUG: Found exact containing chunk:', matchingChunk);
       return matchingChunk;
     }
 
-    // If no exact match, find the chunk that starts closest to but not after our timestamp
+    // If no containing chunk found, find the chunk that starts closest to our timestamp
     console.log('DEBUG: No exact match, finding closest chunk');
     matchingChunk = transcriptChunks.reduce((closest, current) => {
       const currentStart = Math.floor(current.startTime || current.start || 0);
@@ -206,16 +209,19 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
 
       const closestStart = Math.floor(closest.startTime || closest.start || 0);
       
-      // If current chunk starts after target, keep the closest
-      if (currentStart > targetSeconds) return closest;
+      // If current chunk starts after target but is closer than the closest chunk so far
+      if (currentStart > targetSeconds && 
+          (!closest || Math.abs(currentStart - targetSeconds) < Math.abs(closestStart - targetSeconds))) {
+        return current;
+      }
       
-      // If closest chunk starts after target but current doesn't, use current
-      if (closestStart > targetSeconds && currentStart <= targetSeconds) return current;
+      // If current chunk starts before or at target and is closer than the closest chunk so far
+      if (currentStart <= targetSeconds && 
+          (!closest || Math.abs(currentStart - targetSeconds) < Math.abs(closestStart - targetSeconds))) {
+        return current;
+      }
       
-      // Otherwise, use the one closer to our target
-      return Math.abs(currentStart - targetSeconds) < Math.abs(closestStart - targetSeconds)
-        ? current
-        : closest;
+      return closest;
     }, null);
 
     console.log('DEBUG: Found closest match:', matchingChunk);
