@@ -1118,9 +1118,7 @@ function App() {
               </button>
             </div>
 
-            <div className="p-4 border-t text-sm text-gray-600">
-              © 2023 Transcription UI
-            </div>
+            
           </div>
 
           {/* Main Content Area */}

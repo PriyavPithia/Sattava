@@ -200,19 +200,37 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
     
     // Find the referenced file in the collection
     const referencedFile = selectedCollection?.items.find(
-      item => item.type === reference.sourceType && item.title === reference.sourceTitle
+      item => {
+        if (item.type !== reference.sourceType) return false;
+        
+        // For YouTube videos, match by URL, title, or youtube_id
+        if (item.type === 'youtube') {
+          const sourceTitle = reference.sourceTitle.toLowerCase();
+          const itemTitle = item.title.toLowerCase();
+          const itemUrl = item.url.toLowerCase();
+          const videoId = item.youtube_id || extractVideoId(item.url);
+          
+          return itemUrl === sourceTitle || 
+                 itemTitle === sourceTitle ||
+                 sourceTitle.includes(videoId);
+        }
+        
+        // For other types, match by title
+        return item.title === reference.sourceTitle;
+      }
     );
     
     console.log('DEBUG: Found referenced file:', referencedFile);
 
     if (referencedFile) {
       try {
-        // First, set the selected item ID to force a view update
+        // First, set the selected item ID
         setSelectedItemId(referencedFile.id);
+        console.log('DEBUG: Set selected item ID:', referencedFile.id);
 
         // Then update parent state
         if (onVideoSelect) {
-          console.log('DEBUG: Updating video selection');
+          console.log('DEBUG: Calling onVideoSelect');
           await onVideoSelect(referencedFile);
         }
 
@@ -220,11 +238,12 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         let timestamp = null;
         if (reference.location?.type === 'timestamp') {
           const timeValue = reference.location.value;
-          timestamp = typeof timeValue === 'string' ? 
-            timeValue.includes(':') ? 
-              timeValue.split(':').reduce((acc, time) => (60 * acc) + +time, 0) : 
-              parseInt(timeValue) 
-            : timeValue;
+          if (typeof timeValue === 'string' && timeValue.includes(':')) {
+            const [minutes, seconds] = timeValue.split(':').map(Number);
+            timestamp = (minutes * 60) + seconds;
+          } else {
+            timestamp = parseInt(String(timeValue));
+          }
           console.log('DEBUG: Converted timestamp:', timestamp);
         }
 
@@ -232,25 +251,15 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         const contentSource: ContentSource = {
           type: reference.sourceType as ContentSource['type'],
           title: reference.sourceTitle,
-          location: {
+          location: reference.location && {
             type: reference.location.type as ContentLocation['type'],
-            value: reference.location.value
+            value: timestamp || reference.location.value
           }
         };
 
         // Call parent handler to update App state
-        console.log('DEBUG: Calling onReferenceClick');
+        console.log('DEBUG: Calling onReferenceClick with:', contentSource);
         onReferenceClick(contentSource);
-
-        // Force navigation to refresh the view
-        console.log('DEBUG: Forcing navigation');
-        navigate('/transcriptions', { 
-          state: { 
-            selectedItemId: referencedFile.id,
-            timestamp: timestamp
-          },
-          replace: true
-        });
 
         // If it's a YouTube video, handle transcript
         if (referencedFile.type === 'youtube' && referencedFile.transcript) {
@@ -267,10 +276,10 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
 
           // Handle timestamp seeking after transcript is loaded
           if (timestamp !== null) {
-            console.log('DEBUG: Setting timestamp after delay');
+            console.log('DEBUG: Setting timestamp:', timestamp);
             setTimeout(() => {
-              onSeek(timestamp);
-            }, 1000); // Increased delay to ensure video is ready
+              onSeek(timestamp!);
+            }, 1500); // Increased delay to ensure video is ready
           }
         }
       } catch (error) {
@@ -284,24 +293,42 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
   // Update the dropdown change handler
   const handleItemSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newItemId = e.target.value;
-    if (!newItemId || !selectedCollection) return;
+    console.log('DEBUG: handleItemSelect called with:', newItemId);
+    
+    if (!newItemId || !selectedCollection) {
+      console.log('DEBUG: No item ID or collection selected');
+      return;
+    }
 
     try {
       const selectedItem = selectedCollection.items.find(item => item.id === newItemId);
-      if (!selectedItem) return;
+      if (!selectedItem) {
+        console.log('DEBUG: Selected item not found in collection');
+        return;
+      }
 
+      console.log('DEBUG: Found selected item:', selectedItem);
       setSelectedItemId(newItemId);
 
+      // Update parent state
+      if (onVideoSelect) {
+        console.log('DEBUG: Calling onVideoSelect');
+        await onVideoSelect(selectedItem);
+      }
+
       if (selectedItem.type === 'youtube') {
-        // Load transcript
+        // Load transcript if available
         if (selectedItem.transcript) {
+          console.log('DEBUG: Processing transcript data');
           const transcriptArray = Array.isArray(selectedItem.transcript) ? selectedItem.transcript :
             typeof selectedItem.transcript === 'string' ? JSON.parse(selectedItem.transcript) : [];
           
           const validTranscripts = transcriptArray.filter((t: TranscriptSegment) => t && typeof t.start !== 'undefined');
+          console.log('DEBUG: Valid transcripts count:', validTranscripts.length);
           
-          if (validTranscripts.length > 0) {
-            onTranscriptLoad?.({ transcripts: validTranscripts });
+          if (validTranscripts.length > 0 && onTranscriptLoad) {
+            console.log('DEBUG: Loading transcript');
+            onTranscriptLoad({ transcripts: validTranscripts });
           }
         }
 
@@ -313,9 +340,11 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
           );
           const data = await response.json();
           if (data.items && data.items.length > 0) {
+            console.log('DEBUG: Setting video title:', data.items[0].snippet.title);
             setVideoTitle(data.items[0].snippet.title);
           }
         } catch (error) {
+          console.log('DEBUG: Using fallback title:', selectedItem.title);
           setVideoTitle(selectedItem.title);
         }
       }
