@@ -13,6 +13,7 @@ import { TranscriptSegment, TranscriptGroup, CurrentGroup } from './utils/types'
 
 import { generateStudyNotes, askQuestion, findMostRelevantChunks, generateEmbeddings } from './utils/ai';
 import { extractPowerPointContent } from './utils/powerpoint';
+import { processTextContent, processPDFContent, processPPTContent } from './utils/content';
 
 import { HighlightProvider } from './contexts/HighlightContext';
 import { 
@@ -22,7 +23,8 @@ import {
   VideoItem, 
   Collection, 
   Message,
-  ExtractedContent 
+  ExtractedContent,
+  ContentChunk
 } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
@@ -643,7 +645,8 @@ function App() {
     try {
       setIsProcessingContent(true);
       setError('');
-      let extractedContent = '';
+      let processedContent = '';
+      let chunks: ContentChunk[] = [];
       let fileType = file.name.split('.').pop()?.toLowerCase() as Content['type'];
 
       // Create optimistic update
@@ -668,9 +671,10 @@ function App() {
 
       // Process content in background
       const processContent = async () => {
+        const fileData = await file.arrayBuffer();
+        
         if (fileType === 'pdf') {
-          const pdfData = await file.arrayBuffer();
-          const pdf = await getDocument(pdfData).promise;
+          const pdf = await getDocument(fileData).promise;
           const numPages = pdf.numPages;
           const textContent = [];
           
@@ -680,25 +684,29 @@ function App() {
             textContent.push(content.items.map((item: any) => item.str).join(' '));
           }
           
-          return textContent.join('\n');
+          processedContent = textContent.join('\n');
+          chunks = await processPDFContent(fileData);
         } else if (fileType === 'txt') {
-          return await file.text();
+          processedContent = await file.text();
+          chunks = processTextContent(processedContent);
         } else if (['ppt', 'pptx'].includes(fileType)) {
           const slides = await extractPowerPointContent(file);
-          return slides.map(slide => slide.text).join('\n\n');
+          processedContent = slides.map(slide => slide.text).join('\n\n');
+          chunks = await processPPTContent(fileData);
         }
-        return '';
+        return processedContent;
       };
 
       // Process content first
-      const processedContent = await processContent();
+      const processedResult = await processContent();
 
-      // Then save to database with the processed content
+      // Then save to database with the processed content and chunks
       const content = await addContent(selectedCollection.id, {
         title: file.name,
         type: fileType,
-        content: processedContent, // Save the processed content
-        url: file.name // Just use the filename as URL
+        content: processedResult,
+        chunks: chunks,
+        url: file.name
       });
 
       // Update with real content
@@ -707,11 +715,12 @@ function App() {
         url: file.name,
         title: file.name,
         type: fileType,
-        content: processedContent,
-        extractedContent: [{
-          text: processedContent,
-          pageNumber: 1
-        }]
+        content: processedResult,
+        chunks: chunks,
+        extractedContent: chunks.map(chunk => ({
+          text: chunk.text,
+          pageNumber: chunk.pageNumber
+        }))
       };
 
       // Update collections with real item
