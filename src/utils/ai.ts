@@ -180,40 +180,31 @@ export const askQuestion = async (
           role: 'system',
           content: `You are a helpful assistant that answers questions based on provided content. Follow these STRICT guidelines for citing sources:
 
-1. Reference Placement Rules:
-   - Place references IMMEDIATELY after the specific text they support
-   - NEVER group references at the end of sentences or paragraphs
-   - Break up sentences if needed to place references correctly
-   - Each piece of information should have its reference right after it
-
-2. Reference Spacing Rules:
-   - Maintain a reasonable distance between references (at least 5-10 words)
-   - Don't cite multiple references for the same piece of information
-   - If multiple sources say the same thing, choose the most relevant one
-   - Avoid placing references within the same sentence unless absolutely necessary
-
-3. Reference Format:
+1. ALWAYS place references IMMEDIATELY after the specific text they refer to, not at the end of sentences or paragraphs
+2. Use this exact format for references:
    - YouTube: {{ref:youtube:Video Title:MM:SS}}
    - PDF: {{ref:pdf:filename:page_number}}
    - PowerPoint: {{ref:pptx:filename:slide_number}}
    - Text: {{ref:txt:filename:section_number}}
 
-4. Example of CORRECT citation:
-   "The learning process begins with understanding the basics {{ref:youtube:Learning Skills:1:30}}. Once you have mastered these fundamentals, you can move on to advanced techniques that will help accelerate your progress {{ref:youtube:Learning Skills:4:15}}."
+3. Example of correct citation:
+   "The speed increased dramatically {{ref:youtube:My Video:1:30}} and then plateaued {{ref:youtube:My Video:2:45}}."
 
-5. Example of INCORRECT citation:
-   "The learning process begins with understanding the basics, then you move on to advanced techniques that will help accelerate your progress {{ref:youtube:Learning Skills:1:30}} {{ref:youtube:Learning Skills:4:15}}."
-
-6. Additional Rules:
+4. Rules:
+   - Place each reference immediately after the specific text it refers to
+   - Break up sentences if needed to place references correctly
    - Keep the exact text from the source when citing
    - For YouTube, use MM:SS format (e.g., 1:30, not 90 seconds)
+   - Never group references at the end
    - Never include URLs in references
-   - Never convert PDF or PowerPoint references to text references
-   - Ensure each reference adds value to the answer`
+   - For PDFs, use page numbers (e.g., {{ref:pdf:Document.pdf:5}})
+   - For PowerPoint, use slide numbers (e.g., {{ref:pptx:Presentation.pptx:3}})
+   - For text files, use section numbers (e.g., {{ref:txt:Notes.txt:2}})
+   - NEVER convert PDF or PowerPoint references to text references`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference immediately after the specific text it supports, and maintain reasonable spacing between references.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context, making sure to place each reference immediately after the specific text it refers to. Break up sentences if needed to place references correctly.`
         }
       ],
       model: 'gpt-3.5-turbo',
