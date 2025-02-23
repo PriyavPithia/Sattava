@@ -21,7 +21,6 @@ export interface VideoItem {
   isEditing?: boolean;
   type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx';
   content?: string;
-  chunks?: ContentChunk[];
   extractedContent?: ExtractedContent[];
   transcript?: any[];
   youtube_id?: string;
@@ -66,26 +65,4 @@ export interface ContentReference {
   source: ContentSource;
   startIndex: number;
   endIndex: number;
-}
-
-export interface ContentChunk {
-  text: string;
-  startOffset: number;
-  endOffset: number;
-  pageNumber: number;
-  header?: string;
-  context?: string;
-}
-
-export interface Content {
-  id: string;
-  project_id: string;
-  title: string;
-  type: 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
-  url: string;
-  youtube_id?: string;
-  content?: string;
-  chunks?: ContentChunk[];
-  transcript?: string;
-  created_at: string;
 } 
