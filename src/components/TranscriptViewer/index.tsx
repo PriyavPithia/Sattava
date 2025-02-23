@@ -35,9 +35,6 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transcriptChunks, setTranscriptChunks] = useState<any[]>([]);
 
-  // Add a ref to track if we've already scrolled for this reference
-  const hasScrolledRef = useRef<string | null>(null);
-
   // Initialize transcript chunks when transcripts change
   useEffect(() => {
     const processTranscripts = () => {
@@ -76,6 +73,17 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     return Number(timeValue);
   };
 
+  const findChunkByTimestamp = (timestamp: number) => {
+    console.log('DEBUG: Finding chunk for timestamp:', timestamp);
+    return transcriptChunks.find(chunk => {
+      const start = Math.floor(chunk.startTime);
+      const end = Math.ceil(chunk.endTime || (chunk.startTime + (chunk.duration || 0)));
+      const isMatch = timestamp >= start && timestamp <= end;
+      console.log('DEBUG: Checking chunk:', { start, end, timestamp, isMatch });
+      return isMatch;
+    });
+  };
+
   // Updated isHighlighted function to work with all grouping types
   const isHighlighted = (segment: any): boolean => {
     if (!highlightedReference?.source?.type || highlightedReference.source.type !== 'youtube') {
@@ -89,42 +97,29 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     if (isNaN(refSeconds)) return false;
 
     // Handle both grouped and ungrouped segments
-    const segmentStart = segment.start || segment.startTime || 0;
-    const segmentEnd = segment.end || 
-                      (segment.startTime + (segment.duration || 0)) || 
-                      (segmentStart + (segment.duration || 0));
+    const segmentStart = Math.floor(segment.start || segment.startTime || 0);
+    const segmentEnd = Math.ceil(
+      segment.end || 
+      (segment.startTime + (segment.duration || 0)) || 
+      (segmentStart + (segment.duration || 0))
+    );
 
-    // Add a small buffer (e.g., 1 second) to handle exact matches
-    return refSeconds >= Math.floor(segmentStart) && 
-           refSeconds <= Math.ceil(segmentEnd);
+    const isMatch = refSeconds >= segmentStart && refSeconds <= segmentEnd;
+    console.log('DEBUG: Checking highlight:', { refSeconds, segmentStart, segmentEnd, isMatch });
+    return isMatch;
   };
 
   // Updated scroll and highlight logic
   useEffect(() => {
     if (!highlightedReference?.source?.type || highlightedReference.source.type !== 'youtube') {
-      hasScrolledRef.current = null;
       return;
     }
 
     const location = highlightedReference.source.location as ContentLocation | undefined;
-    if (!location || location.type !== 'timestamp') {
-      hasScrolledRef.current = null;
-      return;
-    }
+    if (!location || location.type !== 'timestamp') return;
 
     const targetSeconds = getTimestampInSeconds(location.value);
-    if (isNaN(targetSeconds)) {
-      hasScrolledRef.current = null;
-      return;
-    }
-
-    // Create a unique identifier for this reference
-    const referenceId = `${highlightedReference.source.title}-${targetSeconds}`;
-    
-    // If we've already scrolled for this reference, don't scroll again
-    if (hasScrolledRef.current === referenceId) {
-      return;
-    }
+    if (isNaN(targetSeconds)) return;
 
     console.log('DEBUG: Processing reference with timestamp:', targetSeconds);
     
@@ -133,101 +128,42 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     console.log('DEBUG: Found matching chunk:', matchingChunk);
 
     if (matchingChunk) {
-      // Scroll to 3 chunks before the matching chunk, but don't go below 0
-      const index = Math.max(0, matchingChunk.index - 3);
-      console.log('DEBUG: Adjusted index for scroll:', { originalIndex: matchingChunk.index, adjustedIndex: index });
-      
+      const index = matchingChunk.index;
       const element = transcriptRefs.current[index];
       
-      if (element) {
-        console.log('DEBUG: Scrolling to element:', element);
-        
-        // Mark that we've scrolled for this reference
-        hasScrolledRef.current = referenceId;
+      if (element && containerRef.current) {
+        // Calculate scroll position to center the element
+        const container = containerRef.current;
+        const elementTop = element.offsetTop;
+        const elementHeight = element.clientHeight;
+        const containerHeight = container.clientHeight;
+        const scrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
 
-        // Ensure the container is available
-        if (containerRef.current) {
-          // Calculate scroll position to show the element at the top with some padding
-          const container = containerRef.current;
-          const elementTop = element.offsetTop;
-          const padding = 20; // Add some padding at the top
-          
-          // Scroll to the element
-          container.scrollTo({
-            top: Math.max(0, elementTop - padding),
-            behavior: 'smooth'
-          });
-        }
+        // Scroll into view
+        container.scrollTo({
+          top: scrollTop,
+          behavior: 'smooth'
+        });
 
-        // Apply highlight to the original matching chunk
-        const highlightElement = transcriptRefs.current[matchingChunk.index];
-        if (highlightElement) {
-          highlightElement.style.transition = 'background-color 0.3s ease';
-          highlightElement.style.backgroundColor = '#fef3c7';
+        // Apply highlight
+        element.style.transition = 'background-color 0.3s ease';
+        element.style.backgroundColor = '#fef3c7';
 
-          // Remove highlight after animation
-          setTimeout(() => {
-            if (highlightElement) {
-              highlightElement.style.backgroundColor = '';
-            }
-          }, 3000);
-        }
+        // Remove highlight after animation
+        setTimeout(() => {
+          if (element) {
+            element.style.backgroundColor = '';
+          }
+        }, 3000);
 
-        // Seek video to the exact timestamp from the reference
+        // Seek video to the timestamp with a small delay to ensure scroll and highlight are visible
         console.log('DEBUG: Seeking to timestamp:', targetSeconds);
-        onSeek(targetSeconds);
+        setTimeout(() => {
+          onSeek(targetSeconds);
+        }, 100);
       }
     }
   }, [highlightedReference, onSeek]);
-
-  // Update findChunkByTimestamp to be more precise
-  const findChunkByTimestamp = (timestamp: number) => {
-    console.log('DEBUG: Finding chunk for timestamp:', timestamp);
-    
-    // Convert timestamp to seconds for comparison
-    const targetSeconds = timestamp;
-    console.log('DEBUG: Looking for target seconds:', targetSeconds);
-    
-    // First try to find a chunk that exactly contains this timestamp
-    let matchingChunk = transcriptChunks.find(chunk => {
-      const start = Math.floor(chunk.startTime || chunk.start || 0);
-      const duration = chunk.duration || 0;
-      const end = start + duration;
-      
-      return targetSeconds >= start && targetSeconds <= end;
-    });
-
-    if (matchingChunk) {
-      console.log('DEBUG: Found exact containing chunk:', matchingChunk);
-      return matchingChunk;
-    }
-
-    // If no containing chunk found, find the chunk that starts closest to our timestamp
-    console.log('DEBUG: No exact match, finding closest chunk');
-    matchingChunk = transcriptChunks.reduce((closest, current) => {
-      const currentStart = Math.floor(current.startTime || current.start || 0);
-      if (!closest) return current;
-
-      const closestStart = Math.floor(closest.startTime || closest.start || 0);
-      
-      // If current chunk starts after target but is closer than the closest chunk so far
-      if (currentStart > targetSeconds && 
-          (!closest || Math.abs(currentStart - targetSeconds) < Math.abs(closestStart - targetSeconds))) {
-        return current;
-      }
-      
-      // If current chunk starts before or at target and is closer than the closest chunk so far
-      if (currentStart <= targetSeconds && 
-          (!closest || Math.abs(currentStart - targetSeconds) < Math.abs(closestStart - targetSeconds))) {
-        return current;
-      }
-      
-      return closest;
-    }, null);
-
-    console.log('DEBUG: Found closest match:', matchingChunk);
-    return matchingChunk;
-  };
 
   const handleSegmentClick = (segment: any) => {
     const timestamp = segment.start || segment.startTime || 0;

@@ -155,56 +155,13 @@ export const askQuestion = async (
   relevantContent: CombinedContent[]
 ): Promise<string> => {
   try {
-    // First, consolidate nearby timestamps for the same video
-    const consolidatedContent = relevantContent.reduce<CombinedContent[]>((acc, current) => {
-      if (acc.length === 0) return [current];
-
-      const last = acc[acc.length - 1];
-      
-      // Only combine if from same video and within 3 seconds (reduced from 10)
-      if (
-        last.source.type === 'youtube' &&
-        current.source.type === 'youtube' &&
-        last.source.title === current.source.title &&
-        last.source.location?.type === 'timestamp' &&
-        current.source.location?.type === 'timestamp' &&
-        typeof last.source.location.value === 'number' &&
-        typeof current.source.location.value === 'number' &&
-        Math.abs(current.source.location.value - last.source.location.value) <= 3
-      ) {
-        // Combine the text and use the earlier timestamp
-        return [
-          ...acc.slice(0, -1),
-          {
-            text: `${last.text} ${current.text}`,
-            source: {
-              ...last.source,
-              location: {
-                type: 'timestamp' as const,
-                value: Math.min(
-                  last.source.location.value,
-                  current.source.location.value
-                )
-              }
-            }
-          }
-        ];
-      }
-
-      return [...acc, current];
-    }, []);
-
-    const context = consolidatedContent
+    const context = relevantContent
       .map(chunk => {
         const location = chunk.source.location;
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : parseInt(location.value.toString(), 10);
-          if (isNaN(timestamp)) {
-            console.error('Invalid timestamp value:', location.value);
-            return `${chunk.text} {{ref:youtube:${chunk.source.title}:0:00}}`;
-          }
+          const timestamp = typeof location.value === 'number' ? location.value : parseInt(location.value.toString());
           const minutes = Math.floor(timestamp / 60);
           const seconds = timestamp % 60;
           const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -231,10 +188,11 @@ export const askQuestion = async (
    - Text: {{ref:txt:filename:section_number}}
 
 3. Example of correct citation:
-   "The speed increased dramatically {{ref:youtube:My Video:1:30}} and continued to rise over time."
+   "The speed increased dramatically {{ref:youtube:My Video:1:30}} and then plateaued {{ref:youtube:My Video:2:45}}."
 
 4. Rules:
    - Place each reference immediately after the specific text it refers to
+   - Break up sentences if needed to place references correctly
    - Keep the exact text from the source when citing
    - For YouTube, use MM:SS format (e.g., 1:30, not 90 seconds)
    - Never group references at the end
@@ -242,19 +200,14 @@ export const askQuestion = async (
    - For PDFs, use page numbers (e.g., {{ref:pdf:Document.pdf:5}})
    - For PowerPoint, use slide numbers (e.g., {{ref:pptx:Presentation.pptx:3}})
    - For text files, use section numbers (e.g., {{ref:txt:Notes.txt:2}})
-   - NEVER convert PDF or PowerPoint references to text references
-   - NEVER combine multiple pieces of information into a single sentence
-   - Each distinct piece of information should be its own sentence with its own reference
-   - Keep sentences short and focused on one piece of information
-   - Add a line break between each cited piece of information for better readability`
+   - NEVER convert PDF or PowerPoint references to text references`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to:\n1. Place each reference immediately after its specific text\n2. Keep sentences short and focused\n3. Put each cited piece of information on its own line\n4. Never combine multiple pieces of information into one sentence`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context, making sure to place each reference immediately after the specific text it refers to. Break up sentences if needed to place references correctly.`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.5, // Lower temperature for more consistent formatting
     });
 
     return completion.choices[0].message.content || 'No answer found.';
