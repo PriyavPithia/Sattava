@@ -1011,12 +1011,16 @@ function App() {
     const video = selectedCollection?.items.find(item => {
       if (item.type !== source.type) return false;
       
-      // For YouTube videos, match by URL, title, or youtube_id
+      // For YouTube videos, match by URL or title
       if (item.type === 'youtube') {
         const sourceTitle = source.title.toLowerCase();
-        return item.url.toLowerCase() === sourceTitle || 
-               item.title.toLowerCase() === sourceTitle ||
-               (item.youtube_id && sourceTitle.includes(item.youtube_id));
+        const itemTitle = (item.title || '').toLowerCase();
+        const itemUrl = (item.url || '').toLowerCase();
+        const videoId = item.youtube_id || extractVideoId(item.url);
+        
+        return itemUrl === sourceTitle || 
+               itemTitle === sourceTitle ||
+               sourceTitle.includes(videoId);
       }
       
       // For other types, match by title
@@ -1039,27 +1043,18 @@ function App() {
           // Handle MM:SS format
           if (typeof timestampStr === 'string' && timestampStr.includes(':')) {
             const [minutes, seconds] = timestampStr.split(':').map(Number);
-            if (!isNaN(minutes) && !isNaN(seconds)) {
-              totalSeconds = (minutes * 60) + seconds;
-            } else {
-              console.error('DEBUG: Invalid timestamp format:', timestampStr);
-              return;
-            }
-          } 
-          // Handle raw seconds
-          else {
-            totalSeconds = Number(timestampStr);
-            if (isNaN(totalSeconds)) {
-              console.error('DEBUG: Invalid timestamp value:', timestampStr);
-              return;
-            }
+            totalSeconds = (minutes * 60) + seconds;
+          } else {
+            totalSeconds = parseInt(timestampStr);
           }
           
-          console.log('DEBUG: Setting timestamp:', totalSeconds);
-          // Add a small delay to ensure the video is loaded
-          setTimeout(() => {
-            setCurrentTimestamp(totalSeconds);
-          }, 1000);
+          if (!isNaN(totalSeconds)) {
+            console.log('DEBUG: Setting timestamp:', totalSeconds);
+            // Add a longer delay to ensure the video is loaded
+            setTimeout(() => {
+              setCurrentTimestamp(totalSeconds);
+            }, 2000);
+          }
         }
       }).catch(error => {
         console.error('DEBUG: Error handling video selection:', error);
