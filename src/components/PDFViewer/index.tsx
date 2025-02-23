@@ -24,18 +24,17 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     if (!highlightedReference?.source?.type || !highlightedReference.source.location) return;
     
     const refType = highlightedReference.source.type;
-    const refValue = highlightedReference.source.location.value;
-    console.log('Handling reference:', { refType, refValue, type });
-
-    if (refType === type) {
-      let targetNumber = typeof refValue === 'string' ? parseInt(refValue) : refValue;
-      console.log('Looking for page/section:', targetNumber);
-
+    const location = highlightedReference.source.location;
+    
+    if (refType === type && location.type === 'chunk') {
+      // Find the matching chunk
       const index = type === 'txt' 
-        ? extractedText.findIndex(chunk => chunk.index === targetNumber)
-        : extractedText.findIndex(chunk => chunk.pageNumber === targetNumber);
-      
-      console.log('Found index:', index);
+        ? extractedText.findIndex(chunk => chunk.index === location.chunkIndex)
+        : extractedText.findIndex(chunk => 
+            chunk.pageNumber === location.pageNumber &&
+            chunk.startOffset >= (location.startOffset || 0) &&
+            chunk.endOffset <= (location.endOffset || chunk.endOffset || 0)
+          );
       
       if (index !== -1 && contentRefs.current[index] && containerRef.current) {
         const container = containerRef.current;
@@ -71,21 +70,18 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     const refType = highlightedReference.source.type;
     if (refType !== type) return false;
 
-    if (type === 'txt') {
-      // For text files, compare section numbers (1-based)
-      const sectionNumber = typeof highlightedReference.source.location.value === 'number' 
-        ? highlightedReference.source.location.value 
-        : parseInt(highlightedReference.source.location.value.toString(), 10);
-      
-      return (chunk.index || 0) + 1 === sectionNumber;
-    } else {
-      // For PDF and other files, compare page numbers directly
-      const pageNumber = typeof highlightedReference.source.location.value === 'number'
-        ? highlightedReference.source.location.value
-        : parseInt(highlightedReference.source.location.value.toString(), 10);
+    const location = highlightedReference.source.location;
+    if (location.type !== 'chunk') return false;
 
-      return chunk.pageNumber === pageNumber;
+    // For text files, compare chunk indices
+    if (type === 'txt') {
+      return chunk.index === location.chunkIndex;
     }
+    
+    // For PDF and other files, compare page numbers and check if within chunk range
+    return chunk.pageNumber === location.pageNumber && 
+           (chunk.startOffset >= (location.startOffset || 0) && 
+            chunk.endOffset <= (location.endOffset || chunk.endOffset || 0));
   };
 
   if (loading) {

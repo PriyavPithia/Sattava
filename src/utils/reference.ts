@@ -92,25 +92,57 @@ export const parseReferenceTag = (tag: string): Reference | null => {
   }
 };
 
+const REFERENCE_REGEX = /{{ref:(youtube|pdf|txt|ppt|pptx):([^:]+):([^}]+)}}/g;
+const CHUNK_REFERENCE_REGEX = /{{ref:(pdf|txt|ppt|pptx):([^:]+):(\d+):(\d+):(\d+):(\d+)}}/g;
+
 export const extractReferences = (content: string): { text: string; references: Reference[] } => {
   const references: Reference[] = [];
-  let currentIndex = 0;
+  let lastIndex = 0;
+  let cleanText = '';
 
-  const text = content.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
-    console.log('Found reference tag:', match);
-    const reference = parseReferenceTag(match);
-    if (reference) {
-      references.push(reference);
-      const marker = `__REF_MARKER_${references.length - 1}__`;
-      console.log('Created marker:', marker, 'for reference:', reference);
-      return marker;
-    }
-    console.log('Failed to parse reference tag:', match);
-    return match;
+  // First, try to match chunk references
+  content.replace(CHUNK_REFERENCE_REGEX, (match, type, title, chunkIndex, pageNumber, startOffset, endOffset, offset) => {
+    cleanText += content.slice(lastIndex, offset);
+    lastIndex = offset + match.length;
+
+    references.push({
+      sourceType: type as Reference['sourceType'],
+      sourceTitle: title,
+      location: {
+        type: 'chunk',
+        value: parseInt(chunkIndex),
+        pageNumber: parseInt(pageNumber),
+        chunkIndex: parseInt(chunkIndex),
+        startOffset: parseInt(startOffset),
+        endOffset: parseInt(endOffset)
+      }
+    });
+
+    return '';
   });
 
-  console.log('Extracted references:', references);
-  console.log('Processed text:', text);
+  // Then, try to match YouTube references
+  content.replace(REFERENCE_REGEX, (match, type, title, timestamp, offset) => {
+    if (type === 'youtube') {
+      cleanText += content.slice(lastIndex, offset);
+      lastIndex = offset + match.length;
 
-  return { text, references };
+      references.push({
+        sourceType: 'youtube',
+        sourceTitle: title,
+        location: {
+          type: 'timestamp',
+          value: timestamp
+        }
+      });
+    }
+    return '';
+  });
+
+  cleanText += content.slice(lastIndex);
+
+  return {
+    text: cleanText.trim(),
+    references
+  };
 }; 

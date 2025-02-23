@@ -1,6 +1,10 @@
 export interface ContentLocation {
-  type: 'timestamp' | 'page' | 'section' | 'slide';
+  type: 'timestamp' | 'chunk';
   value: string | number;
+  pageNumber?: number;
+  chunkIndex?: number;
+  startOffset?: number;
+  endOffset?: number;
 }
 
 export interface ContentSource {
@@ -31,6 +35,10 @@ export interface ExtractedContent {
   text: string;
   pageNumber?: number;
   index?: number;
+  startOffset?: number;
+  endOffset?: number;
+  header?: string;
+  context?: string;
 }
 
 export interface Collection {

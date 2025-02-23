@@ -168,7 +168,8 @@ export const askQuestion = async (
           const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
         } else {
-          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
+          // For non-YouTube content, include chunk information
+          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.chunkIndex ?? 0}:${location?.pageNumber ?? 1}:${location?.startOffset ?? 0}:${location?.endOffset ?? 0}}}`;
         }
         
         return `${chunk.text} ${reference}`;
@@ -196,9 +197,7 @@ Example of INCORRECT citation:
 
 Format for references:
 - YouTube: {{ref:youtube:Video Title:MM:SS}}
-- PDF: {{ref:pdf:filename:page_number}}
-- PowerPoint: {{ref:pptx:filename:slide_number}}
-- Text: {{ref:txt:filename:section_number}}
+- Other content: {{ref:type:filename:chunkIndex:pageNumber:startOffset:endOffset}}
 
 Additional rules:
 - Keep references in their exact format - don't modify them
@@ -206,7 +205,8 @@ Additional rules:
 - Don't convert between reference types
 - Don't include URLs in references
 - Don't summarize or paraphrase references at the end
-- Don't add any kind of "References:" section at the end`
+- Don't add any kind of "References:" section at the end
+- For non-YouTube content, always include the chunk information in references`
         },
         {
           role: 'user',
