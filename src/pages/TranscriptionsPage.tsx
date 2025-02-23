@@ -516,7 +516,7 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
             type="text"
             value={question}
             onChange={(e) => onQuestionChange(e.target.value)}
-            placeholder="Ask a question about any of your transcribed content..."
+            placeholder={`Ask a question about ${selectedCollection.name}...`}
             className="w-full px-4 py-2 rounded-lg border border-gray-300"
           />
           <button
@@ -524,7 +524,7 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
             disabled={askingQuestion || !question}
             className="w-full mt-2 px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50"
           >
-            {askingQuestion ? 'Thinking...' : 'Ask Question'}
+            {askingQuestion ? 'Thinking...' : `Ask about ${selectedCollection.name}`}
           </button>
         </div>
       </div>

@@ -369,6 +369,14 @@ function App() {
   };
 
   const handleSelectCollection = async (collection: Collection | null) => {
+    // Clear previous collection's state
+    setSelectedVideo(null);
+    setRawResponse(null);
+    setExtractedText([]);
+    setQuestion('');
+    setMessages([]);
+    
+    // Set the new collection
     setSelectedCollection(collection);
     
     if (collection) {
@@ -380,8 +388,6 @@ function App() {
         console.error('Error loading chat messages:', error);
         setMessages([]);
       }
-    } else {
-      setMessages([]);
     }
   };
 
