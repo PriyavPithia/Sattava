@@ -155,13 +155,56 @@ export const askQuestion = async (
   relevantContent: CombinedContent[]
 ): Promise<string> => {
   try {
-    const context = relevantContent
+    // First, consolidate nearby timestamps for the same video
+    const consolidatedContent = relevantContent.reduce<CombinedContent[]>((acc, current) => {
+      if (acc.length === 0) return [current];
+
+      const last = acc[acc.length - 1];
+      
+      // Check if this is from the same video and within 10 seconds of the last reference
+      if (
+        last.source.type === 'youtube' &&
+        current.source.type === 'youtube' &&
+        last.source.title === current.source.title &&
+        last.source.location?.type === 'timestamp' &&
+        current.source.location?.type === 'timestamp' &&
+        typeof last.source.location.value === 'number' &&
+        typeof current.source.location.value === 'number' &&
+        Math.abs(current.source.location.value - last.source.location.value) <= 10
+      ) {
+        // Combine the text and use the earlier timestamp
+        return [
+          ...acc.slice(0, -1),
+          {
+            text: `${last.text} ${current.text}`,
+            source: {
+              ...last.source,
+              location: {
+                type: 'timestamp' as const,
+                value: Math.min(
+                  last.source.location.value,
+                  current.source.location.value
+                )
+              }
+            }
+          }
+        ];
+      }
+
+      return [...acc, current];
+    }, []);
+
+    const context = consolidatedContent
       .map(chunk => {
         const location = chunk.source.location;
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : parseInt(location.value.toString());
+          const timestamp = typeof location.value === 'number' ? location.value : parseInt(location.value.toString(), 10);
+          if (isNaN(timestamp)) {
+            console.error('Invalid timestamp value:', location.value);
+            return `${chunk.text} {{ref:youtube:${chunk.source.title}:0:00}}`;
+          }
           const minutes = Math.floor(timestamp / 60);
           const seconds = timestamp % 60;
           const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -188,11 +231,10 @@ export const askQuestion = async (
    - Text: {{ref:txt:filename:section_number}}
 
 3. Example of correct citation:
-   "The speed increased dramatically {{ref:youtube:My Video:1:30}} and then plateaued {{ref:youtube:My Video:2:45}}."
+   "The speed increased dramatically {{ref:youtube:My Video:1:30}} and continued to rise over time."
 
 4. Rules:
    - Place each reference immediately after the specific text it refers to
-   - Break up sentences if needed to place references correctly
    - Keep the exact text from the source when citing
    - For YouTube, use MM:SS format (e.g., 1:30, not 90 seconds)
    - Never group references at the end
@@ -200,7 +242,9 @@ export const askQuestion = async (
    - For PDFs, use page numbers (e.g., {{ref:pdf:Document.pdf:5}})
    - For PowerPoint, use slide numbers (e.g., {{ref:pptx:Presentation.pptx:3}})
    - For text files, use section numbers (e.g., {{ref:txt:Notes.txt:2}})
-   - NEVER convert PDF or PowerPoint references to text references`
+   - NEVER convert PDF or PowerPoint references to text references
+   - Try to avoid using multiple references within the same sentence unless absolutely necessary
+   - When multiple pieces of information come from timestamps within 10 seconds of each other, combine them into a single reference`
         },
         {
           role: 'user',
