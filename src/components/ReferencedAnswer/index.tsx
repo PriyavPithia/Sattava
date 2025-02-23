@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { FileText, Link, Presentation, Youtube as YoutubeIcon } from 'lucide-react';
-import { CombinedContent, ContentReference } from '../types';
 import { useHighlight } from '../../contexts/HighlightContext';
 import ReferenceLink from '../ReferenceLink';
 import { Reference } from '../../types/reference';
 import { parseReferenceTag } from '../../utils/reference';
+import { CombinedContent } from '../types';
 
 // Add ContentSource type definition locally since it's not in types
 type ContentSource = {
@@ -33,49 +33,58 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     console.log('Rendering content with text:', text);
     console.log('Available references:', references);
 
-    // First, replace the reference tags with markers
-    const processedText = text.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
-      console.log('Processing reference tag:', match);
-      const reference = parseReferenceTag(match);
-      if (reference) {
-        console.log('Parsed reference:', reference);
-        // Find matching reference in the references array
-        const index = references.findIndex(ref => 
-          ref.sourceId === reference.sourceId && 
-          ref.sourceType === reference.sourceType &&
-          ref.location.value.toString() === reference.location.value.toString()
-        );
-        console.log('Found reference index:', index);
-        if (index !== -1) {
-          return `__REF_MARKER_${index}__`;
-        }
-      }
-      console.log('No matching reference found for tag:', match);
-      return match;
-    });
-
-    console.log('Processed text with markers:', processedText);
-
-    // Then split and render the content with reference links
-    const parts = processedText.split(/(__REF_MARKER_\d+__)/);
+    // Split the text into paragraphs
+    const paragraphs = text.split('\n');
     
-    return parts.map((part, index) => {
-      const markerMatch = part.match(/^__REF_MARKER_(\d+)__$/);
-      if (markerMatch) {
-        const refIndex = parseInt(markerMatch[1]);
-        const reference = references[refIndex];
-        console.log('Rendering reference link for:', reference);
+    return paragraphs.map((paragraph, pIndex) => {
+      // First, replace the reference tags with markers
+      const processedText = paragraph.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
+        console.log('Processing reference tag:', match);
+        const reference = parseReferenceTag(match);
         if (reference) {
-          return (
-            <ReferenceLink
-              key={index}
-              reference={reference}
-              onClick={handleReferenceClick}
-            />
+          console.log('Parsed reference:', reference);
+          // Find matching reference in the references array
+          const index = references.findIndex(ref => 
+            ref.sourceId === reference.sourceId && 
+            ref.sourceType === reference.sourceType &&
+            ref.location.value.toString() === reference.location.value.toString()
           );
+          console.log('Found reference index:', index);
+          if (index !== -1) {
+            return `__REF_MARKER_${index}__`;
+          }
         }
-      }
-      return <span key={index}>{part}</span>;
+        console.log('No matching reference found for tag:', match);
+        return match;
+      });
+
+      console.log('Processed text with markers:', processedText);
+
+      // Then split and render the content with reference links
+      const parts = processedText.split(/(__REF_MARKER_\d+__)/);
+      
+      return (
+        <p key={pIndex} className="mb-4">
+          {parts.map((part, index) => {
+            const markerMatch = part.match(/^__REF_MARKER_(\d+)__$/);
+            if (markerMatch) {
+              const refIndex = parseInt(markerMatch[1]);
+              const reference = references[refIndex];
+              console.log('Rendering reference link for:', reference);
+              if (reference) {
+                return (
+                  <ReferenceLink
+                    key={index}
+                    reference={reference}
+                    onClick={handleReferenceClick}
+                  />
+                );
+              }
+            }
+            return <span key={index}>{part}</span>;
+          })}
+        </p>
+      );
     });
   };
 
