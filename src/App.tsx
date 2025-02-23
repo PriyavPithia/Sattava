@@ -838,7 +838,9 @@ function App() {
               allContent.push({
                 text: chunk.text,
                 source: {
-                  type: item.type as Exclude<typeof item.type, 'local'>,
+                  type: item.type === 'pdf' ? 'pdf' :
+                        item.type === 'ppt' || item.type === 'pptx' ? 'pptx' :
+                        item.type === 'txt' ? 'txt' : 'txt' as ContentSource['type'],
                   title: item.title,
                   location: {
                     type: locationType,

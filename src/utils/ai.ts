@@ -199,7 +199,11 @@ export const askQuestion = async (
    - Break up long quotes if needed to place references correctly
    - Keep the exact text from the source when citing
    - For YouTube, use seconds only for timestamps (e.g., 6 for 0:06)
-   - Never include URLs in references`
+   - Never include URLs in references
+   - For PDFs, use page numbers (e.g., {{ref:pdf:Document.pdf:5}})
+   - For PowerPoint, use slide numbers (e.g., {{ref:pptx:Presentation.pptx:3}})
+   - For text files, use section numbers (e.g., {{ref:txt:Notes.txt:2}})
+   - NEVER convert PDF or PowerPoint references to text references`
         },
         {
           role: 'user',
