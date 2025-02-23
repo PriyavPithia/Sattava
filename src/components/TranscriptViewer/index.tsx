@@ -133,7 +133,10 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     console.log('DEBUG: Found matching chunk:', matchingChunk);
 
     if (matchingChunk) {
-      const index = matchingChunk.index;
+      // Adjust index to match the correct chunk
+      const index = Math.max(0, matchingChunk.index - 2); // Subtract 2 from index but don't go below 0
+      console.log('DEBUG: Adjusted index for scroll:', { originalIndex: matchingChunk.index, adjustedIndex: index });
+      
       const element = transcriptRefs.current[index];
       
       if (element) {
@@ -158,16 +161,19 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
           });
         }
 
-        // Apply highlight
-        element.style.transition = 'background-color 0.3s ease';
-        element.style.backgroundColor = '#fef3c7';
+        // Apply highlight to the original matching chunk
+        const highlightElement = transcriptRefs.current[matchingChunk.index];
+        if (highlightElement) {
+          highlightElement.style.transition = 'background-color 0.3s ease';
+          highlightElement.style.backgroundColor = '#fef3c7';
 
-        // Remove highlight after animation
-        setTimeout(() => {
-          if (element) {
-            element.style.backgroundColor = '';
-          }
-        }, 3000);
+          // Remove highlight after animation
+          setTimeout(() => {
+            if (highlightElement) {
+              highlightElement.style.backgroundColor = '';
+            }
+          }, 3000);
+        }
 
         // Seek video to the exact timestamp from the reference
         console.log('DEBUG: Seeking to timestamp:', targetSeconds);
