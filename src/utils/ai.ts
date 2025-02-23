@@ -187,27 +187,37 @@ const getTimestampSeconds = (value: string | number): number => {
 };
 
 const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
-  const result: CombinedContent[] = [];
-  let lastTimestamp = 0;
-  let isFirstTimestamp = true;
+  // First, separate YouTube content with timestamps from other content
+  const timestampContent: (CombinedContent & { timestamp: number })[] = [];
+  const otherContent: CombinedContent[] = [];
 
-  for (const chunk of content) {
+  // Sort content into appropriate arrays and convert timestamps
+  content.forEach(chunk => {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
-      const currentTimestamp = getTimestampSeconds(chunk.source.location.value);
-      
-      // If this is the first timestamp or it's far enough from the last one, include it
-      if (isFirstTimestamp || Math.abs(currentTimestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
-        result.push(chunk);
-        lastTimestamp = currentTimestamp;
-        isFirstTimestamp = false;
-      }
+      const timestamp = getTimestampSeconds(chunk.source.location.value);
+      timestampContent.push({ ...chunk, timestamp });
     } else {
-      // Include non-timestamp content as is
-      result.push(chunk);
+      otherContent.push(chunk);
+    }
+  });
+
+  // Sort timestamp content chronologically
+  timestampContent.sort((a, b) => a.timestamp - b.timestamp);
+
+  // Filter timestamps that are too close
+  const filteredTimestamps: typeof timestampContent = [];
+  let lastIncludedTimestamp = -MIN_TIMESTAMP_DIFFERENCE; // Initialize to allow first timestamp
+
+  for (const chunk of timestampContent) {
+    // Only include if it's far enough from the last included timestamp
+    if (chunk.timestamp >= lastIncludedTimestamp + MIN_TIMESTAMP_DIFFERENCE) {
+      filteredTimestamps.push(chunk);
+      lastIncludedTimestamp = chunk.timestamp;
     }
   }
 
-  return result;
+  // Combine filtered timestamps with other content
+  return [...filteredTimestamps, ...otherContent];
 };
 
 export const askQuestion = async (
@@ -251,17 +261,22 @@ export const askQuestion = async (
 6. EXTREMELY CRITICAL: For YouTube timestamps:
    - They MUST be at least 15 seconds apart
    - NEVER use timestamps that are less than 15 seconds apart
-   - If you have information from timestamps that are too close:
-     * Choose the most important/relevant piece of information
-     * Omit the other pieces entirely
-     * Do not try to combine or merge them
-   - Verify the time difference between each timestamp you use
+   - For timestamps near the start of the video (first minute):
+     * Choose only ONE timestamp from each 15-second segment
+     * If multiple pieces of information occur within the same 15-second segment,
+       pick the most important one and omit the others
+     * Do not try to combine information from nearby timestamps
+   - For all timestamps:
+     * Verify each timestamp is at least 15 seconds from ALL other timestamps
+     * If information appears at 0:02 and 0:08, choose only one
+     * If information appears at 0:05 and 0:15, choose only one
+     * Always round up to the next 15-second interval when choosing timestamps
 
 Example of CORRECT citation with proper timestamp spacing:
-"The first step is to understand the basics {{ref:youtube:Video1:1:00}}. After practicing for a while, you'll start to see improvement {{ref:youtube:Video1:1:30}}. Eventually, mastery comes with dedication {{ref:youtube:Video1:2:00}}."
+"The first key point is introduced {{ref:youtube:Video1:0:15}}. Then after some practice, you'll notice improvement {{ref:youtube:Video1:0:30}}. Finally, mastery comes with dedication {{ref:youtube:Video1:0:45}}."
 
 Example of INCORRECT citation (timestamps too close):
-"Start by understanding the concept {{ref:youtube:Video1:1:00}} and focus on the fundamentals {{ref:youtube:Video1:1:08}}."
+"We begin with the basics {{ref:youtube:Video1:0:02}} and quickly move to fundamentals {{ref:youtube:Video1:0:08}} before advancing {{ref:youtube:Video1:0:15}}."
 
 Format for references:
 - YouTube: {{ref:youtube:Video Title:MM:SS}}
@@ -276,11 +291,12 @@ Additional rules:
 - Don't include URLs in references
 - Don't summarize or paraphrase references at the end
 - Don't add any kind of "References:" section at the end
-- Double-check all timestamp differences before including them`
+- Double-check all timestamp differences before including them
+- When in doubt, skip timestamps that might be too close together`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference IMMEDIATELY after the specific information it supports, and ensure all timestamps are at least 15 seconds apart.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference IMMEDIATELY after the specific information it supports, and ensure all timestamps are at least 15 seconds apart. For early timestamps (first minute), be especially careful to maintain proper spacing.`
         }
       ],
       model: 'gpt-3.5-turbo',
