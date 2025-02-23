@@ -162,22 +162,38 @@ const getTimestampSeconds = (value: string | number): number => {
 };
 
 const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
-  const result: CombinedContent[] = [];
-  let lastTimestamp = 0;
-  let isFirstTimestamp = true;
+  // First sort content by timestamp for YouTube content
+  const sortedContent = [...content].sort((a, b) => {
+    if (a.source.type === 'youtube' && b.source.type === 'youtube' &&
+        a.source.location?.type === 'timestamp' && b.source.location?.type === 'timestamp') {
+      const timeA = getTimestampSeconds(a.source.location.value);
+      const timeB = getTimestampSeconds(b.source.location.value);
+      return timeA - timeB;
+    }
+    return 0;
+  });
 
-  for (const chunk of content) {
+  const result: CombinedContent[] = [];
+  let lastTimestamp = -1;
+
+  for (const chunk of sortedContent) {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
       const currentTimestamp = getTimestampSeconds(chunk.source.location.value);
       
-      // If this is the first timestamp or it's far enough from the last one, include it
-      if (isFirstTimestamp || Math.abs(currentTimestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
+      // Include if it's the first timestamp or far enough from the last one
+      if (lastTimestamp === -1 || currentTimestamp - lastTimestamp >= MIN_TIMESTAMP_DIFFERENCE) {
         result.push(chunk);
         lastTimestamp = currentTimestamp;
-        isFirstTimestamp = false;
+      } else {
+        // If timestamps are too close, only keep the one with more content
+        const lastResult = result[result.length - 1];
+        if (chunk.text.length > lastResult.text.length) {
+          result[result.length - 1] = chunk;
+          lastTimestamp = currentTimestamp;
+        }
       }
     } else {
-      // Include non-timestamp content as is
+      // Always include non-timestamp content
       result.push(chunk);
     }
   }
