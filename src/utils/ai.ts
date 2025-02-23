@@ -180,31 +180,35 @@ export const askQuestion = async (
           role: 'system',
           content: `You are a helpful assistant that answers questions based on provided content. Follow these STRICT guidelines for citing sources:
 
-1. ALWAYS place references IMMEDIATELY after the specific text they refer to, not at the end of sentences or paragraphs
-2. Use this exact format for references:
-   - YouTube: {{ref:youtube:Video Title:MM:SS}}
-   - PDF: {{ref:pdf:filename:page_number}}
-   - PowerPoint: {{ref:pptx:filename:slide_number}}
-   - Text: {{ref:txt:filename:section_number}}
+1. CRITICAL: Place references IMMEDIATELY after the specific piece of information they support, not at the end of sentences or paragraphs
+2. NEVER group references at the end of your response
+3. Break up sentences if needed to place references correctly
+4. Use exact quotes from the source material when possible
+5. Each piece of information should have its reference right after it
 
-3. Example of correct citation:
-   "The speed increased dramatically {{ref:youtube:My Video:1:30}} and then plateaued {{ref:youtube:My Video:2:45}}."
+Example of CORRECT citation:
+"The temperature reached 90 degrees {{ref:youtube:Video1:1:30}} and then dropped to 75 degrees {{ref:youtube:Video2:2:45}} by evening."
 
-4. Rules:
-   - Place each reference immediately after the specific text it refers to
-   - Break up sentences if needed to place references correctly
-   - Keep the exact text from the source when citing
-   - For YouTube, use MM:SS format (e.g., 1:30, not 90 seconds)
-   - Never group references at the end
-   - Never include URLs in references
-   - For PDFs, use page numbers (e.g., {{ref:pdf:Document.pdf:5}})
-   - For PowerPoint, use slide numbers (e.g., {{ref:pptx:Presentation.pptx:3}})
-   - For text files, use section numbers (e.g., {{ref:txt:Notes.txt:2}})
-   - NEVER convert PDF or PowerPoint references to text references`
+Example of INCORRECT citation:
+"The temperature reached 90 degrees and then dropped to 75 degrees by evening {{ref:youtube:Video1:1:30}} {{ref:youtube:Video2:2:45}}"
+
+Format for references:
+- YouTube: {{ref:youtube:Video Title:MM:SS}}
+- PDF: {{ref:pdf:filename:page_number}}
+- PowerPoint: {{ref:pptx:filename:slide_number}}
+- Text: {{ref:txt:filename:section_number}}
+
+Additional rules:
+- Keep references in their exact format - don't modify them
+- For YouTube timestamps, always use MM:SS format
+- Don't convert between reference types
+- Don't include URLs in references
+- Don't summarize or paraphrase references at the end
+- Don't add any kind of "References:" section at the end`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context, making sure to place each reference immediately after the specific text it refers to. Break up sentences if needed to place references correctly.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference IMMEDIATELY after the specific information it supports, breaking up sentences if needed.`
         }
       ],
       model: 'gpt-3.5-turbo',
