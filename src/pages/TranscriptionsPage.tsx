@@ -237,7 +237,7 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         // Convert timestamp if present
         let timestamp = null;
         if (reference.location?.type === 'timestamp') {
-          const timeValue = reference.location.value;
+      const timeValue = reference.location.value;
           if (typeof timeValue === 'string' && timeValue.includes(':')) {
             const [minutes, seconds] = timeValue.split(':').map(Number);
             timestamp = (minutes * 60) + seconds;
@@ -250,7 +250,7 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         // Convert to ContentSource and call parent handler
         const contentSource: ContentSource = {
           type: reference.sourceType as ContentSource['type'],
-          title: reference.sourceTitle,
+              title: reference.sourceTitle,
           location: reference.location && {
             type: reference.location.type as ContentLocation['type'],
             value: timestamp || reference.location.value
@@ -573,33 +573,33 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
                   </div>
                   {selectedItem.transcript && (
                     <div className="flex-1 overflow-y-auto">
-                      <TranscriptViewer 
-                        videoUrl={selectedItem.url}
-                        transcripts={Array.isArray(selectedItem.transcript) ? 
-                          selectedItem.transcript.filter(t => t && typeof t.start !== 'undefined') : 
-                          []
-                        }
-                        durationFilter={durationFilter}
-                        onDurationFilterChange={onDurationFilterChange}
-                        onSeek={onSeek}
-                        loadingTranscript={loadingTranscript}
-                        groupTranscriptsByDuration={groupTranscriptsByDuration}
-                        formatTime={formatTime}
-                        calculateTotalDuration={calculateTotalDuration}
-                        formatDurationLabel={formatDurationLabel}
-                      />
+                <TranscriptViewer 
+                  videoUrl={selectedItem.url}
+                  transcripts={Array.isArray(selectedItem.transcript) ? 
+                    selectedItem.transcript.filter(t => t && typeof t.start !== 'undefined') : 
+                    []
+                  }
+                  durationFilter={durationFilter}
+                  onDurationFilterChange={onDurationFilterChange}
+                  onSeek={onSeek}
+                  loadingTranscript={loadingTranscript}
+                  groupTranscriptsByDuration={groupTranscriptsByDuration}
+                  formatTime={formatTime}
+                  calculateTotalDuration={calculateTotalDuration}
+                  formatDurationLabel={formatDurationLabel}
+                />
                     </div>
                   )}
                 </div>
               )}
               {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedItem.type) && (
                 <div className="h-full overflow-y-auto">
-                  <PDFViewer 
-                    type={selectedItem.type}
-                    title={selectedItem.title}
-                    loading={false}
-                    extractedText={selectedItem.extractedContent || []}
-                  />
+                <PDFViewer 
+                  type={selectedItem.type}
+                  title={selectedItem.title}
+                  loading={false}
+                  extractedText={selectedItem.extractedContent || []}
+                />
                 </div>
               )}
             </>

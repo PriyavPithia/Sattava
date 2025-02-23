@@ -26,7 +26,10 @@ const calculateSimilarity = async (
 ): Promise<number> => {
   if (!embedding1 || !embedding2) return 0;
   try {
-    return cosineSimilarity(embedding1 as number[], embedding2 as number[]);
+    // Since we've checked for null above, we can safely assert these are number arrays
+    const array1 = embedding1 as number[];
+    const array2 = embedding2 as number[];
+    return cosineSimilarity(array1, array2);
   } catch (error) {
     console.error('Error calculating similarity:', error);
     return 0;
@@ -84,24 +87,46 @@ export const findMostRelevantChunks = async (
         const similarity = await calculateSimilarity(questionEmbedding, chunkEmbedding);
         return { 
           ...chunk, 
-          similarity: similarity || 0 
+          similarity: similarity || 0,
+          timestamp: chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp' 
+            ? getTimestampSeconds(chunk.source.location.value)
+            : null
         };
       })
     );
 
-    // Filter out items with zero similarity and sort by similarity
-    const sortedContent = withSimilarities
+    // Sort by similarity
+    const sortedByRelevance = withSimilarities
       .filter(item => item.similarity > 0)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
+      .sort((a, b) => b.similarity - a.similarity);
 
-    if (sortedContent.length === 0) {
+    // Filter timestamps that are too close together while maintaining relevance order
+    const result: typeof sortedByRelevance = [];
+    let lastTimestamp: number | null = null;
+
+    for (const item of sortedByRelevance) {
+      if (item.timestamp !== null) {
+        // For YouTube content with timestamps
+        if (lastTimestamp === null || Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
+          result.push(item);
+          lastTimestamp = item.timestamp;
+        }
+      } else {
+        // For non-YouTube content or content without timestamps
+        result.push(item);
+      }
+
+      // Break if we have enough items
+      if (result.length >= limit) break;
+    }
+
+    if (result.length === 0) {
       console.warn('No relevant content found with non-zero similarity');
       // Fallback to returning some content even if similarity is 0
       return relevantContent.slice(0, limit);
     }
 
-    return sortedContent;
+    return result;
   } catch (error) {
     console.error('Error finding relevant chunks:', error);
     return content.slice(0, limit); // Fallback to returning some content
@@ -162,38 +187,22 @@ const getTimestampSeconds = (value: string | number): number => {
 };
 
 const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
-  // First sort content by timestamp for YouTube content
-  const sortedContent = [...content].sort((a, b) => {
-    if (a.source.type === 'youtube' && b.source.type === 'youtube' &&
-        a.source.location?.type === 'timestamp' && b.source.location?.type === 'timestamp') {
-      const timeA = getTimestampSeconds(a.source.location.value);
-      const timeB = getTimestampSeconds(b.source.location.value);
-      return timeA - timeB;
-    }
-    return 0;
-  });
-
   const result: CombinedContent[] = [];
-  let lastTimestamp = -1;
+  let lastTimestamp = 0;
+  let isFirstTimestamp = true;
 
-  for (const chunk of sortedContent) {
+  for (const chunk of content) {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
       const currentTimestamp = getTimestampSeconds(chunk.source.location.value);
       
-      // Include if it's the first timestamp or far enough from the last one
-      if (lastTimestamp === -1 || currentTimestamp - lastTimestamp >= MIN_TIMESTAMP_DIFFERENCE) {
+      // If this is the first timestamp or it's far enough from the last one, include it
+      if (isFirstTimestamp || Math.abs(currentTimestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
         result.push(chunk);
         lastTimestamp = currentTimestamp;
-      } else {
-        // If timestamps are too close, only keep the one with more content
-        const lastResult = result[result.length - 1];
-        if (chunk.text.length > lastResult.text.length) {
-          result[result.length - 1] = chunk;
-          lastTimestamp = currentTimestamp;
-        }
+        isFirstTimestamp = false;
       }
     } else {
-      // Always include non-timestamp content
+      // Include non-timestamp content as is
       result.push(chunk);
     }
   }
@@ -239,14 +248,20 @@ export const askQuestion = async (
 3. Break up sentences if needed to place references correctly
 4. Use exact quotes from the source material when possible
 5. Each piece of information should have its reference right after it
-6. CRITICAL: For YouTube timestamps, ensure they are at least 15 seconds apart
-7. If multiple pieces of information come from timestamps that are too close together, choose the most relevant one and omit the others
+6. EXTREMELY CRITICAL: For YouTube timestamps:
+   - They MUST be at least 15 seconds apart
+   - NEVER use timestamps that are less than 15 seconds apart
+   - If you have information from timestamps that are too close:
+     * Choose the most important/relevant piece of information
+     * Omit the other pieces entirely
+     * Do not try to combine or merge them
+   - Verify the time difference between each timestamp you use
 
-Example of CORRECT citation:
-"The temperature reached 90 degrees {{ref:youtube:Video1:1:30}} and later in the day, it dropped to 75 degrees {{ref:youtube:Video2:2:45}} by evening."
+Example of CORRECT citation with proper timestamp spacing:
+"The first step is to understand the basics {{ref:youtube:Video1:1:00}}. After practicing for a while, you'll start to see improvement {{ref:youtube:Video1:1:30}}. Eventually, mastery comes with dedication {{ref:youtube:Video1:2:00}}."
 
 Example of INCORRECT citation (timestamps too close):
-"The temperature was 90 degrees {{ref:youtube:Video1:1:30}} and humidity was high {{ref:youtube:Video1:1:35}} that day."
+"Start by understanding the concept {{ref:youtube:Video1:1:00}} and focus on the fundamentals {{ref:youtube:Video1:1:08}}."
 
 Format for references:
 - YouTube: {{ref:youtube:Video Title:MM:SS}}
@@ -260,11 +275,12 @@ Additional rules:
 - Don't convert between reference types
 - Don't include URLs in references
 - Don't summarize or paraphrase references at the end
-- Don't add any kind of "References:" section at the end`
+- Don't add any kind of "References:" section at the end
+- Double-check all timestamp differences before including them`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference IMMEDIATELY after the specific information it supports, breaking up sentences if needed.`
+          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to place each reference IMMEDIATELY after the specific information it supports, and ensure all timestamps are at least 15 seconds apart.`
         }
       ],
       model: 'gpt-3.5-turbo',
