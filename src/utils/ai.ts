@@ -134,6 +134,7 @@ export const generateStudyNotes = async (contentText: string): Promise<string> =
    - For document content: Add section references using {ref: P#} format (where # is the section number)
    - Add references for each major section
    - Add references for key examples or important points`
+   
         },
         {
           role: 'user',
@@ -185,6 +186,7 @@ export const askQuestion = async (
 3. Break up sentences if needed to place references correctly
 4. Use exact quotes from the source material when possible
 5. Each piece of information should have its reference right after it
+6. THE REFERENCES TIMESTAMP SHOULD NOT BE TOO CLOSE TO EACH OTHER
 
 Example of CORRECT citation:
 "The temperature reached 90 degrees {{ref:youtube:Video1:1:30}} and then dropped to 75 degrees {{ref:youtube:Video2:2:45}} by evening."
