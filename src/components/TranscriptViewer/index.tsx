@@ -135,9 +135,13 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
             element.style.backgroundColor = '';
           }
         }, 3000);
+
+        // Seek video to the timestamp
+        console.log('DEBUG: Reference clicked, seeking to:', targetSeconds);
+        onSeek(targetSeconds);
       }
     }
-  }, [highlightedReference]);
+  }, [highlightedReference, onSeek]);
 
   const findChunkByTimestamp = (timestamp: number) => {
     return transcriptChunks.find(chunk => {
@@ -148,11 +152,14 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   };
 
   const handleSegmentClick = (segment: any) => {
-    onSeek(segment.start);
+    const timestamp = segment.start || segment.startTime || 0;
+    console.log('DEBUG: Segment clicked, seeking to:', timestamp);
+    onSeek(timestamp);
   };
 
   const handleTimestampClick = (timestamp: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the parent div's click
+    console.log('DEBUG: Timestamp clicked, seeking to:', timestamp);
     onSeek(timestamp);
   };
 
