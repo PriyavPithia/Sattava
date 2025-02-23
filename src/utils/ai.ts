@@ -151,12 +151,49 @@ export const generateStudyNotes = async (contentText: string): Promise<string> =
   }
 };
 
+const MIN_TIMESTAMP_DIFFERENCE = 15; // Minimum difference in seconds between timestamps
+
+const getTimestampSeconds = (value: string | number): number => {
+  if (typeof value === 'string' && value.includes(':')) {
+    const [minutes, seconds] = value.split(':').map(Number);
+    return (minutes * 60) + seconds;
+  }
+  return typeof value === 'number' ? value : parseInt(value);
+};
+
+const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
+  const result: CombinedContent[] = [];
+  let lastTimestamp = 0;
+  let isFirstTimestamp = true;
+
+  for (const chunk of content) {
+    if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
+      const currentTimestamp = getTimestampSeconds(chunk.source.location.value);
+      
+      // If this is the first timestamp or it's far enough from the last one, include it
+      if (isFirstTimestamp || Math.abs(currentTimestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
+        result.push(chunk);
+        lastTimestamp = currentTimestamp;
+        isFirstTimestamp = false;
+      }
+    } else {
+      // Include non-timestamp content as is
+      result.push(chunk);
+    }
+  }
+
+  return result;
+};
+
 export const askQuestion = async (
   question: string,
   relevantContent: CombinedContent[]
 ): Promise<string> => {
   try {
-    const context = relevantContent
+    // Filter out timestamps that are too close together
+    const filteredContent = filterCloseTimestamps(relevantContent);
+    
+    const context = filteredContent
       .map(chunk => {
         const location = chunk.source.location;
         let reference;
@@ -186,13 +223,14 @@ export const askQuestion = async (
 3. Break up sentences if needed to place references correctly
 4. Use exact quotes from the source material when possible
 5. Each piece of information should have its reference right after it
-6. THE REFERENCES TIMESTAMP SHOULD NOT BE TOO CLOSE TO EACH OTHER
+6. CRITICAL: For YouTube timestamps, ensure they are at least 15 seconds apart
+7. If multiple pieces of information come from timestamps that are too close together, choose the most relevant one and omit the others
 
 Example of CORRECT citation:
-"The temperature reached 90 degrees {{ref:youtube:Video1:1:30}} and then dropped to 75 degrees {{ref:youtube:Video2:2:45}} by evening."
+"The temperature reached 90 degrees {{ref:youtube:Video1:1:30}} and later in the day, it dropped to 75 degrees {{ref:youtube:Video2:2:45}} by evening."
 
-Example of INCORRECT citation:
-"The temperature reached 90 degrees and then dropped to 75 degrees by evening {{ref:youtube:Video1:1:30}} {{ref:youtube:Video2:2:45}}"
+Example of INCORRECT citation (timestamps too close):
+"The temperature was 90 degrees {{ref:youtube:Video1:1:30}} and humidity was high {{ref:youtube:Video1:1:35}} that day."
 
 Format for references:
 - YouTube: {{ref:youtube:Video Title:MM:SS}}
