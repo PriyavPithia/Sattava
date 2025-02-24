@@ -490,8 +490,9 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message, index) => {
-            // For study notes messages, use special styling
+            // For study notes messages
             if (message.role === 'assistant' && message.isStudyNotes) {
+              const { text, references } = extractReferences(message.content);
               return (
                 <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-4 pb-3 border-b border-blue-200">
@@ -499,18 +500,11 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
                     <h3 className="text-lg font-semibold text-blue-900">Study Notes</h3>
                   </div>
                   <div className="prose prose-sm max-w-none">
-                    <div className="markdown-content" 
-                      dangerouslySetInnerHTML={{ 
-                        __html: message.content
-                          .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-gray-900 mb-4">$1</h1>')
-                          .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$1</h2>')
-                          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
-                          .replace(/^- (.*$)/gm, '<li class="text-gray-700 mb-2">$1</li>')
-                          .replace(/\n\n/g, '</br>')
-                          .split('\n').map(line => 
-                            line.startsWith('-') ? line : `<p class="text-gray-700 mb-3">${line}</p>`
-                          ).join('')
-                      }} 
+                    <ReferencedAnswer
+                      answer={text}
+                      references={references}
+                      onReferenceClick={handleReferenceClick}
+                      className="markdown-content"
                     />
                   </div>
                 </div>
