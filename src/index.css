@@ -64,3 +64,35 @@
     @apply bg-background text-foreground;
   }
 }
+
+.markdown-content {
+  @apply text-gray-700;
+}
+
+.markdown-content h1 {
+  @apply text-2xl font-bold text-gray-900 mb-4;
+}
+
+.markdown-content h2 {
+  @apply text-xl font-semibold text-gray-800 mt-6 mb-3;
+}
+
+.markdown-content ul {
+  @apply list-disc pl-6 mb-4;
+}
+
+.markdown-content li {
+  @apply mb-2;
+}
+
+.markdown-content strong {
+  @apply text-blue-700 font-semibold;
+}
+
+.markdown-content p {
+  @apply mb-3;
+}
+
+.markdown-content ul li::marker {
+  @apply text-blue-500;
+}

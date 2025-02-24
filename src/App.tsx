@@ -330,6 +330,7 @@ function App() {
     setExtractedText([]);
     setQuestion('');
     setMessages([]);
+    setStudyNotes(''); // Clear study notes when switching collections
     
     // Set the new collection
     setSelectedCollection(collection);

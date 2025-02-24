@@ -492,13 +492,25 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {studyNotes && (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <BookOpen className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">Study Notes</h3>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-blue-200">
+                <BookOpen className="w-6 h-6 text-blue-600" />
+                <h3 className="text-lg font-semibold text-blue-900">Study Notes</h3>
               </div>
-              <div className="prose prose-sm max-w-none text-blue-800 whitespace-pre-wrap">
-                {studyNotes}
+              <div className="prose prose-sm max-w-none">
+                <div className="markdown-content" 
+                  dangerouslySetInnerHTML={{ 
+                    __html: studyNotes
+                      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-gray-900 mb-4">$1</h1>')
+                      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$1</h2>')
+                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
+                      .replace(/^- (.*$)/gm, '<li class="text-gray-700 mb-2">$1</li>')
+                      .replace(/\n\n/g, '</br>')
+                      .split('\n').map(line => 
+                        line.startsWith('-') ? line : `<p class="text-gray-700 mb-3">${line}</p>`
+                      ).join('')
+                  }} 
+                />
               </div>
             </div>
           )}
