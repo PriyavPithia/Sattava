@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
-import { Reference } from '../types/reference';
+import { Reference, ContentLocation } from '../types/reference';
 import ReferenceLink from './ReferenceLink';
 
 interface ReferencedAnswerProps {
@@ -47,7 +47,6 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     const buttons: { [key: string]: JSX.Element } = {};
     references.forEach((ref, index) => {
       const referenceWithIndex = { ...ref, index };
-      // Create button for both formats
       buttons[`__REF_MARKER_${index}__`] = (
         <ReferenceLink
           key={index}
@@ -66,11 +65,31 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     
     // Replace all reference patterns with their corresponding buttons
     Object.entries(buttons).forEach(([pattern, button]) => {
+      const ref = button.props.reference;
+      const isYoutube = ref.sourceType === 'youtube';
+      const locationValue = isYoutube ? formatTimestamp(ref.location.value) : ref.location.value;
+      
       formattedContent = formattedContent.replace(
         pattern,
-        `<span class="inline-flex align-baseline" style="display: inline-flex; margin: 0 0.25rem;">${
-          ReactDOMServer.renderToString(button)
-        }</span>`
+        `<button 
+          class="reference-link inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
+            isYoutube ? 'bg-red-50 hover:bg-red-100 text-red-600 border-red-200' : 
+            'bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200'
+          }"
+          data-index="${ref.index}"
+          data-source-type="${ref.sourceType}"
+          data-source-title="${ref.sourceTitle}"
+          data-location-type="${ref.location.type}"
+          data-location-value="${ref.location.value}"
+        >${
+          isYoutube 
+            ? `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>`
+            : ''
+          }${
+            isYoutube
+              ? `<span>${locationValue}</span>`
+              : `<span>${ref.sourceType.toUpperCase()} • ${ref.sourceTitle} • ${locationValue}</span>`
+          }</button>`
       );
     });
 
@@ -80,13 +99,39 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
   // Create a container with click handler delegation
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.reference-link')) {
-      const refIndex = target.closest('.reference-link')?.getAttribute('data-index');
-      if (refIndex !== null && refIndex !== undefined) {
-        const reference = references[parseInt(refIndex)];
+    const button = target.closest('.reference-link');
+    if (button) {
+      const locationType = button.getAttribute('data-location-type');
+      // Only proceed if location type is valid for Reference type
+      if (locationType === 'timestamp' || locationType === 'page') {
+        const reference: Reference = {
+          sourceId: button.getAttribute('data-source-title') || '', // Use title as ID since we don't have a separate ID
+          sourceType: button.getAttribute('data-source-type') as Reference['sourceType'],
+          sourceTitle: button.getAttribute('data-source-title') || '',
+          location: {
+            type: locationType as ContentLocation['type'],
+            value: button.getAttribute('data-location-value') || ''
+          },
+          index: parseInt(button.getAttribute('data-index') || '0'),
+          text: ''
+        };
         onReferenceClick(reference);
       }
     }
+  };
+
+  // Helper function to format timestamp
+  const formatTimestamp = (value: string | number): string => {
+    let seconds: number;
+    if (typeof value === 'string' && value.includes(':')) {
+      const [minutes, secs] = value.split(':').map(Number);
+      seconds = (minutes * 60) + secs;
+    } else {
+      seconds = typeof value === 'string' ? parseInt(value) : value;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   return (
