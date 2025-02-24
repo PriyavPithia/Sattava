@@ -36,10 +36,6 @@ interface TranscriptionsPageProps {
   onReferenceClick: (source: ContentSource) => void;
   onTranscriptLoad?: (data: { transcripts: TranscriptSegment[] }) => void;
   onVideoSelect?: (video: VideoItem) => void;
-  onGenerateNotes: () => Promise<void>;
-  studyNotes: string;
-  generatingNotes: boolean;
-  loadingNotes: boolean;
 }
 
 // Add this type for file type filtering
@@ -85,11 +81,7 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
   currentTimestamp,
   onReferenceClick,
   onTranscriptLoad,
-  onVideoSelect,
-  onGenerateNotes,
-  studyNotes,
-  generatingNotes,
-  loadingNotes
+  onVideoSelect
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
