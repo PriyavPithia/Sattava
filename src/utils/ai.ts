@@ -40,94 +40,72 @@ export const findMostRelevantChunks = async (
   limit: number = 5
 ): Promise<CombinedContent[]> => {
   try {
+    // Generate question embedding once
     const questionEmbedding = await generateEmbeddings(question);
     if (!questionEmbedding) {
       console.error('Failed to generate question embeddings');
-      return [];
-    }
-    
-    // Group content by type
-    const contentByType = content.reduce((acc, curr) => {
-      const type = curr.source.type;
-      if (!acc[type]) acc[type] = [];
-      acc[type].push(curr);
-      return acc;
-    }, {} as Record<string, CombinedContent[]>);
-
-    // If question mentions specific content type, prioritize that type
-    const questionLower = question.toLowerCase();
-    const mentionedTypes = {
-      youtube: questionLower.includes('video') || questionLower.includes('youtube'),
-      pdf: questionLower.includes('pdf') || questionLower.includes('document'),
-      ppt: questionLower.includes('powerpoint') || questionLower.includes('presentation'),
-      pptx: questionLower.includes('powerpoint') || questionLower.includes('presentation'),
-      txt: questionLower.includes('text')
-    };
-
-    let relevantContent: CombinedContent[] = [];
-    
-    // First, add content from specifically mentioned types
-    Object.entries(mentionedTypes).forEach(([type, isMentioned]) => {
-      if (isMentioned && contentByType[type]) {
-        relevantContent.push(...contentByType[type]);
-      }
-    });
-
-    // If no specific type was mentioned, use all content
-    if (relevantContent.length === 0) {
-      relevantContent = content;
+      return content.slice(0, limit); // Return first few items as fallback
     }
 
-    // Calculate similarities and sort
-    const withSimilarities = await Promise.all(
-      relevantContent.map(async (chunk) => {
-        const chunkEmbedding = await generateEmbeddings(chunk.text);
-        const similarity = await calculateSimilarity(questionEmbedding, chunkEmbedding);
-        return { 
-          ...chunk, 
-          similarity: similarity || 0,
-          timestamp: chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp' 
-            ? getTimestampSeconds(chunk.source.location.value)
-            : null
-        };
+    // Batch content into groups of 20 for parallel processing
+    const batchSize = 20;
+    const batches = [];
+    for (let i = 0; i < content.length; i += batchSize) {
+      batches.push(content.slice(i, i + batchSize));
+    }
+
+    // Process batches in parallel
+    const allSimilarities = await Promise.all(
+      batches.map(async (batch) => {
+        // Generate embeddings for the batch in parallel
+        const batchEmbeddings = await Promise.all(
+          batch.map(chunk => generateEmbeddings(chunk.text))
+        );
+
+        // Calculate similarities for the batch
+        return batch.map((chunk, index) => ({
+          ...chunk,
+          similarity: batchEmbeddings[index] ? 
+            cosineSimilarity(questionEmbedding, batchEmbeddings[index]) : 0,
+          timestamp: chunk.source.type === 'youtube' && 
+                    chunk.source.location?.type === 'timestamp' ?
+            getTimestampSeconds(chunk.source.location.value) : null
+        }));
       })
     );
 
-    // Sort by similarity
-    const sortedByRelevance = withSimilarities
-      .filter(item => item.similarity > 0)
-      .sort((a, b) => b.similarity - a.similarity);
+    // Flatten and sort results
+    const sortedByRelevance = allSimilarities
+      .flat()
+      .filter(item => (item.similarity ?? 0) > 0)
+      .sort((a, b) => ((b.similarity ?? 0) - (a.similarity ?? 0)));
 
-    // Filter timestamps that are too close together while maintaining relevance order
+    // Filter timestamps that are too close together
     const result: typeof sortedByRelevance = [];
     let lastTimestamp: number | null = null;
 
     for (const item of sortedByRelevance) {
+      if (result.length >= limit) break;
+
       if (item.timestamp !== null) {
-        // For YouTube content with timestamps
-        if (lastTimestamp === null || Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
+        if (lastTimestamp === null || 
+            Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
           result.push(item);
           lastTimestamp = item.timestamp;
         }
       } else {
-        // For non-YouTube content or content without timestamps
         result.push(item);
       }
-
-      // Break if we have enough items
-      if (result.length >= limit) break;
     }
 
     if (result.length === 0) {
-      console.warn('No relevant content found with non-zero similarity');
-      // Fallback to returning some content even if similarity is 0
-      return relevantContent.slice(0, limit);
+      return content.slice(0, limit); // Fallback to first few items
     }
 
     return result;
   } catch (error) {
     console.error('Error finding relevant chunks:', error);
-    return content.slice(0, limit); // Fallback to returning some content
+    return content.slice(0, limit); // Fallback to first few items
   }
 };
 
