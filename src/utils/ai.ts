@@ -46,26 +46,49 @@ export const findMostRelevantChunks = async (
       return [];
     }
     
-    // Debug log the incoming content
-    console.log('DEBUG: Incoming content timestamps:', content.map(c => 
-      c.source.type === 'youtube' ? c.source.location?.value : null
-    ));
+    // Group content by type
+    const contentByType = content.reduce((acc, curr) => {
+      const type = curr.source.type;
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(curr);
+      return acc;
+    }, {} as Record<string, CombinedContent[]>);
 
-    // Calculate similarities without modifying timestamps
+    // If question mentions specific content type, prioritize that type
+    const questionLower = question.toLowerCase();
+    const mentionedTypes = {
+      youtube: questionLower.includes('video') || questionLower.includes('youtube'),
+      pdf: questionLower.includes('pdf') || questionLower.includes('document'),
+      ppt: questionLower.includes('powerpoint') || questionLower.includes('presentation'),
+      pptx: questionLower.includes('powerpoint') || questionLower.includes('presentation'),
+      txt: questionLower.includes('text')
+    };
+
+    let relevantContent: CombinedContent[] = [];
+    
+    // First, add content from specifically mentioned types
+    Object.entries(mentionedTypes).forEach(([type, isMentioned]) => {
+      if (isMentioned && contentByType[type]) {
+        relevantContent.push(...contentByType[type]);
+      }
+    });
+
+    // If no specific type was mentioned, use all content
+    if (relevantContent.length === 0) {
+      relevantContent = content;
+    }
+
+    // Calculate similarities and sort
     const withSimilarities = await Promise.all(
-      content.map(async (chunk) => {
+      relevantContent.map(async (chunk) => {
         const chunkEmbedding = await generateEmbeddings(chunk.text);
         const similarity = await calculateSimilarity(questionEmbedding, chunkEmbedding);
-        
-        // Keep original timestamp value
-        const timestamp = chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp'
-          ? chunk.source.location.value
-          : null;
-        
         return { 
           ...chunk, 
           similarity: similarity || 0,
-          originalTimestamp: timestamp // Store original timestamp
+          timestamp: chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp' 
+            ? getTimestampSeconds(chunk.source.location.value)
+            : null
         };
       })
     );
@@ -75,39 +98,36 @@ export const findMostRelevantChunks = async (
       .filter(item => item.similarity > 0)
       .sort((a, b) => b.similarity - a.similarity);
 
-    // Filter timestamps that are too close together
+    // Filter timestamps that are too close together while maintaining relevance order
     const result: typeof sortedByRelevance = [];
     let lastTimestamp: number | null = null;
 
     for (const item of sortedByRelevance) {
-      if (item.originalTimestamp !== null && item.originalTimestamp !== undefined) {
-        const timestampStr = String(item.originalTimestamp);
-        const currentTimestamp = timestampStr.includes(':')
-          ? getTimestampSeconds(timestampStr)
-          : Number(item.originalTimestamp);
-
-        if (currentTimestamp !== null && !isNaN(currentTimestamp)) {
-          if (lastTimestamp === null || Math.abs(currentTimestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
-            result.push(item);
-            lastTimestamp = currentTimestamp;
-          }
-        } else {
-          console.warn('Invalid timestamp:', item.originalTimestamp);
+      if (item.timestamp !== null) {
+        // For YouTube content with timestamps
+        if (lastTimestamp === null || Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
+          result.push(item);
+          lastTimestamp = item.timestamp;
         }
       } else {
+        // For non-YouTube content or content without timestamps
         result.push(item);
       }
 
+      // Break if we have enough items
       if (result.length >= limit) break;
     }
 
-    // Debug log the results
-    console.log('DEBUG: Selected content timestamps:', result.map(r => r.originalTimestamp));
+    if (result.length === 0) {
+      console.warn('No relevant content found with non-zero similarity');
+      // Fallback to returning some content even if similarity is 0
+      return relevantContent.slice(0, limit);
+    }
 
     return result;
   } catch (error) {
     console.error('Error finding relevant chunks:', error);
-    return content.slice(0, limit);
+    return content.slice(0, limit); // Fallback to returning some content
   }
 };
 
@@ -157,50 +177,12 @@ References should be placed immediately after the relevant information.`
 
 const MIN_TIMESTAMP_DIFFERENCE = 30; // Increased from 15 to 30 seconds for better context
 
-const getTimestampSeconds = (value: string | number): number | null => {
-  try {
-    // Handle MM:SS format
-    if (typeof value === 'string' && value.includes(':')) {
-      const parts = value.split(':');
-      if (parts.length === 2) {
-        const minutes = parseInt(parts[0], 10);
-        const seconds = parseInt(parts[1], 10);
-        if (!isNaN(minutes) && !isNaN(seconds)) {
-          return (minutes * 60) + seconds;
-        }
-      }
-      return null;
-    }
-    
-    // Handle direct number input
-    if (typeof value === 'number' && !isNaN(value)) {
-      return Math.max(0, Math.floor(value));
-    }
-    
-    // Handle string number
-    const parsed = parseInt(value as string, 10);
-    return !isNaN(parsed) ? Math.max(0, Math.floor(parsed)) : null;
-  } catch (error) {
-    console.error('Error parsing timestamp:', error);
-    return null;
+const getTimestampSeconds = (value: string | number): number => {
+  if (typeof value === 'string' && value.includes(':')) {
+    const [minutes, seconds] = value.split(':').map(Number);
+    return (minutes * 60) + (seconds || 0); // Added fallback for invalid seconds
   }
-};
-
-const formatTimestamp = (seconds: number | null): string | null => {
-  try {
-    if (seconds === null || isNaN(seconds)) {
-      return null;
-    }
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    if (isNaN(minutes) || isNaN(remainingSeconds)) {
-      return null;
-    }
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  } catch (error) {
-    console.error('Error formatting timestamp:', error);
-    return null;
-  }
+  return typeof value === 'number' ? value : parseInt(value) || 0; // Added fallback for invalid parsing
 };
 
 const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
@@ -214,16 +196,14 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
   // Sort content into appropriate arrays and convert timestamps
   content.forEach(chunk => {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
-      const timestampValue = getTimestampSeconds(chunk.source.location.value);
+      const timestamp = getTimestampSeconds(chunk.source.location.value);
       // Only add if timestamp is valid
-      if (timestampValue !== null) {
+      if (!isNaN(timestamp) && timestamp >= 0) {
         timestampContent.push({ 
           ...chunk, 
-          timestamp: timestampValue,
+          timestamp,
           similarity: (chunk as any).similarity
         });
-      } else {
-        otherContent.push(chunk);
       }
     } else {
       otherContent.push(chunk);
@@ -259,45 +239,26 @@ export async function askQuestion(
   relevantContent: CombinedContent[]
 ): Promise<string> {
   try {
+    // Filter out timestamps that are too close together
     const filteredContent = filterCloseTimestamps(relevantContent);
     
-    console.log('DEBUG: Processing content for references:', filteredContent.map(c => ({
-      type: c.source.type,
-      timestamp: c.source.location?.value
-    })));
-
     const context = filteredContent
       .map(chunk => {
         const location = chunk.source.location;
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          try {
-            const originalTimestamp = location.value;
-            console.log('DEBUG: Processing timestamp:', originalTimestamp);
-
-            // If it's already in MM:SS format, use it directly
-            const timestampStr = String(originalTimestamp);
-            if (timestampStr.includes(':')) {
-              reference = `{{ref:youtube:${chunk.source.title}:${timestampStr}}}`;
-            } else {
-              // Only convert if it's a number
-              const timestamp = Number(originalTimestamp);
-              if (!isNaN(timestamp) && timestamp > 0) {
-                const formattedTime = formatTimestamp(timestamp);
-                if (formattedTime) {
-                  reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
-                } else {
-                  console.warn('Failed to format timestamp:', timestamp);
-                  return '';
-                }
-              } else {
-                console.warn('Invalid timestamp value:', originalTimestamp);
-                return '';
-              }
-            }
-          } catch (error) {
-            console.error('Error processing YouTube timestamp:', error);
+          const timestamp = typeof location.value === 'number' ? location.value : 
+            typeof location.value === 'string' ? parseInt(location.value) : 0;
+          
+          // Only create reference if timestamp is valid
+          if (!isNaN(timestamp) && timestamp >= 0) {
+            const minutes = Math.floor(timestamp / 60);
+            const seconds = timestamp % 60;
+            const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
+          } else {
+            // Skip invalid timestamps
             return '';
           }
         } else {
@@ -306,7 +267,7 @@ export async function askQuestion(
         
         return `${chunk.text} ${reference}`;
       })
-      .filter(Boolean)
+      .filter(Boolean) // Remove empty strings from invalid timestamps
       .join('\n\n');
 
     const completion = await openai.chat.completions.create({
