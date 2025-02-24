@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import ContentAddition from '../components/ContentAddition';
-import { Collection } from '../types/database';
+import { Collection } from '../types';
 import { Plus, FolderPlus, FileText, Youtube, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { TranscriptResponse } from '../types/embedding';
 
 interface UploadPageProps {
   addVideoMethod: 'youtube' | 'upload' | 'file';
   setAddVideoMethod: (method: 'youtube' | 'upload' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
-  onAddVideo: () => void;
-  onTranscriptGenerated: (transcript: any) => void;
+  onAddVideo: (url: string) => Promise<void>;
+  onTranscriptGenerated: (transcript: TranscriptResponse) => void;
   onError: (error: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   isProcessingContent: boolean;
@@ -93,6 +94,14 @@ const UploadPage: React.FC<UploadPageProps> = ({
       console.error('Error deleting content:', error);
       onError('Failed to delete content');
     }
+  };
+
+  const renderCollectionItem = (item: Collection) => {
+    // ... existing code ...
+  };
+
+  const renderCollectionCard = (item: Collection) => {
+    // ... existing code ...
   };
 
   if (selectedCollection) {
@@ -183,12 +192,10 @@ const UploadPage: React.FC<UploadPageProps> = ({
                   Cancel
                 </button>
               </div>
-              <ContentAddition 
-                addVideoMethod={addVideoMethod}
-                setAddVideoMethod={setAddVideoMethod}
+              <ContentAddition
                 url={url}
                 setUrl={setUrl}
-                onAddVideo={onAddVideo}
+                onAddVideo={(url) => onAddVideo(url)}
                 onTranscriptGenerated={onTranscriptGenerated}
                 onError={onError}
                 onFileSelect={onFileSelect}
