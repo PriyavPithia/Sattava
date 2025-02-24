@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOMServer from 'react-dom/server';
 import { Reference } from '../types/reference';
 import ReferenceLink from './ReferenceLink';
 
@@ -15,21 +16,46 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
   onReferenceClick,
   className = ''
 }) => {
-  return (
-    <div className={className}>
-      <div className="whitespace-pre-wrap mb-2">{answer}</div>
-      {references.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {references.map((reference, index) => (
+  // Function to convert markdown to HTML while preserving reference markers
+  const formatMarkdown = (text: string) => {
+    return text
+      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-gray-900 mb-4">$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$2</h2>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
+      .replace(/^- (.*$)/gm, '<li class="text-gray-700 mb-2">$1</li>')
+      .split('\n')
+      .map(line => line.startsWith('-') ? line : `<p class="text-gray-700 mb-3">${line}</p>`)
+      .join('\n');
+  };
+
+  // Replace each reference marker with its corresponding button
+  const replaceReferencesWithButtons = () => {
+    let formattedContent = formatMarkdown(answer);
+    
+    references.forEach((ref, index) => {
+      const marker = `__REF_MARKER_${index + 1}__`;
+      formattedContent = formattedContent.replace(
+        marker,
+        `<span class="inline-flex align-baseline" style="display: inline-flex; margin: 0 0.25rem;">${
+          ReactDOMServer.renderToString(
             <ReferenceLink
               key={index}
-              reference={reference}
-              onClick={onReferenceClick}
+              reference={ref}
+              onClick={() => onReferenceClick(ref)}
             />
-          ))}
-        </div>
-      )}
-    </div>
+          )
+        }</span>`
+      );
+    });
+
+    return formattedContent;
+  };
+
+  return (
+    <div 
+      className={className}
+      dangerouslySetInnerHTML={{ __html: replaceReferencesWithButtons() }}
+    />
   );
 };
 
