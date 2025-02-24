@@ -118,12 +118,13 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
         // Use requestAnimationFrame for smooth scrolling
         requestAnimationFrame(() => {
           try {
-            // Calculate scroll position to center the element
+            // Get all elements and their positions
             const container = containerRef.current!;
-            const containerHeight = container.clientHeight;
-            const elementTop = element.offsetTop;
-            const elementHeight = element.clientHeight;
-            const scrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
+            const containerRect = container.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            
+            // Calculate the scroll position to center the element
+            const scrollTop = element.offsetTop - (containerRect.height / 2) + (elementRect.height / 2);
             
             // Scroll the element into view
             container.scrollTo({
@@ -150,7 +151,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
         });
       }
     }
-  }, [highlightedReference, transcriptChunks, onSeek]);
+  }, [highlightedReference, transcriptChunks, onSeek, getTimestampInSeconds]);
 
   const handleSegmentClick = (segment: any) => {
     const timestamp = segment.startTime || segment.start || 0;
@@ -201,26 +202,41 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       <div 
         ref={containerRef}
         className="flex-1 overflow-y-auto bg-gray-50 rounded-lg"
+        style={{ scrollbarGutter: 'stable' }}
       >
         <div className="space-y-4 p-4">
-          {transcriptChunks.map((chunk, index) => (
-            <div
-              key={index}
-              ref={el => transcriptRefs.current[index] = el}
-              onClick={() => handleSegmentClick(chunk)}
-              className={`p-4 rounded-lg border transition-colors cursor-pointer
-                ${chunk.isHighlighted 
-                  ? 'bg-yellow-100 border-yellow-300' 
-                  : 'bg-white border-gray-200 hover:bg-gray-50'
-                }`}
-            >
-              <div className="bg-red-50 text-red-600 px-3 py-1 rounded-md mb-2 font-medium inline-flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                <span>{formatTime(chunk.startTime)}</span>
+          {transcriptChunks.map((chunk, index) => {
+            const location = highlightedReference?.source?.location as ContentLocation | string;
+            const isHighlighted = highlightedReference?.source?.type === 'youtube' &&
+              location &&
+              (typeof location === 'string' 
+                ? getTimestampInSeconds(location)
+                : getTimestampInSeconds(location.value)
+              ) >= chunk.startTime &&
+              (typeof location === 'string'
+                ? getTimestampInSeconds(location)
+                : getTimestampInSeconds(location.value)
+              ) <= chunk.endTime;
+
+            return (
+              <div
+                key={index}
+                ref={el => transcriptRefs.current[index] = el}
+                onClick={() => handleSegmentClick(chunk)}
+                className={`p-4 rounded-lg border transition-colors cursor-pointer
+                  ${isHighlighted 
+                    ? 'bg-yellow-100 border-yellow-300' 
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+              >
+                <div className="bg-red-50 text-red-600 px-3 py-1 rounded-md mb-2 font-medium inline-flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  <span>{formatTime(chunk.startTime)}</span>
+                </div>
+                <p className="text-gray-800 font-geist">{chunk.text}</p>
               </div>
-              <p className="text-gray-800 font-geist">{chunk.text}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
