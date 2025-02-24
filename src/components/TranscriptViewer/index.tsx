@@ -33,7 +33,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transcriptChunks, setTranscriptChunks] = useState<any[]>([]);
   const lastProcessedRef = useRef<string | null>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const [shouldScroll, setShouldScroll] = useState(false);
 
   // Initialize transcript chunks when transcripts change
   useEffect(() => {
@@ -85,11 +85,21 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     // Create a unique identifier for this reference
     const refId = typeof location === 'string' ? location : location.value.toString();
     
-    // If we've already processed this reference, don't scroll again
+    // If we've already processed this reference, just update highlighting without scrolling
     if (lastProcessedRef.current === refId) {
       return;
     }
 
+    // Mark as processed and trigger scroll
+    lastProcessedRef.current = refId;
+    setShouldScroll(true);
+  }, [highlightedReference]);
+
+  // Separate effect for handling the actual scrolling
+  useEffect(() => {
+    if (!shouldScroll || !highlightedReference) return;
+
+    const location = highlightedReference.source.location as ContentLocation | string;
     let targetSeconds: number;
     if (typeof location === 'string') {
       targetSeconds = location.includes(':') 
@@ -100,6 +110,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     }
 
     if (isNaN(targetSeconds)) {
+      setShouldScroll(false);
       return;
     }
 
@@ -115,58 +126,42 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       const element = transcriptRefs.current[index];
       
       if (element) {
-        // Clear any existing scroll timeout
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
+        const container = containerRef.current;
+        const containerHeight = container.clientHeight;
+        const elementHeight = element.offsetHeight;
+        const elementTop = element.offsetTop;
+        const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
 
-        // Schedule the scroll
-        scrollTimeoutRef.current = setTimeout(() => {
-          if (!containerRef.current || !element) return;
+        // Perform the scroll
+        container.scrollTo({
+          top: targetScroll,
+          behavior: 'smooth'
+        });
 
-          const container = containerRef.current;
-          const containerHeight = container.clientHeight;
-          const elementHeight = element.offsetHeight;
-          const elementTop = element.offsetTop;
-          const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
+        // Apply highlight animation
+        element.style.transition = 'background-color 0.3s ease';
+        element.style.backgroundColor = '#fef3c7';
 
-          // Perform the scroll
-          container.scrollTo({
-            top: targetScroll,
-            behavior: 'smooth'
-          });
+        // Remove highlight after animation
+        setTimeout(() => {
+          if (element) {
+            element.style.backgroundColor = '';
+          }
+        }, 3000);
 
-          // Apply highlight animation
-          element.style.transition = 'background-color 0.3s ease';
-          element.style.backgroundColor = '#fef3c7';
-
-          // Remove highlight after animation
-          setTimeout(() => {
-            if (element) {
-              element.style.backgroundColor = '';
-            }
-          }, 3000);
-
-          // Seek video to timestamp
-          onSeek(targetSeconds);
-
-          // Mark this reference as processed
-          lastProcessedRef.current = refId;
-        }, 100);
+        // Seek video to timestamp
+        onSeek(targetSeconds);
       }
     }
 
-    // Cleanup function
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [highlightedReference, transcriptChunks, onSeek, getTimestampInSeconds]);
+    // Reset scroll flag
+    setShouldScroll(false);
+  }, [shouldScroll, highlightedReference, transcriptChunks, onSeek, getTimestampInSeconds]);
 
   // Reset the processed reference when chunks change
   useEffect(() => {
     lastProcessedRef.current = null;
+    setShouldScroll(false);
   }, [transcriptChunks]);
 
   const handleSegmentClick = (segment: any) => {
