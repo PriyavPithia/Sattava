@@ -2,6 +2,8 @@ import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import { Reference, ContentLocation } from '../types/reference';
 import ReferenceLink from './ReferenceLink';
+import { useHighlight } from '../contexts/HighlightContext';
+import { CombinedContent } from '../components/types';
 
 interface ReferencedAnswerProps {
   answer: string;
@@ -16,6 +18,8 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
   onReferenceClick,
   className = ''
 }) => {
+  const { setHighlightedReference } = useHighlight();
+
   // Function to convert markdown to HTML while preserving reference markers
   const formatMarkdown = (text: string) => {
     let formatted = text;
@@ -81,6 +85,8 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
           data-source-title="${ref.sourceTitle}"
           data-location-type="${ref.location.type}"
           data-location-value="${ref.location.value}"
+          data-source-id="${ref.sourceId}"
+          data-text="${ref.text}"
         >${
           isYoutube 
             ? `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>`
@@ -104,31 +110,47 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
       const locationType = button.getAttribute('data-location-type');
       // Only proceed if location type is valid for Reference type
       if (locationType === 'timestamp' || locationType === 'page') {
+        const locationValue = button.getAttribute('data-location-value') || '';
+        // Convert to number if it's a timestamp
+        const parsedValue = locationType === 'timestamp' ? 
+          parseInt(locationValue) : 
+          locationValue;
+
         const reference: Reference = {
-          sourceId: button.getAttribute('data-source-title') || '', // Use title as ID since we don't have a separate ID
+          sourceId: button.getAttribute('data-source-id') || '',
           sourceType: button.getAttribute('data-source-type') as Reference['sourceType'],
           sourceTitle: button.getAttribute('data-source-title') || '',
           location: {
             type: locationType as ContentLocation['type'],
-            value: button.getAttribute('data-location-value') || ''
+            value: parsedValue
           },
           index: parseInt(button.getAttribute('data-index') || '0'),
-          text: ''
+          text: button.getAttribute('data-text') || ''
         };
+
+        // Create and set the highlighted reference with string location
+        const highlightedRef: CombinedContent = {
+          text: reference.text,
+          source: {
+            type: reference.sourceType,
+            title: reference.sourceTitle,
+            location: locationType === 'timestamp' ? 
+              formatTimestamp(reference.location.value as number) :
+              reference.location.value.toString()
+          }
+        };
+        
+        // Set the highlighted reference first
+        setHighlightedReference(highlightedRef);
+        
+        // Then call the click handler
         onReferenceClick(reference);
       }
     }
   };
 
   // Helper function to format timestamp
-  const formatTimestamp = (value: string | number): string => {
-    let seconds: number;
-    if (typeof value === 'string' && value.includes(':')) {
-      const [minutes, secs] = value.split(':').map(Number);
-      seconds = (minutes * 60) + secs;
-    } else {
-      seconds = typeof value === 'string' ? parseInt(value) : value;
-    }
+  const formatTimestamp = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
