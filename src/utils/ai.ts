@@ -138,29 +138,47 @@ export async function generateStudyNotes(content: string, contentSources: Combin
       messages: [
         {
           role: "system",
-          content: `You are a study notes assistant. Create concise, well-structured notes following this format:
+          content: `You are a study notes assistant that creates well-structured, comprehensive notes. Follow these STRICT guidelines:
 
-# Main Topic
+1. REQUIRED FORMAT:
+# [Topic Name]
+Brief introduction of the topic.
 
 ## Key Concepts
-- Point 1 {{ref:type:source:location}}
-- Point 2 {{ref:type:source:location}}
+- **[Term/Concept]**: Explanation {{ref}}
+- **[Term/Concept]**: Explanation {{ref}}
 
-## Important Terms
-- Term 1: Definition {{ref:type:source:location}}
-- Term 2: Definition {{ref:type:source:location}}
+## Important Details
+• First important point {{ref}}
+• Second important point {{ref}}
+• Third important point {{ref}}
+
+## Examples & Applications
+1. First example demonstrating concept {{ref}}
+2. Second example showing application {{ref}}
 
 ## Summary
-Brief summary of main points
+• Key takeaway 1 {{ref}}
+• Key takeaway 2 {{ref}}
 
-Use markdown formatting. Keep points brief and focused. Highlight key terms in **bold**.
-Each point should include at least one reference in the format {{ref:type:source:location}}.
-References should be placed immediately after the relevant information.`
+2. FORMATTING RULES:
+- ALWAYS use the exact structure above
+- ALWAYS make terms bold using **term**
+- ALWAYS include references after EACH point
+- NEVER skip sections
+- NEVER omit references
+- NEVER group references at the end
+
+3. REFERENCE FORMAT:
+- Use {{ref}} exactly as provided in the source
+- Place reference IMMEDIATELY after the fact it supports
+- Each fact needs its own reference
+- Never combine multiple facts under one reference`
         },
         {
           role: "user",
-          content: `Create study notes from this content. Focus on the most important concepts and definitions. Include references to the source material:\n\n${contentSources.map(source => 
-            `${source.text} {{ref:${source.source.type}:${source.source.title}:${source.source.location?.value || '1'}}}`
+          content: `Create comprehensive study notes from this content. Include ALL references exactly as provided:\n\n${contentSources.map(source => 
+            `${source.text} ${source.source ? `{{ref:${source.source.type}:${source.source.title}:${source.source.location?.value || '1'}}}` : ''}`
           ).join('\n\n')}`
         }
       ],
@@ -224,7 +242,6 @@ export async function askQuestion(
   relevantContent: CombinedContent[]
 ): Promise<string> {
   try {
-    // Filter out timestamps that are too close together
     const filteredContent = filterCloseTimestamps(relevantContent);
     
     const context = filteredContent
@@ -233,13 +250,16 @@ export async function askQuestion(
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : parseInt(location.value.toString());
+          const timestamp = typeof location.value === 'number' ? location.value : 
+                          typeof location.value === 'string' ? parseInt(location.value) : 0;
           const minutes = Math.floor(timestamp / 60);
           const seconds = timestamp % 60;
           const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
+        } else if (location) {
+          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location.value}}`;
         } else {
-          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
+          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:unknown}}`;
         }
         
         return `${chunk.text} ${reference}`;
@@ -250,62 +270,48 @@ export async function askQuestion(
       messages: [
         {
           role: 'system',
-          content: `You are a knowledgeable study assistant that creates well-structured, clear responses. Follow these guidelines:
+          content: `You are a study assistant that MUST create well-structured responses following this EXACT format:
 
-1. FORMAT AND STRUCTURE:
-   - Use clear headings with # for main topics and ## for subtopics
-   - Break down complex topics into digestible sections
-   - Use bullet points for lists and key points
-   - Highlight key terms in **bold**
-   - Include brief summaries where appropriate
-   - Use markdown formatting for better readability
+# [Question Topic]
+Brief overview of what will be covered.
 
-2. CONTENT ORGANIZATION:
-   - Start with a brief overview/introduction
-   - Group related concepts together
-   - Use examples to illustrate points
-   - End with key takeaways when appropriate
-
-3. CITATION RULES:
-   - Place references IMMEDIATELY after each fact
-   - Never group references at the end
-   - Break up sentences to place references correctly
-   - Each distinct piece of information needs its own reference
-
-Example format:
-
-# Main Topic
-Brief overview of the topic.
-
-## Key Concepts
-- First important concept {{ref}} 
-- Second important concept {{ref}}
+## Key Points
+• First key point with reference {{ref}}
+• Second key point with reference {{ref}}
+• Third key point with reference {{ref}}
 
 ## Detailed Explanation
-The first key point to understand {{ref}}. This leads to an important conclusion {{ref}}.
+Important detail or concept {{ref}}. This leads to another important point {{ref}}.
 
-### Examples
-- Example 1 demonstrates... {{ref}}
-- Example 2 shows... {{ref}}
+More detailed explanation here {{ref}}. Another crucial detail {{ref}}.
 
-## Key Takeaways
-- Main point 1 {{ref}}
-- Main point 2 {{ref}}
+## Examples
+1. First example showing concept {{ref}}
+2. Second example demonstrating application {{ref}}
 
-Remember to:
-- Keep explanations clear and concise
-- Use hierarchical structure
-- Maintain consistent formatting
-- Cite sources properly
-- Break complex topics into manageable sections`
+## Summary
+• Main takeaway 1 {{ref}}
+• Main takeaway 2 {{ref}}
+
+STRICT RULES:
+1. ALWAYS use this exact structure
+2. ALWAYS include references after EVERY fact
+3. ALWAYS make important terms **bold**
+4. NEVER skip sections
+5. NEVER group references together
+6. NEVER leave out references
+7. Place references IMMEDIATELY after each fact
+8. Each fact needs its own reference
+9. Use bullet points (•) for lists
+10. Use proper markdown formatting`
         },
         {
           role: 'user',
-          content: `Based on the following context, answer this question in a well-structured study note format: ${question}\n\nContext:\n${context}`
+          content: `Using the exact format above, answer this question with proper references: ${question}\n\nContext:\n${context}`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.5,
+      temperature: 0.3,
     });
 
     return completion.choices[0].message.content || 'No answer found.';
