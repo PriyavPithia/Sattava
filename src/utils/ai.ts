@@ -46,8 +46,30 @@ export const findMostRelevantChunks = async (
       return [];
     }
     
+    // First, validate and normalize all timestamps
+    const validatedContent = content.map(chunk => {
+      if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
+        const timestamp = getTimestampSeconds(chunk.source.location.value);
+        if (timestamp === null || timestamp < 0) {
+          console.warn('Invalid timestamp found:', chunk.source.location.value);
+          return null;
+        }
+        return {
+          ...chunk,
+          source: {
+            ...chunk.source,
+            location: {
+              ...chunk.source.location,
+              value: timestamp
+            }
+          }
+        };
+      }
+      return chunk;
+    }).filter((chunk): chunk is CombinedContent => chunk !== null);
+
     // Group content by type
-    const contentByType = content.reduce((acc, curr) => {
+    const contentByType = validatedContent.reduce((acc, curr) => {
       const type = curr.source.type;
       if (!acc[type]) acc[type] = [];
       acc[type].push(curr);
@@ -75,7 +97,7 @@ export const findMostRelevantChunks = async (
 
     // If no specific type was mentioned, use all content
     if (relevantContent.length === 0) {
-      relevantContent = content;
+      relevantContent = validatedContent;
     }
 
     // Calculate similarities and sort
@@ -87,47 +109,43 @@ export const findMostRelevantChunks = async (
           ...chunk, 
           similarity: similarity || 0,
           timestamp: chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp' 
-            ? getTimestampSeconds(chunk.source.location.value)
+            ? Number(chunk.source.location.value)  // We've already validated this is a number
             : null
         };
       })
     );
 
-    // Sort by similarity
+    // Sort by similarity and filter invalid results
     const sortedByRelevance = withSimilarities
       .filter(item => item.similarity > 0)
       .sort((a, b) => b.similarity - a.similarity);
 
-    // Filter timestamps that are too close together while maintaining relevance order
+    // Filter timestamps that are too close together
     const result: typeof sortedByRelevance = [];
     let lastTimestamp: number | null = null;
 
     for (const item of sortedByRelevance) {
       if (item.timestamp !== null) {
-        // For YouTube content with timestamps
         if (lastTimestamp === null || Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
           result.push(item);
           lastTimestamp = item.timestamp;
         }
       } else {
-        // For non-YouTube content or content without timestamps
         result.push(item);
       }
 
-      // Break if we have enough items
       if (result.length >= limit) break;
     }
 
     if (result.length === 0) {
       console.warn('No relevant content found with non-zero similarity');
-      // Fallback to returning some content even if similarity is 0
       return relevantContent.slice(0, limit);
     }
 
     return result;
   } catch (error) {
     console.error('Error finding relevant chunks:', error);
-    return content.slice(0, limit); // Fallback to returning some content
+    return content.slice(0, limit);
   }
 };
 
@@ -289,23 +307,23 @@ export async function askQuestion(
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
           try {
-            const locationValue = location.value as string | number;
-            const timestamp = getTimestampSeconds(locationValue);
-            
-            // Only create reference if we have a valid timestamp
-            if (timestamp !== null) {
+            // We've already validated the timestamp in findMostRelevantChunks
+            const timestamp = Number(location.value);
+            if (!isNaN(timestamp) && timestamp > 0) {
               const formattedTime = formatTimestamp(timestamp);
               if (formattedTime) {
                 reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
               } else {
-                return ''; // Skip if formatting failed
+                console.warn('Failed to format timestamp:', timestamp);
+                return '';
               }
             } else {
-              return ''; // Skip invalid timestamps
+              console.warn('Invalid timestamp value:', location.value);
+              return '';
             }
           } catch (error) {
             console.error('Error processing YouTube timestamp:', error);
-            return ''; // Skip on error
+            return '';
           }
         } else {
           reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
@@ -313,7 +331,7 @@ export async function askQuestion(
         
         return `${chunk.text} ${reference}`;
       })
-      .filter(Boolean) // Remove empty strings from invalid timestamps
+      .filter(Boolean)
       .join('\n\n');
 
     const completion = await openai.chat.completions.create({
