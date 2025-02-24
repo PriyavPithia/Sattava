@@ -38,7 +38,6 @@ interface TranscriptionsPageProps {
   onVideoSelect?: (video: VideoItem) => void;
   onGenerateNotes: () => Promise<void>;
   generatingNotes: boolean;
-  studyNotes: string;
 }
 
 // Add this type for file type filtering
@@ -87,7 +86,6 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
   onVideoSelect,
   onGenerateNotes,
   generatingNotes,
-  studyNotes,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -491,31 +489,35 @@ const TranscriptionsPage: React.FC<TranscriptionsPageProps> = ({
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {studyNotes && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-blue-200">
-                <BookOpen className="w-6 h-6 text-blue-600" />
-                <h3 className="text-lg font-semibold text-blue-900">Study Notes</h3>
-              </div>
-              <div className="prose prose-sm max-w-none">
-                <div className="markdown-content" 
-                  dangerouslySetInnerHTML={{ 
-                    __html: studyNotes
-                      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-gray-900 mb-4">$1</h1>')
-                      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$1</h2>')
-                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
-                      .replace(/^- (.*$)/gm, '<li class="text-gray-700 mb-2">$1</li>')
-                      .replace(/\n\n/g, '</br>')
-                      .split('\n').map(line => 
-                        line.startsWith('-') ? line : `<p class="text-gray-700 mb-3">${line}</p>`
-                      ).join('')
-                  }} 
-                />
-              </div>
-            </div>
-          )}
-          
           {messages.map((message, index) => {
+            // For study notes messages, use special styling
+            if (message.role === 'assistant' && message.isStudyNotes) {
+              return (
+                <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-blue-200">
+                    <BookOpen className="w-6 h-6 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-blue-900">Study Notes</h3>
+                  </div>
+                  <div className="prose prose-sm max-w-none">
+                    <div className="markdown-content" 
+                      dangerouslySetInnerHTML={{ 
+                        __html: message.content
+                          .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-gray-900 mb-4">$1</h1>')
+                          .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$1</h2>')
+                          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
+                          .replace(/^- (.*$)/gm, '<li class="text-gray-700 mb-2">$1</li>')
+                          .replace(/\n\n/g, '</br>')
+                          .split('\n').map(line => 
+                            line.startsWith('-') ? line : `<p class="text-gray-700 mb-3">${line}</p>`
+                          ).join('')
+                      }} 
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            // For regular messages
             const { text, references } = message.role === 'assistant' 
               ? extractReferences(message.content)
               : { text: message.content, references: [] };

@@ -58,7 +58,6 @@ function App() {
   const [durationFilter, setDurationFilter] = useState<number>(30);
   const [videoList, setVideoList] = useState<VideoItem[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
-  const [studyNotes, setStudyNotes] = useState<string>('');
   const [generatingNotes, setGeneratingNotes] = useState<boolean>(false);
   const [question, setQuestion] = useState<string>('');
   const [answer, setAnswer] = useState<string>('');
@@ -302,27 +301,6 @@ function App() {
     }
   };
 
-  const handleGenerateStudyNotes = async () => {
-    if (!rawResponse?.transcripts) return;
-    
-    setGeneratingNotes(true);
-    setLoadingNotes(true);
-    const contentText = rawResponse.transcripts
-      .map((segment: any) => segment.text)
-      .join(' ');
-
-    try {
-      const notes = await generateStudyNotes(contentText);
-      setStudyNotes(notes);
-    } catch (error) {
-      console.error('Error generating notes:', error);
-      setStudyNotes('Failed to generate study notes. Please try again.');
-    } finally {
-      setGeneratingNotes(false);
-      setLoadingNotes(false);
-    }
-  };
-
   const handleSelectCollection = async (collection: Collection | null) => {
     // Clear previous collection's state
     setSelectedVideo(null);
@@ -330,7 +308,6 @@ function App() {
     setExtractedText([]);
     setQuestion('');
     setMessages([]);
-    setStudyNotes(''); // Clear study notes when switching collections
     
     // Set the new collection
     setSelectedCollection(collection);
@@ -466,7 +443,6 @@ function App() {
     setLoadingTranscript(true);
     setError('');
     setRawResponse(null);
-    setStudyNotes('');
     setEmbeddings([]);
     setAnswer('');
     setMessages([]);
@@ -1071,10 +1047,29 @@ function App() {
       }).join('\n\n');
 
       const notes = await generateStudyNotes(allContent);
-      setStudyNotes(notes);
+      
+      // Create a new message for the study notes
+      const studyNotesMessage: Message = {
+        role: 'assistant',
+        content: notes,
+        timestamp: new Date().toISOString(),
+        isStudyNotes: true // Add this flag to identify study notes messages
+      };
+
+      // Update messages state with the new study notes
+      const updatedMessages = [...messages, studyNotesMessage];
+      setMessages(updatedMessages);
+
+      // Save to chat database
+      await saveChat(selectedCollection.id, updatedMessages);
     } catch (error) {
       console.error('Error generating study notes:', error);
-      setStudyNotes('Failed to generate study notes. Please try again.');
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: 'Failed to generate study notes. Please try again.',
+        timestamp: new Date().toISOString()
+      };
+      setMessages([...messages, errorMessage]);
     } finally {
       setGeneratingNotes(false);
     }
@@ -1201,7 +1196,6 @@ function App() {
                     }}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    studyNotes={studyNotes}
                   />
                 } 
               />

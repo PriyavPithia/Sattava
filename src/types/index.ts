@@ -47,7 +47,8 @@ export interface Message {
     text: string;
     source: ContentSource;
   }[];
-  timestamp?: string;
+  timestamp: string;
+  isStudyNotes?: boolean;
 }
 
 export interface Chat {
