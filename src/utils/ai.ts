@@ -131,48 +131,45 @@ export const findMostRelevantChunks = async (
   }
 };
 
-export const generateStudyNotes = async (contentText: string): Promise<string> => {
+export async function generateStudyNotes(content: string): Promise<string> {
   try {
-    const completion = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       messages: [
         {
-          role: 'system',
-          content: `You are a helpful study assistant. Create well-structured study notes from the content following these guidelines:
+          role: "system",
+          content: `You are a study notes assistant. Create concise, well-structured notes following this format:
 
-1. Format:
-   - Use a clear hierarchical structure with main topics and subtopics
-   - Start with a title that summarizes the main topic
-   - Include an introduction section
-   - Use headings for main sections (##)
-   - Use bullet points for key points and details
+# Main Topic
 
-2. Content:
-   - Focus on the most important concepts and ideas
-   - Break down complex topics into digestible points
-   - Include examples where relevant
-   - Keep the language clear and professional
+## Key Concepts
+- Point 1
+- Point 2
 
-3. References:
-   - For video content: Add timestamp references using {ref: MM:SS} format
-   - For document content: Add section references using {ref: P#} format (where # is the section number)
-   - Add references for each major section
-   - Add references for key examples or important points`
-   
+## Important Terms
+- Term 1: Definition
+- Term 2: Definition
+
+## Summary
+Brief summary of main points
+
+Use markdown formatting. Keep points brief and focused. Highlight key terms in **bold**.`
         },
         {
-          role: 'user',
-          content: contentText
+          role: "user",
+          content: `Create study notes from this content. Focus on the most important concepts and definitions:\n\n${content}`
         }
       ],
-      model: 'gpt-3.5-turbo',
+      temperature: 0.3, // Lower temperature for more consistent output
+      max_tokens: 1500 // Reduced token limit for efficiency
     });
 
-    return completion.choices[0].message.content || 'Failed to generate study notes.';
+    return response.choices[0]?.message?.content || 'No notes generated';
   } catch (error) {
-    console.error('OpenAI API Error:', error);
-    throw new Error('Failed to generate study notes. Please try again.');
+    console.error('Error in generateStudyNotes:', error);
+    throw new Error('Failed to generate study notes');
   }
-};
+}
 
 const MIN_TIMESTAMP_DIFFERENCE = 15; // Minimum difference in seconds between timestamps
 

@@ -1052,6 +1052,33 @@ function App() {
     }
   };
 
+  const handleGenerateNotes = async () => {
+    if (!selectedCollection) return;
+    
+    setGeneratingNotes(true);
+    try {
+      // Combine all content from the collection
+      const allContent = selectedCollection.items.flatMap(item => {
+        if (item.type === 'youtube' && item.transcript) {
+          return Array.isArray(item.transcript) 
+            ? item.transcript.map(t => t.text).join('\n')
+            : '';
+        } else if (['pdf', 'txt', 'ppt', 'pptx'].includes(item.type) && item.content) {
+          return item.content;
+        }
+        return '';
+      }).join('\n\n');
+
+      const notes = await generateStudyNotes(allContent);
+      setStudyNotes(notes);
+    } catch (error) {
+      console.error('Error generating study notes:', error);
+      setStudyNotes('Failed to generate study notes. Please try again.');
+    } finally {
+      setGeneratingNotes(false);
+    }
+  };
+
   // Update the loading check to use authLoading
   if (authLoading) {
     return (
@@ -1171,6 +1198,9 @@ function App() {
                       setSelectedVideo(video);
                       handleSelectVideo(video);
                     }}
+                    onGenerateNotes={handleGenerateNotes}
+                    generatingNotes={generatingNotes}
+                    studyNotes={studyNotes}
                   />
                 } 
               />
