@@ -1035,25 +1035,52 @@ function App() {
     setGeneratingNotes(true);
     try {
       // Combine all content from the collection
-      const allContent = selectedCollection.items.flatMap(item => {
+      const allContent: CombinedContent[] = selectedCollection.items.flatMap(item => {
         if (item.type === 'youtube' && item.transcript) {
-          return Array.isArray(item.transcript) 
-            ? item.transcript.map(t => t.text).join('\n')
-            : '';
+          const transcriptArray = Array.isArray(item.transcript) 
+            ? item.transcript 
+            : typeof item.transcript === 'string' 
+              ? JSON.parse(item.transcript) 
+              : [];
+          
+          return transcriptArray.map((segment: any) => ({
+            text: segment.text,
+            source: {
+              type: 'youtube' as ContentSource['type'],
+              title: item.title || item.url,
+              location: {
+                type: 'timestamp',
+                value: Math.floor(segment.start)
+              }
+            }
+          }));
         } else if (['pdf', 'txt', 'ppt', 'pptx'].includes(item.type) && item.content) {
-          return item.content;
+          return [{
+            text: item.content,
+            source: {
+              type: item.type as ContentSource['type'],
+              title: item.title,
+              location: {
+                type: item.type === 'pdf' ? 'page' : 'section',
+                value: 1
+              }
+            }
+          }];
         }
-        return '';
-      }).join('\n\n');
+        return [];
+      });
 
-      const notes = await generateStudyNotes(allContent);
+      const notes = await generateStudyNotes(
+        allContent.map(content => content.text).join('\n\n'),
+        allContent
+      );
       
       // Create a new message for the study notes
       const studyNotesMessage: Message = {
         role: 'assistant',
         content: notes,
         timestamp: new Date().toISOString(),
-        isStudyNotes: true // Add this flag to identify study notes messages
+        isStudyNotes: true
       };
 
       // Update messages state with the new study notes

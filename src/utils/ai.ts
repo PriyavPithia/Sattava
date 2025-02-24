@@ -131,7 +131,7 @@ export const findMostRelevantChunks = async (
   }
 };
 
-export async function generateStudyNotes(content: string): Promise<string> {
+export async function generateStudyNotes(content: string, contentSources: CombinedContent[]): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -143,25 +143,29 @@ export async function generateStudyNotes(content: string): Promise<string> {
 # Main Topic
 
 ## Key Concepts
-- Point 1
-- Point 2
+- Point 1 {{ref:type:source:location}}
+- Point 2 {{ref:type:source:location}}
 
 ## Important Terms
-- Term 1: Definition
-- Term 2: Definition
+- Term 1: Definition {{ref:type:source:location}}
+- Term 2: Definition {{ref:type:source:location}}
 
 ## Summary
 Brief summary of main points
 
-Use markdown formatting. Keep points brief and focused. Highlight key terms in **bold**.`
+Use markdown formatting. Keep points brief and focused. Highlight key terms in **bold**.
+Each point should include at least one reference in the format {{ref:type:source:location}}.
+References should be placed immediately after the relevant information.`
         },
         {
           role: "user",
-          content: `Create study notes from this content. Focus on the most important concepts and definitions:\n\n${content}`
+          content: `Create study notes from this content. Focus on the most important concepts and definitions. Include references to the source material:\n\n${contentSources.map(source => 
+            `${source.text} {{ref:${source.source.type}:${source.source.title}:${source.source.location?.value || '1'}}}`
+          ).join('\n\n')}`
         }
       ],
-      temperature: 0.3, // Lower temperature for more consistent output
-      max_tokens: 1500 // Reduced token limit for efficiency
+      temperature: 0.3,
+      max_tokens: 1500
     });
 
     return response.choices[0]?.message?.content || 'No notes generated';

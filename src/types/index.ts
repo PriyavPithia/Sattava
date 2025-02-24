@@ -1,18 +1,20 @@
-export interface ContentLocation {
+export type ContentSourceType = 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+
+export type ContentLocation = {
   type: 'timestamp' | 'page' | 'section' | 'slide';
-  value: string | number;
-}
+  value: number;
+};
 
-export interface ContentSource {
-  type: 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+export type ContentSource = {
+  type: ContentSourceType;
   title: string;
-  location?: ContentLocation;
-}
+  location: ContentLocation;
+};
 
-export interface CombinedContent {
+export type CombinedContent = {
   text: string;
   source: ContentSource;
-}
+};
 
 export interface VideoItem {
   id: string;
