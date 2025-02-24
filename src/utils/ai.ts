@@ -175,26 +175,36 @@ References should be placed immediately after the relevant information.`
   }
 }
 
-const MIN_TIMESTAMP_DIFFERENCE = 15; // Minimum difference in seconds between timestamps
+const MIN_TIMESTAMP_DIFFERENCE = 30; // Increased from 15 to 30 seconds for better context
 
 const getTimestampSeconds = (value: string | number): number => {
   if (typeof value === 'string' && value.includes(':')) {
     const [minutes, seconds] = value.split(':').map(Number);
-    return (minutes * 60) + seconds;
+    return (minutes * 60) + (seconds || 0); // Added fallback for invalid seconds
   }
-  return typeof value === 'number' ? value : parseInt(value);
+  return typeof value === 'number' ? value : parseInt(value) || 0; // Added fallback for invalid parsing
 };
 
 const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
   // First, separate YouTube content with timestamps from other content
-  const timestampContent: (CombinedContent & { timestamp: number })[] = [];
+  const timestampContent: (CombinedContent & { 
+    timestamp: number;
+    similarity?: number;
+  })[] = [];
   const otherContent: CombinedContent[] = [];
 
   // Sort content into appropriate arrays and convert timestamps
   content.forEach(chunk => {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
       const timestamp = getTimestampSeconds(chunk.source.location.value);
-      timestampContent.push({ ...chunk, timestamp });
+      // Only add if timestamp is valid
+      if (!isNaN(timestamp) && timestamp >= 0) {
+        timestampContent.push({ 
+          ...chunk, 
+          timestamp,
+          similarity: (chunk as any).similarity
+        });
+      }
     } else {
       otherContent.push(chunk);
     }
@@ -203,13 +213,18 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
   // Sort timestamp content chronologically
   timestampContent.sort((a, b) => a.timestamp - b.timestamp);
 
-  // Filter timestamps that are too close
+  // Filter timestamps that are too close together while preserving context
   const filteredTimestamps: typeof timestampContent = [];
-  let lastIncludedTimestamp = -MIN_TIMESTAMP_DIFFERENCE; // Initialize to allow first timestamp
+  let lastIncludedTimestamp = -MIN_TIMESTAMP_DIFFERENCE;
 
-  for (const chunk of timestampContent) {
-    // Only include if it's far enough from the last included timestamp
-    if (chunk.timestamp >= lastIncludedTimestamp + MIN_TIMESTAMP_DIFFERENCE) {
+  for (let i = 0; i < timestampContent.length; i++) {
+    const chunk = timestampContent[i];
+    const nextChunk = timestampContent[i + 1];
+    
+    // Include if far enough from last timestamp OR if it provides important context
+    if (chunk.timestamp >= lastIncludedTimestamp + MIN_TIMESTAMP_DIFFERENCE || 
+        (nextChunk && nextChunk.timestamp - chunk.timestamp <= MIN_TIMESTAMP_DIFFERENCE && 
+         chunk.similarity && chunk.similarity > 0.7)) { // High similarity threshold for context
       filteredTimestamps.push(chunk);
       lastIncludedTimestamp = chunk.timestamp;
     }
@@ -217,6 +232,51 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
 
   // Combine filtered timestamps with other content
   return [...filteredTimestamps, ...otherContent];
+};
+
+// Add this validation function
+const validateReference = (chunk: CombinedContent): boolean => {
+  const { source } = chunk;
+  // Check if source has all required properties
+  if (!source || !source.type || !source.title || !source.location) {
+    return false;
+  }
+  
+  // Validate source type
+  const validTypes = ['youtube', 'pdf', 'txt', 'ppt', 'pptx'];
+  if (!validTypes.includes(source.type)) {
+    return false;
+  }
+
+  // Validate location
+  if (!source.location.type || !source.location.value) {
+    return false;
+  }
+
+  return true;
+};
+
+// Add this function to format references consistently
+const formatReference = (chunk: CombinedContent): string => {
+  const { source } = chunk;
+  
+  if (!validateReference(chunk)) {
+    console.warn('Invalid reference format:', chunk);
+    return '';
+  }
+
+  if (source.type === 'youtube' && source.location.type === 'timestamp') {
+    const timestamp = getTimestampSeconds(source.location.value);
+    if (isNaN(timestamp) || timestamp < 0) return '';
+    
+    const minutes = Math.floor(timestamp / 60);
+    const seconds = timestamp % 60;
+    const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `{{ref:youtube:${source.title}:${formattedTime}}}`;
+  }
+
+  // For other content types
+  return `{{ref:${source.type}:${source.title}:${source.location.value}}}`;
 };
 
 export async function askQuestion(
@@ -227,26 +287,17 @@ export async function askQuestion(
     // Filter out timestamps that are too close together
     const filteredContent = filterCloseTimestamps(relevantContent);
     
+    // Validate and format references
     const context = filteredContent
       .map(chunk => {
-        const location = chunk.source.location;
-        let reference;
-        
-        if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : 
-            typeof location.value === 'string' ? parseInt(location.value) : 0;
-          const minutes = Math.floor(timestamp / 60);
-          const seconds = timestamp % 60;
-          const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-          reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
-        } else {
-          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
-        }
-        
+        const reference = formatReference(chunk);
+        if (!reference) return ''; // Skip invalid references
         return `${chunk.text} ${reference}`;
       })
+      .filter(Boolean) // Remove empty strings from invalid references
       .join('\n\n');
 
+    // Update the system prompt to be more explicit about reference format
     const completion = await openai.chat.completions.create({
       messages: [
         {
@@ -269,31 +320,34 @@ export async function askQuestion(
    - Give practical examples when relevant
 
 3. CITATION RULES (MANDATORY):
-   - Every statement must have a reference
+   - Every statement must have a complete reference in this EXACT format:
+     * For YouTube: {{ref:youtube:video_title:MM:SS}}
+     * For PDF: {{ref:pdf:document_title:page_number}}
+     * For other files: {{ref:type:title:location}}
+   - References must be complete with all parts (type:title:location)
    - Place references immediately after each statement
-   - Format: statement {{ref}} next statement {{ref}}
-   - Never group references
+   - Never use incomplete references like {{ref:youtube}} or {{ref:pdf}}
    - Never leave statements unreferenced
 
 Example format:
 
 # [Question Topic]
 
-Here's a clear answer to your question {{ref}}. This leads to an important point {{ref}}.
+Here's a clear answer to your question {{ref:youtube:Video Title:1:30}}. This leads to an important point {{ref:pdf:Document Name:12}}.
 
 ## Additional Context
 
-This provides more detail about the topic {{ref}}. Here's a practical example {{ref}}.
+This provides more detail about the topic {{ref:youtube:Video Title:2:45}}. Here's a practical example {{ref:pdf:Document Name:15}}.
 
 ## Key Points
 
-- First important point to understand {{ref}}
-- Second relevant point {{ref}}
-- Final clarifying point {{ref}}
+- First important point to understand {{ref:youtube:Video Title:3:20}}
+- Second relevant point {{ref:pdf:Document Name:18}}
+- Final clarifying point {{ref:youtube:Video Title:4:15}}
 
 Remember:
-- Keep responses clear and direct
-- Use natural language
+- Every reference must be complete with type, title, and location
+- Never use partial references
 - Include references for all statements
 - Maintain clean formatting`
         },
