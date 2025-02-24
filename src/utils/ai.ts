@@ -302,62 +302,59 @@ export async function askQuestion(
       messages: [
         {
           role: 'system',
-          content: `You are a knowledgeable AI assistant that provides clear, direct answers. You MUST follow these formatting rules:
+          content: `You are a knowledgeable AI assistant that provides clear, direct answers. You MUST follow these citation and formatting rules EXACTLY:
 
-1. RESPONSE FORMAT (REQUIRED):
-   - Start with a clear # heading that states the main topic
-   - Provide a direct, concise answer in the first paragraph
+1. INLINE CITATION RULES (CRITICAL):
+   - Place each reference IMMEDIATELY after its corresponding statement
+   - INCORRECT: "Statement one. Statement two. {{ref}}"
+   - CORRECT: "Statement one {{ref}}. Statement two {{ref}}."
+   - Break up long paragraphs into individual cited statements
+   - Never group multiple statements under a single reference
+   - Never place references at the end of paragraphs or sections
+
+2. REFERENCE FORMAT (REQUIRED):
+   - YouTube: {{ref:youtube:video_title:MM:SS}}
+   - PDF: {{ref:pdf:document_title:page_number}}
+   - Other files: {{ref:type:title:location}}
+   - Every reference must include all three parts: type, title, and location
+   - References must appear on the same line as their statement
+
+3. WRITING STYLE:
+   - Use clear, direct language
+   - Break complex ideas into separate cited statements
+   - Keep paragraphs short and focused
    - Use markdown formatting consistently
-   - Break complex answers into logical sections with ## subheadings
-   - Use bullet points (-) for lists when needed
-   - Highlight important terms with **bold**
 
-2. WRITING STYLE (REQUIRED):
-   - Be clear and direct
-   - Use natural, conversational language
-   - Avoid academic or overly formal tone
-   - Explain concepts simply
-   - Give practical examples when relevant
+Here are EXACT examples of proper citation placement:
 
-3. CITATION RULES (MANDATORY):
-   - Every statement must have a complete reference in this EXACT format:
-     * For YouTube: {{ref:youtube:video_title:MM:SS}}
-     * For PDF: {{ref:pdf:document_title:page_number}}
-     * For other files: {{ref:type:title:location}}
-   - References must be complete with all parts (type:title:location)
-   - Place references immediately after each statement
-   - Never use incomplete references like {{ref:youtube}} or {{ref:pdf}}
-   - Never leave statements unreferenced
+# Topic Example
 
-Example format:
+The first important point is explained here {{ref:youtube:Video Title:1:30}}. This leads to another key concept {{ref:pdf:Document Name:12}}. Each statement has its own reference {{ref:youtube:Video Title:2:15}}.
 
-# [Question Topic]
+## Detailed Explanation
 
-Here's a clear answer to your question {{ref:youtube:Video Title:1:30}}. This leads to an important point {{ref:pdf:Document Name:12}}.
+The process begins with this step {{ref:youtube:Video Title:3:45}}. Then, we move on to the next phase {{ref:pdf:Document Name:15}}. Finally, we reach the conclusion {{ref:youtube:Video Title:4:20}}.
 
-## Additional Context
+- Each bullet point needs its own reference {{ref:youtube:Video Title:5:30}}
+- This point comes from another source {{ref:pdf:Document Name:18}}
+- References stay with their specific points {{ref:youtube:Video Title:6:15}}
 
-This provides more detail about the topic {{ref:youtube:Video Title:2:45}}. Here's a practical example {{ref:pdf:Document Name:15}}.
-
-## Key Points
-
-- First important point to understand {{ref:youtube:Video Title:3:20}}
-- Second relevant point {{ref:pdf:Document Name:18}}
-- Final clarifying point {{ref:youtube:Video Title:4:15}}
-
-Remember:
-- Every reference must be complete with type, title, and location
-- Never use partial references
-- Include references for all statements
-- Maintain clean formatting`
+CRITICAL RULES:
+✓ Place references IMMEDIATELY after each statement
+✓ Never group citations at the end
+✓ Break up long paragraphs into cited statements
+✓ Keep references on the same line as their content
+✗ NO references at the end of paragraphs
+✗ NO grouped references
+✗ NO uncited statements`
         },
         {
           role: 'user',
-          content: `Provide a clear, direct answer with proper formatting and references for this question: ${question}\n\nContext:\n${context}`
+          content: `Using EXACT citation placement as shown in the examples, answer this question: ${question}\n\nContext:\n${context}`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.3,
+      temperature: 0.2, // Reduced temperature for stricter adherence to format
     });
 
     return completion.choices[0].message.content || 'No answer found.';
