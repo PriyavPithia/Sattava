@@ -7,9 +7,7 @@ import { getDocument } from 'pdfjs-dist';
 import { GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
 
-import TranscriptModal from './components/TranscriptModal';
-
-import { TranscriptSegment, TranscriptGroup, CurrentGroup } from './utils/types';
+import { TranscriptSegment, TranscriptGroup } from './utils/types';
 
 import { generateStudyNotes, askQuestion, findMostRelevantChunks, generateEmbeddings } from './utils/ai';
 import { extractPowerPointContent } from './utils/powerpoint';
@@ -46,12 +44,6 @@ interface ChunkEmbedding {
   embedding: number[];
 }
 
-interface TranscriptModal {
-  isOpen: boolean;
-  timestamp: number;
-  text: string;
-}
-
 interface TranscriptResponse {
   transcripts: TranscriptSegment[];
 }
@@ -75,11 +67,6 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [modal, setModal] = useState<TranscriptModal>({
-    isOpen: false,
-    timestamp: 0,
-    text: ''
-  });
   const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'upload' | 'file'>('youtube');
   const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
@@ -312,38 +299,6 @@ function App() {
     } catch (error) {
       console.error('Error processing transcript:', error);
       setError('Failed to process transcript. Please try again.');
-    }
-  };
-
-  const handleTimestampClick = (timestamp: string) => {
-    const [minutes, seconds] = timestamp.split(':').map(Number);
-    const totalSeconds = minutes * 60 + seconds;
-    
-    if (rawResponse?.transcripts) {
-      let transcriptText = '';
-      if (durationFilter === 0) {
-        const segment = rawResponse.transcripts.find((s: any) => 
-          Math.floor(s.start) <= totalSeconds && 
-          Math.floor(s.start + s.duration) >= totalSeconds
-        );
-        if (segment) {
-          transcriptText = segment.text;
-        }
-      } else {
-        const group = groupTranscriptsByDuration(rawResponse.transcripts).find(g => 
-          Math.floor(g.startTime) <= totalSeconds && 
-          Math.floor(g.endTime) >= totalSeconds
-        );
-        if (group) {
-          transcriptText = group.text;
-        }
-      }
-
-      setModal({
-        isOpen: true,
-        timestamp: totalSeconds,
-        text: transcriptText
-      });
     }
   };
 
