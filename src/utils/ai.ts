@@ -175,36 +175,26 @@ References should be placed immediately after the relevant information.`
   }
 }
 
-const MIN_TIMESTAMP_DIFFERENCE = 30; // Increased from 15 to 30 seconds for better context
+const MIN_TIMESTAMP_DIFFERENCE = 15; // Minimum difference in seconds between timestamps
 
 const getTimestampSeconds = (value: string | number): number => {
   if (typeof value === 'string' && value.includes(':')) {
     const [minutes, seconds] = value.split(':').map(Number);
-    return (minutes * 60) + (seconds || 0); // Added fallback for invalid seconds
+    return (minutes * 60) + seconds;
   }
-  return typeof value === 'number' ? value : parseInt(value) || 0; // Added fallback for invalid parsing
+  return typeof value === 'number' ? value : parseInt(value);
 };
 
 const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] => {
   // First, separate YouTube content with timestamps from other content
-  const timestampContent: (CombinedContent & { 
-    timestamp: number;
-    similarity?: number;
-  })[] = [];
+  const timestampContent: (CombinedContent & { timestamp: number })[] = [];
   const otherContent: CombinedContent[] = [];
 
   // Sort content into appropriate arrays and convert timestamps
   content.forEach(chunk => {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
       const timestamp = getTimestampSeconds(chunk.source.location.value);
-      // Only add if timestamp is valid
-      if (!isNaN(timestamp) && timestamp >= 0) {
-        timestampContent.push({ 
-          ...chunk, 
-          timestamp,
-          similarity: (chunk as any).similarity
-        });
-      }
+      timestampContent.push({ ...chunk, timestamp });
     } else {
       otherContent.push(chunk);
     }
@@ -213,18 +203,13 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
   // Sort timestamp content chronologically
   timestampContent.sort((a, b) => a.timestamp - b.timestamp);
 
-  // Filter timestamps that are too close together while preserving context
+  // Filter timestamps that are too close
   const filteredTimestamps: typeof timestampContent = [];
-  let lastIncludedTimestamp = -MIN_TIMESTAMP_DIFFERENCE;
+  let lastIncludedTimestamp = -MIN_TIMESTAMP_DIFFERENCE; // Initialize to allow first timestamp
 
-  for (let i = 0; i < timestampContent.length; i++) {
-    const chunk = timestampContent[i];
-    const nextChunk = timestampContent[i + 1];
-    
-    // Include if far enough from last timestamp OR if it provides important context
-    if (chunk.timestamp >= lastIncludedTimestamp + MIN_TIMESTAMP_DIFFERENCE || 
-        (nextChunk && nextChunk.timestamp - chunk.timestamp <= MIN_TIMESTAMP_DIFFERENCE && 
-         chunk.similarity && chunk.similarity > 0.7)) { // High similarity threshold for context
+  for (const chunk of timestampContent) {
+    // Only include if it's far enough from the last included timestamp
+    if (chunk.timestamp >= lastIncludedTimestamp + MIN_TIMESTAMP_DIFFERENCE) {
       filteredTimestamps.push(chunk);
       lastIncludedTimestamp = chunk.timestamp;
     }
@@ -250,24 +235,16 @@ export async function askQuestion(
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
           const timestamp = typeof location.value === 'number' ? location.value : 
             typeof location.value === 'string' ? parseInt(location.value) : 0;
-          
-          // Only create reference if timestamp is valid
-          if (!isNaN(timestamp) && timestamp >= 0) {
-            const minutes = Math.floor(timestamp / 60);
-            const seconds = timestamp % 60;
-            const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
-          } else {
-            // Skip invalid timestamps
-            return '';
-          }
+          const minutes = Math.floor(timestamp / 60);
+          const seconds = timestamp % 60;
+          const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+          reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
         } else {
           reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
         }
         
         return `${chunk.text} ${reference}`;
       })
-      .filter(Boolean) // Remove empty strings from invalid timestamps
       .join('\n\n');
 
     const completion = await openai.chat.completions.create({
