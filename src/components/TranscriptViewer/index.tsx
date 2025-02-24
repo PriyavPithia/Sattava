@@ -33,6 +33,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transcriptChunks, setTranscriptChunks] = useState<any[]>([]);
   const lastProcessedRef = useRef<string | null>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Initialize transcript chunks when transcripts change
   useEffect(() => {
@@ -89,8 +90,6 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       return;
     }
 
-    console.log('DEBUG: Processing YouTube reference:', location);
-    
     let targetSeconds: number;
     if (typeof location === 'string') {
       targetSeconds = location.includes(':') 
@@ -101,7 +100,6 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     }
 
     if (isNaN(targetSeconds)) {
-      console.error('Invalid timestamp:', location);
       return;
     }
 
@@ -112,45 +110,58 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       return targetSeconds >= start && targetSeconds <= end;
     });
 
-    if (matchingChunk) {
+    if (matchingChunk && containerRef.current) {
       const index = matchingChunk.index;
       const element = transcriptRefs.current[index];
       
-      if (element && containerRef.current) {
-        const container = containerRef.current;
-        
-        // Calculate positions
-        const containerHeight = container.clientHeight;
-        const elementHeight = element.offsetHeight;
-        const elementTop = element.offsetTop;
-        
-        // Calculate the target scroll position to center the element
-        const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
+      if (element) {
+        // Clear any existing scroll timeout
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
 
-        // Scroll to the element
-        container.scrollTo({
-          top: targetScroll,
-          behavior: 'smooth'
-        });
+        // Schedule the scroll
+        scrollTimeoutRef.current = setTimeout(() => {
+          if (!containerRef.current || !element) return;
 
-        // Apply highlight animation
-        element.style.transition = 'background-color 0.3s ease';
-        element.style.backgroundColor = '#fef3c7';
+          const container = containerRef.current;
+          const containerHeight = container.clientHeight;
+          const elementHeight = element.offsetHeight;
+          const elementTop = element.offsetTop;
+          const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
 
-        // Remove highlight after animation
-        setTimeout(() => {
-          if (element) {
-            element.style.backgroundColor = '';
-          }
-        }, 3000);
+          // Perform the scroll
+          container.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
+          });
 
-        // Seek video to timestamp
-        onSeek(targetSeconds);
+          // Apply highlight animation
+          element.style.transition = 'background-color 0.3s ease';
+          element.style.backgroundColor = '#fef3c7';
 
-        // Mark this reference as processed
-        lastProcessedRef.current = refId;
+          // Remove highlight after animation
+          setTimeout(() => {
+            if (element) {
+              element.style.backgroundColor = '';
+            }
+          }, 3000);
+
+          // Seek video to timestamp
+          onSeek(targetSeconds);
+
+          // Mark this reference as processed
+          lastProcessedRef.current = refId;
+        }, 100);
       }
     }
+
+    // Cleanup function
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [highlightedReference, transcriptChunks, onSeek, getTimestampInSeconds]);
 
   // Reset the processed reference when chunks change
@@ -206,7 +217,11 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       </div>
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto bg-gray-50 rounded-lg overscroll-contain"
+        className="flex-1 overflow-y-auto bg-gray-50 rounded-lg"
+        style={{ 
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch'
+        }}
       >
         <div className="space-y-4 p-4">
           {transcriptChunks.map((chunk, index) => {
