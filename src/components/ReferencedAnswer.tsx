@@ -1,5 +1,6 @@
 import React from 'react';
 import { Reference } from '../types/reference';
+import ReferenceLink from './ReferenceLink';
 
 interface ReferencedAnswerProps {
   answer: string;
@@ -16,7 +17,20 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
 }) => {
   return (
     <div className={className}>
-      {/* ... existing content ... */}
+      <div className="whitespace-pre-wrap mb-2">{answer}</div>
+      {references.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {references.map((reference, index) => (
+            <ReferenceLink
+              key={index}
+              reference={reference}
+              onClick={onReferenceClick}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
-}; 
+};
+
+export default ReferencedAnswer; 
