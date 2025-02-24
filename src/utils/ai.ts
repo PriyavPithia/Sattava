@@ -40,72 +40,94 @@ export const findMostRelevantChunks = async (
   limit: number = 5
 ): Promise<CombinedContent[]> => {
   try {
-    // Generate question embedding once
     const questionEmbedding = await generateEmbeddings(question);
     if (!questionEmbedding) {
       console.error('Failed to generate question embeddings');
-      return content.slice(0, limit); // Return first few items as fallback
+      return [];
+    }
+    
+    // Group content by type
+    const contentByType = content.reduce((acc, curr) => {
+      const type = curr.source.type;
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(curr);
+      return acc;
+    }, {} as Record<string, CombinedContent[]>);
+
+    // If question mentions specific content type, prioritize that type
+    const questionLower = question.toLowerCase();
+    const mentionedTypes = {
+      youtube: questionLower.includes('video') || questionLower.includes('youtube'),
+      pdf: questionLower.includes('pdf') || questionLower.includes('document'),
+      ppt: questionLower.includes('powerpoint') || questionLower.includes('presentation'),
+      pptx: questionLower.includes('powerpoint') || questionLower.includes('presentation'),
+      txt: questionLower.includes('text')
+    };
+
+    let relevantContent: CombinedContent[] = [];
+    
+    // First, add content from specifically mentioned types
+    Object.entries(mentionedTypes).forEach(([type, isMentioned]) => {
+      if (isMentioned && contentByType[type]) {
+        relevantContent.push(...contentByType[type]);
+      }
+    });
+
+    // If no specific type was mentioned, use all content
+    if (relevantContent.length === 0) {
+      relevantContent = content;
     }
 
-    // Batch content into groups of 20 for parallel processing
-    const batchSize = 20;
-    const batches = [];
-    for (let i = 0; i < content.length; i += batchSize) {
-      batches.push(content.slice(i, i + batchSize));
-    }
-
-    // Process batches in parallel
-    const allSimilarities = await Promise.all(
-      batches.map(async (batch) => {
-        // Generate embeddings for the batch in parallel
-        const batchEmbeddings = await Promise.all(
-          batch.map(chunk => generateEmbeddings(chunk.text))
-        );
-
-        // Calculate similarities for the batch
-        return batch.map((chunk, index) => ({
-          ...chunk,
-          similarity: batchEmbeddings[index] ? 
-            cosineSimilarity(questionEmbedding, batchEmbeddings[index]) : 0,
-          timestamp: chunk.source.type === 'youtube' && 
-                    chunk.source.location?.type === 'timestamp' ?
-            getTimestampSeconds(chunk.source.location.value) : null
-        }));
+    // Calculate similarities and sort
+    const withSimilarities = await Promise.all(
+      relevantContent.map(async (chunk) => {
+        const chunkEmbedding = await generateEmbeddings(chunk.text);
+        const similarity = await calculateSimilarity(questionEmbedding, chunkEmbedding);
+        return { 
+          ...chunk, 
+          similarity: similarity || 0,
+          timestamp: chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp' 
+            ? getTimestampSeconds(chunk.source.location.value)
+            : null
+        };
       })
     );
 
-    // Flatten and sort results
-    const sortedByRelevance = allSimilarities
-      .flat()
-      .filter(item => (item.similarity ?? 0) > 0)
-      .sort((a, b) => ((b.similarity ?? 0) - (a.similarity ?? 0)));
+    // Sort by similarity
+    const sortedByRelevance = withSimilarities
+      .filter(item => item.similarity > 0)
+      .sort((a, b) => b.similarity - a.similarity);
 
-    // Filter timestamps that are too close together
+    // Filter timestamps that are too close together while maintaining relevance order
     const result: typeof sortedByRelevance = [];
     let lastTimestamp: number | null = null;
 
     for (const item of sortedByRelevance) {
-      if (result.length >= limit) break;
-
       if (item.timestamp !== null) {
-        if (lastTimestamp === null || 
-            Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
+        // For YouTube content with timestamps
+        if (lastTimestamp === null || Math.abs(item.timestamp - lastTimestamp) >= MIN_TIMESTAMP_DIFFERENCE) {
           result.push(item);
           lastTimestamp = item.timestamp;
         }
       } else {
+        // For non-YouTube content or content without timestamps
         result.push(item);
       }
+
+      // Break if we have enough items
+      if (result.length >= limit) break;
     }
 
     if (result.length === 0) {
-      return content.slice(0, limit); // Fallback to first few items
+      console.warn('No relevant content found with non-zero similarity');
+      // Fallback to returning some content even if similarity is 0
+      return relevantContent.slice(0, limit);
     }
 
     return result;
   } catch (error) {
     console.error('Error finding relevant chunks:', error);
-    return content.slice(0, limit); // Fallback to first few items
+    return content.slice(0, limit); // Fallback to returning some content
   }
 };
 
@@ -212,51 +234,6 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
   return [...filteredTimestamps, ...otherContent];
 };
 
-// Add this validation function
-const validateReference = (chunk: CombinedContent): boolean => {
-  const { source } = chunk;
-  // Check if source has all required properties
-  if (!source || !source.type || !source.title || !source.location) {
-    return false;
-  }
-  
-  // Validate source type
-  const validTypes = ['youtube', 'pdf', 'txt', 'ppt', 'pptx'];
-  if (!validTypes.includes(source.type)) {
-    return false;
-  }
-
-  // Validate location
-  if (!source.location.type || !source.location.value) {
-    return false;
-  }
-
-  return true;
-};
-
-// Add this function to format references consistently
-const formatReference = (chunk: CombinedContent): string => {
-  const { source } = chunk;
-  
-  if (!validateReference(chunk)) {
-    console.warn('Invalid reference format:', chunk);
-    return '';
-  }
-
-  if (source.type === 'youtube' && source.location.type === 'timestamp') {
-    const timestamp = getTimestampSeconds(source.location.value);
-    if (isNaN(timestamp) || timestamp < 0) return '';
-    
-    const minutes = Math.floor(timestamp / 60);
-    const seconds = timestamp % 60;
-    const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    return `{{ref:youtube:${source.title}:${formattedTime}}}`;
-  }
-
-  // For other content types
-  return `{{ref:${source.type}:${source.title}:${source.location.value}}}`;
-};
-
 export async function askQuestion(
   question: string,
   relevantContent: CombinedContent[]
@@ -265,54 +242,91 @@ export async function askQuestion(
     // Filter out timestamps that are too close together
     const filteredContent = filterCloseTimestamps(relevantContent);
     
-    // Validate and format references
     const context = filteredContent
       .map(chunk => {
-        const reference = formatReference(chunk);
-        if (!reference) return ''; // Skip invalid references
+        const location = chunk.source.location;
+        let reference;
+        
+        if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
+          const timestamp = typeof location.value === 'number' ? location.value : 
+            typeof location.value === 'string' ? parseInt(location.value) : 0;
+          
+          // Only create reference if timestamp is valid
+          if (!isNaN(timestamp) && timestamp >= 0) {
+            const minutes = Math.floor(timestamp / 60);
+            const seconds = timestamp % 60;
+            const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
+          } else {
+            // Skip invalid timestamps
+            return '';
+          }
+        } else {
+          reference = `{{ref:${chunk.source.type}:${chunk.source.title}:${location?.value ?? 'unknown'}}}`;
+        }
+        
         return `${chunk.text} ${reference}`;
       })
-      .filter(Boolean) // Remove empty strings from invalid references
+      .filter(Boolean) // Remove empty strings from invalid timestamps
       .join('\n\n');
 
-    // Update the system prompt to be more explicit about reference format
     const completion = await openai.chat.completions.create({
       messages: [
         {
           role: 'system',
-          content: `You are a knowledgeable AI assistant. Format responses with:
+          content: `You are a knowledgeable AI assistant that provides clear, direct answers. You MUST follow these formatting rules:
 
-1. STRUCTURE:
-   - # Topic heading
-   - Direct answer first
-   - ## Subheadings for sections
-   - Bullet points where needed
-   - **Bold** key terms
+1. RESPONSE FORMAT (REQUIRED):
+   - Start with a clear # heading that states the main topic
+   - Provide a direct, concise answer in the first paragraph
+   - Use markdown formatting consistently
+   - Break complex answers into logical sections with ## subheadings
+   - Use bullet points (-) for lists when needed
+   - Highlight important terms with **bold**
 
-2. CITATIONS (MANDATORY):
-   - Place references INLINE after each statement: {{ref:type:title:location}}
-   - NO reference lists at end
-   - NO bibliography format
-   - Break long paragraphs into cited statements
+2. WRITING STYLE (REQUIRED):
+   - Be clear and direct
+   - Use natural, conversational language
+   - Avoid academic or overly formal tone
+   - Explain concepts simply
+   - Give practical examples when relevant
 
-Example:
-# Topic
-Main point {{ref:youtube:Video:1:30}}. Second point {{ref:pdf:Doc:12}}.
+3. CITATION RULES (MANDATORY):
+   - Every statement must have a reference
+   - Place references immediately after each statement
+   - Format: statement {{ref}} next statement {{ref}}
+   - Never group references
+   - Never leave statements unreferenced
 
-## Details
-- Point one {{ref:youtube:Video:2:15}}
-- Point two {{ref:pdf:Doc:15}}`
+Example format:
+
+# [Question Topic]
+
+Here's a clear answer to your question {{ref}}. This leads to an important point {{ref}}.
+
+## Additional Context
+
+This provides more detail about the topic {{ref}}. Here's a practical example {{ref}}.
+
+## Key Points
+
+- First important point to understand {{ref}}
+- Second relevant point {{ref}}
+- Final clarifying point {{ref}}
+
+Remember:
+- Keep responses clear and direct
+- Use natural language
+- Include references for all statements
+- Maintain clean formatting`
         },
         {
           role: 'user',
-          content: `${question}\n\nContext:\n${context}`
+          content: `Provide a clear, direct answer with proper formatting and references for this question: ${question}\n\nContext:\n${context}`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.1,
-      max_tokens: 750,
-      presence_penalty: 0,
-      frequency_penalty: 0,
+      temperature: 0.3,
     });
 
     return completion.choices[0].message.content || 'No answer found.';
