@@ -127,14 +127,15 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       
       if (element) {
         const container = containerRef.current;
-        const containerHeight = container.clientHeight;
-        const elementHeight = element.offsetHeight;
-        const elementTop = element.offsetTop;
-        const targetScroll = elementTop - (containerHeight - elementHeight) / 3;
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        
+        // Calculate the scroll position to center the element
+        const scrollTop = element.offsetTop - (containerRect.height - elementRect.height) / 2;
 
         // Perform the scroll
         container.scrollTo({
-          top: targetScroll,
+          top: Math.max(0, scrollTop), // Prevent negative scroll
           behavior: 'smooth'
         });
 
