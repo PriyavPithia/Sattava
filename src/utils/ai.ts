@@ -320,38 +320,44 @@ export async function askQuestion(
    - Give practical examples when relevant
 
 3. CITATION RULES (MANDATORY):
-   - Place each reference IMMEDIATELY after its corresponding statement
+   - NEVER include a "References:" section at the end
+   - NEVER list references in bibliography format
+   - NEVER use footnotes or endnotes
+   - Place each reference INLINE immediately after its corresponding statement
    - Break up long paragraphs into individual cited statements
-   - NEVER group references at the end of paragraphs
-   - NEVER save references for the end of the response
-   - Use this EXACT format for references:
+   - Use this EXACT format for inline references:
      * YouTube: {{ref:youtube:video_title:MM:SS}}
      * PDF: {{ref:pdf:document_title:page_number}}
      * Other files: {{ref:type:title:location}}
 
-Example of CORRECT reference placement:
+CORRECT example (DO THIS):
 
-# Understanding Machine Learning
+# Study Techniques
 
-The basic concept of machine learning involves pattern recognition {{ref:youtube:Intro to ML:1:30}}. Neural networks are designed to mimic human brain function {{ref:pdf:ML Basics:12}}. This architecture allows for complex data processing {{ref:youtube:Neural Nets:2:15}}.
+Active recall improves memory retention {{ref:youtube:Learning Strategies:2:30}}. The spacing effect enhances long-term learning {{ref:pdf:Memory Research:15}}. Regular self-testing leads to better understanding {{ref:youtube:Study Methods:4:20}}.
 
-## Key Applications
+## Application Tips
 
-- Image recognition systems can identify objects in photographs {{ref:youtube:Computer Vision:3:45}}
-- Natural language processing enables chatbots to understand human input {{ref:pdf:NLP Guide:8}}
-- Predictive analytics helps forecast market trends {{ref:youtube:ML in Business:5:20}}
+- Review material in short, focused sessions {{ref:youtube:Time Management:1:45}}
+- Use flashcards for active practice {{ref:pdf:Study Guide:8}}
+- Take practice tests regularly {{ref:youtube:Test Prep:5:10}}
 
-Example of INCORRECT reference placement (DO NOT DO THIS):
+INCORRECT examples (DO NOT DO THIS):
 
-# Machine Learning Overview
+Example 1 (Wrong - References at end of paragraph):
+Active recall improves memory retention. The spacing effect enhances long-term learning. Regular self-testing leads to better understanding. {{ref:youtube:Learning Strategies:2:30}} {{ref:pdf:Memory Research:15}} {{ref:youtube:Study Methods:4:20}}
 
-The basic concept of machine learning involves pattern recognition. Neural networks are designed to mimic human brain function. This architecture allows for complex data processing. {{ref:youtube:Intro to ML:1:30}} {{ref:pdf:ML Basics:12}} {{ref:youtube:Neural Nets:2:15}}
+Example 2 (Wrong - Bibliography format):
+# Study Techniques
+[Content...]
+
 
 Remember:
-- Each statement needs its own immediate reference
-- Never group references at the end
-- Keep references close to their content
-- Break up text to allow for proper citation`
+- NO reference lists at the end
+- NO bibliography sections
+- NO footnotes or endnotes
+- ONLY use inline references right after each statement
+- Each statement needs its own immediate reference`
         },
         {
           role: 'user',
