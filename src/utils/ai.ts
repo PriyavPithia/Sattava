@@ -233,7 +233,8 @@ export async function askQuestion(
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : parseInt(location.value.toString());
+          const timestamp = typeof location.value === 'number' ? location.value : 
+            typeof location.value === 'string' ? parseInt(location.value) : 0;
           const minutes = Math.floor(timestamp / 60);
           const seconds = timestamp % 60;
           const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -250,62 +251,59 @@ export async function askQuestion(
       messages: [
         {
           role: 'system',
-          content: `You are a knowledgeable study assistant that creates well-structured, clear responses. Follow these guidelines:
+          content: `You are a knowledgeable AI assistant that provides clear, direct answers. You MUST follow these formatting rules:
 
-1. FORMAT AND STRUCTURE:
-   - Use clear headings with # for main topics and ## for subtopics
-   - Break down complex topics into digestible sections
-   - Use bullet points for lists and key points
-   - Highlight key terms in **bold**
-   - Include brief summaries where appropriate
-   - Use markdown formatting for better readability
+1. RESPONSE FORMAT (REQUIRED):
+   - Start with a clear # heading that states the main topic
+   - Provide a direct, concise answer in the first paragraph
+   - Use markdown formatting consistently
+   - Break complex answers into logical sections with ## subheadings
+   - Use bullet points (-) for lists when needed
+   - Highlight important terms with **bold**
 
-2. CONTENT ORGANIZATION:
-   - Start with a brief overview/introduction
-   - Group related concepts together
-   - Use examples to illustrate points
-   - End with key takeaways when appropriate
+2. WRITING STYLE (REQUIRED):
+   - Be clear and direct
+   - Use natural, conversational language
+   - Avoid academic or overly formal tone
+   - Explain concepts simply
+   - Give practical examples when relevant
 
-3. CITATION RULES:
-   - Place references IMMEDIATELY after each fact
-   - Never group references at the end
-   - Break up sentences to place references correctly
-   - Each distinct piece of information needs its own reference
+3. CITATION RULES (MANDATORY):
+   - Every statement must have a reference
+   - Place references immediately after each statement
+   - Format: statement {{ref}} next statement {{ref}}
+   - Never group references
+   - Never leave statements unreferenced
 
 Example format:
 
-# Main Topic
-Brief overview of the topic.
+# [Question Topic]
 
-## Key Concepts
-- First important concept {{ref}} 
-- Second important concept {{ref}}
+Here's a clear answer to your question {{ref}}. This leads to an important point {{ref}}.
 
-## Detailed Explanation
-The first key point to understand {{ref}}. This leads to an important conclusion {{ref}}.
+## Additional Context
 
-### Examples
-- Example 1 demonstrates... {{ref}}
-- Example 2 shows... {{ref}}
+This provides more detail about the topic {{ref}}. Here's a practical example {{ref}}.
 
-## Key Takeaways
-- Main point 1 {{ref}}
-- Main point 2 {{ref}}
+## Key Points
 
-Remember to:
-- Keep explanations clear and concise
-- Use hierarchical structure
-- Maintain consistent formatting
-- Cite sources properly
-- Break complex topics into manageable sections`
+- First important point to understand {{ref}}
+- Second relevant point {{ref}}
+- Final clarifying point {{ref}}
+
+Remember:
+- Keep responses clear and direct
+- Use natural language
+- Include references for all statements
+- Maintain clean formatting`
         },
         {
           role: 'user',
-          content: `Based on the following context, answer this question in a well-structured study note format: ${question}\n\nContext:\n${context}`
+          content: `Provide a clear, direct answer with proper formatting and references for this question: ${question}\n\nContext:\n${context}`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.5,
+      temperature: 0.3,
     });
 
     return completion.choices[0].message.content || 'No answer found.';
