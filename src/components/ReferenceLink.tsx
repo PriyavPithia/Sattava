@@ -82,7 +82,8 @@ const ReferenceLink: React.FC<ReferenceLinkProps> = ({ reference, onClick }) => 
   return (
     <button
       onClick={() => onClick(reference)}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${getButtonStyle()}`}
+      className={`reference-link inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${getButtonStyle()}`}
+      data-index={reference.index}
     >
       {reference.sourceType === 'youtube' ? (
         <>
@@ -93,7 +94,7 @@ const ReferenceLink: React.FC<ReferenceLinkProps> = ({ reference, onClick }) => 
         <>
           {getFileIcon()}
           <span>
-            {getLabel()} • {reference.sourceTitle.split('/').pop()?.split('.')[0]} • Page {reference.location.value}
+            {reference.sourceType.toUpperCase()} • {reference.sourceTitle.split('/').pop()?.split('.')[0]} • Page {reference.location.value}
           </span>
         </>
       )}

@@ -18,32 +18,57 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
 }) => {
   // Function to convert markdown to HTML while preserving reference markers
   const formatMarkdown = (text: string) => {
-    return text
-      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-gray-900 mb-4">$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">$2</h2>')
+    let formatted = text;
+    
+    // Handle headings
+    formatted = formatted.replace(/^# (.*)$/gm, (_, content) => 
+      `<h1 class="text-2xl font-bold text-gray-900 mb-4">${content}</h1>`
+    );
+    formatted = formatted.replace(/^## (.*)$/gm, (_, content) => 
+      `<h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3">${content}</h2>`
+    );
+    
+    // Handle other formatting
+    formatted = formatted
       .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')
-      .replace(/^- (.*$)/gm, '<li class="text-gray-700 mb-2">$1</li>')
+      .replace(/^- (.*)$/gm, '<li class="text-gray-700 mb-2">$1</li>');
+    
+    // Handle paragraphs
+    formatted = formatted
       .split('\n')
       .map(line => line.startsWith('-') ? line : `<p class="text-gray-700 mb-3">${line}</p>`)
       .join('\n');
+    
+    return formatted;
   };
 
-  // Replace each reference marker with its corresponding button
+  // Create a map of reference buttons
+  const createReferenceButtons = () => {
+    const buttons: { [key: string]: JSX.Element } = {};
+    references.forEach((ref, index) => {
+      const referenceWithIndex = { ...ref, index };
+      buttons[`{{ref:${ref.sourceType}:${ref.sourceTitle}:${ref.location?.value}}}`] = (
+        <ReferenceLink
+          key={index}
+          reference={referenceWithIndex}
+          onClick={onReferenceClick}
+        />
+      );
+    });
+    return buttons;
+  };
+
+  // Replace reference patterns with buttons
   const replaceReferencesWithButtons = () => {
     let formattedContent = formatMarkdown(answer);
+    const buttons = createReferenceButtons();
     
-    references.forEach((ref, index) => {
-      const marker = `__REF_MARKER_${index + 1}__`;
+    // Replace all reference patterns with their corresponding buttons
+    Object.entries(buttons).forEach(([pattern, button]) => {
       formattedContent = formattedContent.replace(
-        marker,
+        pattern,
         `<span class="inline-flex align-baseline" style="display: inline-flex; margin: 0 0.25rem;">${
-          ReactDOMServer.renderToString(
-            <ReferenceLink
-              key={index}
-              reference={ref}
-              onClick={() => onReferenceClick(ref)}
-            />
-          )
+          ReactDOMServer.renderToString(button)
         }</span>`
       );
     });
@@ -51,9 +76,22 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     return formattedContent;
   };
 
+  // Create a container with click handler delegation
+  const handleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.reference-link')) {
+      const refIndex = target.closest('.reference-link')?.getAttribute('data-index');
+      if (refIndex !== null && refIndex !== undefined) {
+        const reference = references[parseInt(refIndex)];
+        onReferenceClick(reference);
+      }
+    }
+  };
+
   return (
     <div 
       className={className}
+      onClick={handleClick}
       dangerouslySetInnerHTML={{ __html: replaceReferencesWithButtons() }}
     />
   );

@@ -10,6 +10,7 @@ export interface Reference {
   location: ContentLocation;
   text: string;
   context?: string;
+  index?: number;
 }
 
 export interface MessageWithReferences extends Message {
