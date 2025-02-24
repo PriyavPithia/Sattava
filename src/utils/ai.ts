@@ -177,7 +177,7 @@ References should be placed immediately after the relevant information.`
 
 const MIN_TIMESTAMP_DIFFERENCE = 30; // Increased from 15 to 30 seconds for better context
 
-const getTimestampSeconds = (value: string | number): number => {
+const getTimestampSeconds = (value: string | number): number | null => {
   try {
     // Handle MM:SS format
     if (typeof value === 'string' && value.includes(':')) {
@@ -189,30 +189,37 @@ const getTimestampSeconds = (value: string | number): number => {
           return (minutes * 60) + seconds;
         }
       }
+      return null;
     }
     
     // Handle direct number input
-    if (typeof value === 'number') {
+    if (typeof value === 'number' && !isNaN(value)) {
       return Math.max(0, Math.floor(value));
     }
     
     // Handle string number
-    const parsed = parseInt(value, 10);
-    return !isNaN(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+    const parsed = parseInt(value as string, 10);
+    return !isNaN(parsed) ? Math.max(0, Math.floor(parsed)) : null;
   } catch (error) {
     console.error('Error parsing timestamp:', error);
-    return 0;
+    return null;
   }
 };
 
-const formatTimestamp = (seconds: number): string => {
+const formatTimestamp = (seconds: number | null): string | null => {
   try {
+    if (seconds === null || isNaN(seconds)) {
+      return null;
+    }
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
+    if (isNaN(minutes) || isNaN(remainingSeconds)) {
+      return null;
+    }
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   } catch (error) {
     console.error('Error formatting timestamp:', error);
-    return '0:00';
+    return null;
   }
 };
 
@@ -227,14 +234,16 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
   // Sort content into appropriate arrays and convert timestamps
   content.forEach(chunk => {
     if (chunk.source.type === 'youtube' && chunk.source.location?.type === 'timestamp') {
-      const timestamp = getTimestampSeconds(chunk.source.location.value);
+      const timestampValue = getTimestampSeconds(chunk.source.location.value);
       // Only add if timestamp is valid
-      if (!isNaN(timestamp) && timestamp >= 0) {
+      if (timestampValue !== null) {
         timestampContent.push({ 
           ...chunk, 
-          timestamp,
+          timestamp: timestampValue,
           similarity: (chunk as any).similarity
         });
+      } else {
+        otherContent.push(chunk);
       }
     } else {
       otherContent.push(chunk);
@@ -280,24 +289,17 @@ export async function askQuestion(
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
           try {
-            let timestamp: number;
             const locationValue = location.value as string | number;
+            const timestamp = getTimestampSeconds(locationValue);
             
-            // Handle the timestamp value
-            if (typeof locationValue === 'string' && locationValue.includes(':')) {
-              // It's already in MM:SS format
-              timestamp = getTimestampSeconds(locationValue);
-            } else {
-              // It's a number or needs to be converted
-              timestamp = typeof locationValue === 'number' 
-                ? Math.max(0, Math.floor(locationValue))
-                : getTimestampSeconds(locationValue);
-            }
-
-            // Validate timestamp
-            if (!isNaN(timestamp) && timestamp >= 0) {
+            // Only create reference if we have a valid timestamp
+            if (timestamp !== null) {
               const formattedTime = formatTimestamp(timestamp);
-              reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
+              if (formattedTime) {
+                reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
+              } else {
+                return ''; // Skip if formatting failed
+              }
             } else {
               return ''; // Skip invalid timestamps
             }
