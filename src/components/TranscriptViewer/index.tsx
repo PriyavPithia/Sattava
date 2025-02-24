@@ -115,40 +115,46 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       if (element && containerRef.current) {
         console.log('DEBUG: Scrolling to element:', element);
 
-        // Use requestAnimationFrame for smooth scrolling
-        requestAnimationFrame(() => {
-          try {
-            // Get all elements and their positions
-            const container = containerRef.current!;
-            const containerRect = container.getBoundingClientRect();
-            const elementRect = element.getBoundingClientRect();
-            
-            // Calculate the scroll position to center the element
-            const scrollTop = element.offsetTop - (containerRect.height / 2) + (elementRect.height / 2);
-            
-            // Scroll the element into view
-            container.scrollTo({
-              top: scrollTop,
-              behavior: 'smooth'
-            });
+        // Ensure the container is scrollable
+        const container = containerRef.current;
+        container.style.overflow = 'auto';
 
-            // Apply highlight animation
-            element.style.transition = 'background-color 0.3s ease';
-            element.style.backgroundColor = '#fef3c7'; // yellow-100
-
-            // Remove highlight after animation
-            setTimeout(() => {
-              if (element) {
-                element.style.backgroundColor = '';
-              }
-            }, 3000);
-
-            // Seek video to timestamp
-            onSeek(targetSeconds);
-          } catch (error) {
-            console.error('Error during scroll/highlight:', error);
-          }
+        // Calculate positions
+        const containerHeight = container.clientHeight;
+        const elementHeight = element.offsetHeight;
+        const elementTop = element.offsetTop;
+        const currentScroll = container.scrollTop;
+        
+        // Calculate the target scroll position to center the element
+        const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
+        
+        console.log('DEBUG: Scroll calculations:', {
+          containerHeight,
+          elementHeight,
+          elementTop,
+          currentScroll,
+          targetScroll
         });
+
+        // Scroll to the element
+        container.scrollTo({
+          top: targetScroll,
+          behavior: 'smooth'
+        });
+
+        // Apply highlight animation
+        element.style.transition = 'background-color 0.3s ease';
+        element.style.backgroundColor = '#fef3c7'; // yellow-100
+
+        // Remove highlight after animation
+        setTimeout(() => {
+          if (element) {
+            element.style.backgroundColor = '';
+          }
+        }, 3000);
+
+        // Seek video to timestamp
+        onSeek(targetSeconds);
       }
     }
   }, [highlightedReference, transcriptChunks, onSeek, getTimestampInSeconds]);
@@ -201,8 +207,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       </div>
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto bg-gray-50 rounded-lg"
-        style={{ scrollbarGutter: 'stable' }}
+        className="flex-1 overflow-y-auto bg-gray-50 rounded-lg overscroll-contain"
       >
         <div className="space-y-4 p-4">
           {transcriptChunks.map((chunk, index) => {
@@ -228,6 +233,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
                     ? 'bg-yellow-100 border-yellow-300' 
                     : 'bg-white border-gray-200 hover:bg-gray-50'
                   }`}
+                data-start-time={chunk.startTime}
               >
                 <div className="bg-red-50 text-red-600 px-3 py-1 rounded-md mb-2 font-medium inline-flex items-center gap-2">
                   <Clock className="w-4 h-4" />
