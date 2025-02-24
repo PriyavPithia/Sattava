@@ -233,10 +233,32 @@ export async function askQuestion(
         let reference;
         
         if (chunk.source.type === 'youtube' && location?.type === 'timestamp') {
-          const timestamp = typeof location.value === 'number' ? location.value : 
-            typeof location.value === 'string' ? parseInt(location.value) : 0;
+          let timestamp = 0;
+          try {
+            const locationValue = location.value as string | number;
+            if (typeof locationValue === 'number') {
+              timestamp = locationValue;
+            } else if (typeof locationValue === 'string') {
+              // Handle MM:SS format
+              if (locationValue.includes(':')) {
+                const [minutes, seconds] = locationValue.split(':').map(Number);
+                if (!isNaN(minutes) && !isNaN(seconds)) {
+                  timestamp = (minutes * 60) + seconds;
+                }
+              } else {
+                // Handle raw seconds
+                const parsed = parseInt(locationValue);
+                if (!isNaN(parsed)) {
+                  timestamp = parsed;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing timestamp:', error);
+          }
+
           const minutes = Math.floor(timestamp / 60);
-          const seconds = timestamp % 60;
+          const seconds = Math.floor(timestamp % 60);
           const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           reference = `{{ref:youtube:${chunk.source.title}:${formattedTime}}}`;
         } else {
