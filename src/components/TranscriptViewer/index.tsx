@@ -130,7 +130,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
         const containerHeight = container.clientHeight;
         const elementHeight = element.offsetHeight;
         const elementTop = element.offsetTop;
-        const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
+        const targetScroll = elementTop - (containerHeight - elementHeight) / 3;
 
         // Perform the scroll
         container.scrollTo({
