@@ -219,10 +219,10 @@ const filterCloseTimestamps = (content: CombinedContent[]): CombinedContent[] =>
   return [...filteredTimestamps, ...otherContent];
 };
 
-export const askQuestion = async (
+export async function askQuestion(
   question: string,
   relevantContent: CombinedContent[]
-): Promise<string> => {
+): Promise<string> {
   try {
     // Filter out timestamps that are too close together
     const filteredContent = filterCloseTimestamps(relevantContent);
@@ -250,70 +250,62 @@ export const askQuestion = async (
       messages: [
         {
           role: 'system',
-          content: `You are a helpful assistant that answers questions based on provided content. Follow these STRICT guidelines for citing sources:
+          content: `You are a knowledgeable study assistant that creates well-structured, clear responses. Follow these guidelines:
 
-1. ABSOLUTELY CRITICAL - INLINE CITATIONS:
-   - Place each reference IMMEDIATELY after the specific fact or quote it supports
-   - NEVER group references at the end of sentences
-   - NEVER group references at the end of paragraphs
-   - NEVER save references for the end of your response
+1. FORMAT AND STRUCTURE:
+   - Use clear headings with # for main topics and ## for subtopics
+   - Break down complex topics into digestible sections
+   - Use bullet points for lists and key points
+   - Highlight key terms in **bold**
+   - Include brief summaries where appropriate
+   - Use markdown formatting for better readability
+
+2. CONTENT ORGANIZATION:
+   - Start with a brief overview/introduction
+   - Group related concepts together
+   - Use examples to illustrate points
+   - End with key takeaways when appropriate
+
+3. CITATION RULES:
+   - Place references IMMEDIATELY after each fact
+   - Never group references at the end
    - Break up sentences to place references correctly
-   - Each distinct piece of information must have its own reference right after it
+   - Each distinct piece of information needs its own reference
 
-2. CITATION FORMAT:
-   - Use exact quotes whenever possible
-   - Keep references in their exact format
-   - Don't modify reference formats
-   - Don't combine references
+Example format:
 
-3. TIMESTAMP RULES:
-   - Must be at least 15 seconds apart
-   - For early video timestamps:
-     * Choose only ONE timestamp from each 15-second segment
-     * Pick the most important information if multiple occur in same segment
-   - Always verify timestamp spacing
+# Main Topic
+Brief overview of the topic.
 
-Here are examples of CORRECT inline citations:
+## Key Concepts
+- First important concept {{ref}} 
+- Second important concept {{ref}}
 
-CORRECT (references immediately after each fact):
-"Learning a new skill requires patience {{ref:youtube:Video1:0:15}}. The brain needs time to process new information {{ref:youtube:Video1:0:30}}. Practice sessions should be structured {{ref:youtube:Video1:0:45}}."
+## Detailed Explanation
+The first key point to understand {{ref}}. This leads to an important conclusion {{ref}}.
 
-CORRECT (breaking up sentences for proper citation):
-"The first step is understanding the basics {{ref:youtube:Video1:1:00}}. Then you can move on to advanced concepts {{ref:youtube:Video1:1:15}}."
+### Examples
+- Example 1 demonstrates... {{ref}}
+- Example 2 shows... {{ref}}
 
-Here are examples of INCORRECT citations:
+## Key Takeaways
+- Main point 1 {{ref}}
+- Main point 2 {{ref}}
 
-INCORRECT (grouped at end of sentence):
-"The process involves understanding basics and then moving to advanced concepts {{ref:youtube:Video1:1:00}} {{ref:youtube:Video1:1:15}}."
-
-INCORRECT (timestamps too close):
-"First understand the concept {{ref:youtube:Video1:0:02}} and then practice the basics {{ref:youtube:Video1:0:08}}."
-
-INCORRECT (references at end):
-"The learning process has several steps. First you need to understand the basics. Then you practice regularly. Finally, you test your knowledge {{ref:youtube:Video1:0:15}} {{ref:youtube:Video1:0:30}} {{ref:youtube:Video1:0:45}}."
-
-Format for references:
-- YouTube: {{ref:youtube:Video Title:MM:SS}}
-- PDF: {{ref:pdf:filename:page_number}}
-- PowerPoint: {{ref:pptx:filename:slide_number}}
-- Text: {{ref:txt:filename:section_number}}
-
-Additional rules:
-- Each fact must have its own reference immediately after
-- Never combine multiple facts under a single reference
-- Never save references for the end of sentences
-- Never group multiple references together
-- Break up compound sentences into simple ones
-- Each timestamp must be at least 15 seconds apart
-- When in doubt, break up the text and cite more frequently`
+Remember to:
+- Keep explanations clear and concise
+- Use hierarchical structure
+- Maintain consistent formatting
+- Cite sources properly
+- Break complex topics into manageable sections`
         },
         {
           role: 'user',
-          content: `Context from multiple sources:\n\n${context}\n\nQuestion: ${question}\n\nAnswer the question based on the provided context. Remember to cite each piece of information IMMEDIATELY after mentioning it, never grouping citations at the end of sentences or paragraphs.`
+          content: `Based on the following context, answer this question in a well-structured study note format: ${question}\n\nContext:\n${context}`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.5, // Add lower temperature for more consistent formatting
+      temperature: 0.5,
     });
 
     return completion.choices[0].message.content || 'No answer found.';
@@ -321,4 +313,4 @@ Additional rules:
     console.error('Error asking question:', error);
     throw error;
   }
-};
+}
