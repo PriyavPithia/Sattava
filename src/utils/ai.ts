@@ -302,70 +302,39 @@ export async function askQuestion(
       messages: [
         {
           role: 'system',
-          content: `You are a knowledgeable AI assistant that provides clear, direct answers. You MUST follow these formatting rules:
+          content: `You are a knowledgeable AI assistant. Format responses with:
 
-1. RESPONSE FORMAT (REQUIRED):
-   - Start with a clear # heading that states the main topic
-   - Provide a direct, concise answer in the first paragraph
-   - Use markdown formatting consistently
-   - Break complex answers into logical sections with ## subheadings
-   - Use bullet points (-) for lists when needed
-   - Highlight important terms with **bold**
+1. STRUCTURE:
+   - # Topic heading
+   - Direct answer first
+   - ## Subheadings for sections
+   - Bullet points where needed
+   - **Bold** key terms
 
-2. WRITING STYLE (REQUIRED):
-   - Be clear and direct
-   - Use natural, conversational language
-   - Avoid academic or overly formal tone
-   - Explain concepts simply
-   - Give practical examples when relevant
+2. CITATIONS (MANDATORY):
+   - Place references INLINE after each statement: {{ref:type:title:location}}
+   - NO reference lists at end
+   - NO bibliography format
+   - Break long paragraphs into cited statements
 
-3. CITATION RULES (MANDATORY):
-   - NEVER include a "References:" section at the end
-   - NEVER list references in bibliography format
-   - NEVER use footnotes or endnotes
-   - Place each reference INLINE immediately after its corresponding statement
-   - Break up long paragraphs into individual cited statements
-   - Use this EXACT format for inline references:
-     * YouTube: {{ref:youtube:video_title:MM:SS}}
-     * PDF: {{ref:pdf:document_title:page_number}}
-     * Other files: {{ref:type:title:location}}
+Example:
+# Topic
+Main point {{ref:youtube:Video:1:30}}. Second point {{ref:pdf:Doc:12}}.
 
-CORRECT example (DO THIS):
-
-# Study Techniques
-
-Active recall improves memory retention {{ref:youtube:Learning Strategies:2:30}}. The spacing effect enhances long-term learning {{ref:pdf:Memory Research:15}}. Regular self-testing leads to better understanding {{ref:youtube:Study Methods:4:20}}.
-
-## Application Tips
-
-- Review material in short, focused sessions {{ref:youtube:Time Management:1:45}}
-- Use flashcards for active practice {{ref:pdf:Study Guide:8}}
-- Take practice tests regularly {{ref:youtube:Test Prep:5:10}}
-
-INCORRECT examples (DO NOT DO THIS):
-
-Example 1 (Wrong - References at end of paragraph):
-Active recall improves memory retention. The spacing effect enhances long-term learning. Regular self-testing leads to better understanding. {{ref:youtube:Learning Strategies:2:30}} {{ref:pdf:Memory Research:15}} {{ref:youtube:Study Methods:4:20}}
-
-Example 2 (Wrong - Bibliography format):
-# Study Techniques
-[Content...]
-
-
-Remember:
-- NO reference lists at the end
-- NO bibliography sections
-- NO footnotes or endnotes
-- ONLY use inline references right after each statement
-- Each statement needs its own immediate reference`
+## Details
+- Point one {{ref:youtube:Video:2:15}}
+- Point two {{ref:pdf:Doc:15}}`
         },
         {
           role: 'user',
-          content: `Provide a clear, direct answer with proper formatting and references for this question: ${question}\n\nContext:\n${context}`
+          content: `${question}\n\nContext:\n${context}`
         }
       ],
       model: 'gpt-3.5-turbo',
-      temperature: 0.3,
+      temperature: 0.1,
+      max_tokens: 750,
+      presence_penalty: 0,
+      frequency_penalty: 0,
     });
 
     return completion.choices[0].message.content || 'No answer found.';
