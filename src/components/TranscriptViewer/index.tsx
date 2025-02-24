@@ -14,7 +14,6 @@ interface TranscriptViewerProps {
   formatTime: (seconds: number) => string;
   calculateTotalDuration: (transcripts: any[]) => number;
   formatDurationLabel: (duration: number) => string;
-  highlightedTimestamp?: string;
 }
 
 const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
@@ -28,7 +27,6 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   formatTime,
   calculateTotalDuration,
   formatDurationLabel,
-  highlightedTimestamp,
 }) => {
   const { highlightedReference } = useHighlight();
   const transcriptRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -73,58 +71,41 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     return Number(timeValue);
   };
 
-  const findChunkByTimestamp = (timestamp: number) => {
-    console.log('DEBUG: Finding chunk for timestamp:', timestamp);
-    return transcriptChunks.find(chunk => {
-      const start = Math.floor(chunk.startTime);
-      const end = Math.ceil(chunk.endTime || (chunk.startTime + (chunk.duration || 0)));
-      const isMatch = timestamp >= start && timestamp <= end;
-      console.log('DEBUG: Checking chunk:', { start, end, timestamp, isMatch });
-      return isMatch;
-    });
-  };
-
-  // Updated isHighlighted function to work with all grouping types
-  const isHighlighted = (segment: any): boolean => {
-    if (!highlightedReference?.source?.type || highlightedReference.source.type !== 'youtube') {
-      return false;
-    }
-
-    const location = highlightedReference.source.location as ContentLocation | undefined;
-    if (!location || location.type !== 'timestamp') return false;
-
-    const refSeconds = getTimestampInSeconds(location.value);
-    if (isNaN(refSeconds)) return false;
-
-    // Handle both grouped and ungrouped segments
-    const segmentStart = Math.floor(segment.start || segment.startTime || 0);
-    const segmentEnd = Math.ceil(
-      segment.end || 
-      (segment.startTime + (segment.duration || 0)) || 
-      (segmentStart + (segment.duration || 0))
-    );
-
-    const isMatch = refSeconds >= segmentStart && refSeconds <= segmentEnd;
-    console.log('DEBUG: Checking highlight:', { refSeconds, segmentStart, segmentEnd, isMatch });
-    return isMatch;
-  };
-
   // Updated scroll and highlight logic
   useEffect(() => {
     if (!highlightedReference?.source?.type || highlightedReference.source.type !== 'youtube') {
       return;
     }
 
-    const location = highlightedReference.source.location as ContentLocation | undefined;
-    if (!location || location.type !== 'timestamp') return;
+    const location = highlightedReference.source.location as ContentLocation | string;
+    if (!location) return;
 
-    const targetSeconds = getTimestampInSeconds(location.value);
-    if (isNaN(targetSeconds)) return;
-
-    console.log('DEBUG: Processing reference with timestamp:', targetSeconds);
+    console.log('DEBUG: Processing YouTube reference:', location);
     
+    let targetSeconds: number;
+    if (typeof location === 'string') {
+      // Handle MM:SS format or raw seconds
+      targetSeconds = location.includes(':') 
+        ? getTimestampInSeconds(location)
+        : parseInt(location, 10);
+    } else {
+      targetSeconds = getTimestampInSeconds(location.value);
+    }
+
+    if (isNaN(targetSeconds)) {
+      console.error('Invalid timestamp:', location);
+      return;
+    }
+
+    console.log('DEBUG: Looking for timestamp:', targetSeconds);
+
     // Find the matching chunk
-    const matchingChunk = findChunkByTimestamp(targetSeconds);
+    const matchingChunk = transcriptChunks.find(chunk => {
+      const start = Math.floor(chunk.startTime);
+      const end = Math.ceil(chunk.endTime);
+      return targetSeconds >= start && targetSeconds <= end;
+    });
+
     console.log('DEBUG: Found matching chunk:', matchingChunk);
 
     if (matchingChunk) {
@@ -132,73 +113,61 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       const element = transcriptRefs.current[index];
       
       if (element && containerRef.current) {
-        // First scroll the element into view
-        element.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'center'
-        });
+        console.log('DEBUG: Scrolling to element:', element);
 
-        // Apply highlight
-        element.style.transition = 'background-color 0.3s ease';
-        element.style.backgroundColor = '#fef3c7';
-
-        // Remove highlight after animation
-        setTimeout(() => {
-          if (element) {
-            element.style.backgroundColor = '';
-          }
-        }, 3000);
-
-        // Seek video to the timestamp with a small delay to ensure scroll and highlight are visible
-        console.log('DEBUG: Seeking to timestamp:', targetSeconds);
-        setTimeout(() => {
-          onSeek(targetSeconds);
-        }, 100);
-      }
-    }
-  }, [highlightedReference, onSeek, transcriptChunks]);
-
-  // Add a separate effect to handle initial scroll when chunks change
-  useEffect(() => {
-    if (!highlightedReference?.source?.type || highlightedReference.source.type !== 'youtube') {
-      return;
-    }
-
-    const location = highlightedReference.source.location as ContentLocation | undefined;
-    if (!location || location.type !== 'timestamp') return;
-
-    const targetSeconds = getTimestampInSeconds(location.value);
-    if (isNaN(targetSeconds)) return;
-
-    // Find the matching chunk after chunks have been updated
-    const matchingChunk = findChunkByTimestamp(targetSeconds);
-    if (matchingChunk) {
-      const index = matchingChunk.index;
-      const element = transcriptRefs.current[index];
-      
-      if (element) {
-        // Use requestAnimationFrame to ensure the scroll happens after the DOM is updated
+        // Use requestAnimationFrame for smooth scrolling
         requestAnimationFrame(() => {
-          element.scrollIntoView({ 
-            behavior: 'smooth',
-            block: 'center'
-          });
+          try {
+            // Calculate scroll position to center the element
+            const container = containerRef.current!;
+            const containerHeight = container.clientHeight;
+            const elementTop = element.offsetTop;
+            const elementHeight = element.clientHeight;
+            const scrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
+            
+            // Scroll the element into view
+            container.scrollTo({
+              top: scrollTop,
+              behavior: 'smooth'
+            });
+
+            // Apply highlight animation
+            element.style.transition = 'background-color 0.3s ease';
+            element.style.backgroundColor = '#fef3c7'; // yellow-100
+
+            // Remove highlight after animation
+            setTimeout(() => {
+              if (element) {
+                element.style.backgroundColor = '';
+              }
+            }, 3000);
+
+            // Seek video to timestamp
+            onSeek(targetSeconds);
+          } catch (error) {
+            console.error('Error during scroll/highlight:', error);
+          }
         });
       }
     }
-  }, [transcriptChunks, highlightedReference]);
+  }, [highlightedReference, transcriptChunks, onSeek]);
 
   const handleSegmentClick = (segment: any) => {
-    const timestamp = segment.start || segment.startTime || 0;
+    const timestamp = segment.startTime || segment.start || 0;
     console.log('DEBUG: Segment clicked, seeking to:', timestamp);
     onSeek(timestamp);
   };
 
-  const handleTimestampClick = (timestamp: number, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the parent div's click
-    console.log('DEBUG: Timestamp clicked, seeking to:', timestamp);
-    onSeek(timestamp);
-  };
+  if (loadingTranscript) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-4" />
+          <p className="text-gray-600 font-geist">Loading transcript...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 h-full flex flex-col font-geist">
@@ -233,67 +202,26 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
         ref={containerRef}
         className="flex-1 overflow-y-auto bg-gray-50 rounded-lg"
       >
-        {loadingTranscript ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-4" />
-              <p className="text-gray-600 font-geist">Loading transcript...</p>
-            </div>
-          </div>
-        ) : durationFilter === 0 ? (
-          <div className="space-y-4 p-4">
-            {transcripts.map((segment, index) => {
-              const timestamp = formatTime(segment.start);
-              const isHighlighted = highlightedTimestamp === timestamp;
-              
-              return (
-                <div
-                  key={index}
-                  ref={el => transcriptRefs.current[index] = el}
-                  data-timestamp={timestamp}
-                  className={`p-4 rounded-lg border transition-colors ${
-                    isHighlighted 
-                      ? 'bg-yellow-100 border-yellow-300' 
-                      : 'bg-white border-gray-200 hover:bg-gray-50'
-                  }`}
-                  onClick={() => onSeek(segment.start)}
-                >
-                  <div className="flex items-center gap-2 text-gray-600 mb-2">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm font-geist">
-                      {timestamp}
-                    </span>
-                  </div>
-                  <p className="text-gray-800 font-geist">{segment.text}</p>
-                </div>
-              );
-            })}
-          </div>
-        ) :
-          groupTranscriptsByDuration(transcripts, durationFilter)?.map((group, groupIndex) => (
+        <div className="space-y-4 p-4">
+          {transcriptChunks.map((chunk, index) => (
             <div
-              key={groupIndex}
-              ref={el => transcriptRefs.current[groupIndex] = el}
-              onClick={() => handleSegmentClick(group)}
-              className={`p-4 rounded-lg text-sm border mb-4 transition-colors cursor-pointer
-                ${isHighlighted(group) 
+              key={index}
+              ref={el => transcriptRefs.current[index] = el}
+              onClick={() => handleSegmentClick(chunk)}
+              className={`p-4 rounded-lg border transition-colors cursor-pointer
+                ${chunk.isHighlighted 
                   ? 'bg-yellow-100 border-yellow-300' 
                   : 'bg-white border-gray-200 hover:bg-gray-50'
                 }`}
             >
               <div className="bg-red-50 text-red-600 px-3 py-1 rounded-md mb-2 font-medium inline-flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                <button
-                  onClick={(e) => handleTimestampClick(group.startTime, e)}
-                  className="text-red-600 hover:text-red-800 hover:underline focus:outline-none focus:ring-2 focus:ring-red-300 rounded px-1 font-geist"
-                >
-                  {formatTime(group.startTime)}
-                </button>
+                <span>{formatTime(chunk.startTime)}</span>
               </div>
-              <p className="text-gray-800 font-geist">{group.text}</p>
+              <p className="text-gray-800 font-geist">{chunk.text}</p>
             </div>
-          ))
-        }
+          ))}
+        </div>
       </div>
     </div>
   );
