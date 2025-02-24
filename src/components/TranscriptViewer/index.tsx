@@ -32,6 +32,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   const transcriptRefs = useRef<(HTMLDivElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [transcriptChunks, setTranscriptChunks] = useState<any[]>([]);
+  const lastProcessedRef = useRef<string | null>(null);
 
   // Initialize transcript chunks when transcripts change
   useEffect(() => {
@@ -80,11 +81,18 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     const location = highlightedReference.source.location as ContentLocation | string;
     if (!location) return;
 
+    // Create a unique identifier for this reference
+    const refId = typeof location === 'string' ? location : location.value.toString();
+    
+    // If we've already processed this reference, don't scroll again
+    if (lastProcessedRef.current === refId) {
+      return;
+    }
+
     console.log('DEBUG: Processing YouTube reference:', location);
     
     let targetSeconds: number;
     if (typeof location === 'string') {
-      // Handle MM:SS format or raw seconds
       targetSeconds = location.includes(':') 
         ? getTimestampInSeconds(location)
         : parseInt(location, 10);
@@ -97,8 +105,6 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       return;
     }
 
-    console.log('DEBUG: Looking for timestamp:', targetSeconds);
-
     // Find the matching chunk
     const matchingChunk = transcriptChunks.find(chunk => {
       const start = Math.floor(chunk.startTime);
@@ -106,35 +112,20 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
       return targetSeconds >= start && targetSeconds <= end;
     });
 
-    console.log('DEBUG: Found matching chunk:', matchingChunk);
-
     if (matchingChunk) {
       const index = matchingChunk.index;
       const element = transcriptRefs.current[index];
       
       if (element && containerRef.current) {
-        console.log('DEBUG: Scrolling to element:', element);
-
-        // Ensure the container is scrollable
         const container = containerRef.current;
-        container.style.overflow = 'auto';
-
+        
         // Calculate positions
         const containerHeight = container.clientHeight;
         const elementHeight = element.offsetHeight;
         const elementTop = element.offsetTop;
-        const currentScroll = container.scrollTop;
         
         // Calculate the target scroll position to center the element
         const targetScroll = elementTop - (containerHeight - elementHeight) / 2;
-        
-        console.log('DEBUG: Scroll calculations:', {
-          containerHeight,
-          elementHeight,
-          elementTop,
-          currentScroll,
-          targetScroll
-        });
 
         // Scroll to the element
         container.scrollTo({
@@ -144,7 +135,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
 
         // Apply highlight animation
         element.style.transition = 'background-color 0.3s ease';
-        element.style.backgroundColor = '#fef3c7'; // yellow-100
+        element.style.backgroundColor = '#fef3c7';
 
         // Remove highlight after animation
         setTimeout(() => {
@@ -155,9 +146,17 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
 
         // Seek video to timestamp
         onSeek(targetSeconds);
+
+        // Mark this reference as processed
+        lastProcessedRef.current = refId;
       }
     }
   }, [highlightedReference, transcriptChunks, onSeek, getTimestampInSeconds]);
+
+  // Reset the processed reference when chunks change
+  useEffect(() => {
+    lastProcessedRef.current = null;
+  }, [transcriptChunks]);
 
   const handleSegmentClick = (segment: any) => {
     const timestamp = segment.startTime || segment.start || 0;
