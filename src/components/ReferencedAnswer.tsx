@@ -47,7 +47,8 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     const buttons: { [key: string]: JSX.Element } = {};
     references.forEach((ref, index) => {
       const referenceWithIndex = { ...ref, index };
-      buttons[`{{ref:${ref.sourceType}:${ref.sourceTitle}:${ref.location?.value}}}`] = (
+      // Create button for both formats
+      buttons[`__REF_MARKER_${index}__`] = (
         <ReferenceLink
           key={index}
           reference={referenceWithIndex}
