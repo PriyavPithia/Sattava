@@ -124,7 +124,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
     if (matchingChunk && containerRef.current) {
       const index = matchingChunk.index;
       // Get the element 2 chunks before the target chunk
-      const targetIndex = Math.max(0, index - 2);
+      const targetIndex = Math.max(0, index );
       const element = transcriptRefs.current[targetIndex];
       
       if (element) {
