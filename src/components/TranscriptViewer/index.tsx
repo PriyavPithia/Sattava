@@ -123,32 +123,29 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
 
     if (matchingChunk && containerRef.current) {
       const index = matchingChunk.index;
-      const element = transcriptRefs.current[index];
+      // Get the element 2 chunks before the target chunk
+      const targetIndex = Math.max(0, index - 2);
+      const element = transcriptRefs.current[targetIndex];
       
       if (element) {
         const container = containerRef.current;
-        const containerRect = container.getBoundingClientRect();
-        const elementRect = element.getBoundingClientRect();
         
-        // Calculate the scroll position to center the element
-        const scrollTop = element.offsetTop - (containerRect.height - elementRect.height);
+        // Simple scroll to the element's position
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        // Perform the scroll
-        container.scrollTo({
-          top: Math.max(0, scrollTop), // Prevent negative scroll
-          behavior: 'smooth'
-        });
+        // Apply highlight animation to the actual matching chunk
+        const matchingElement = transcriptRefs.current[index];
+        if (matchingElement) {
+          matchingElement.style.transition = 'background-color 0.3s ease';
+          matchingElement.style.backgroundColor = '#fef3c7';
 
-        // Apply highlight animation
-        element.style.transition = 'background-color 0.3s ease';
-        element.style.backgroundColor = '#fef3c7';
-
-        // Remove highlight after animation
-        setTimeout(() => {
-          if (element) {
-            element.style.backgroundColor = '';
-          }
-        }, 3000);
+          // Remove highlight after animation
+          setTimeout(() => {
+            if (matchingElement) {
+              matchingElement.style.backgroundColor = '';
+            }
+          }, 3000);
+        }
 
         // Seek video to timestamp
         onSeek(targetSeconds);
