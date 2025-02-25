@@ -139,18 +139,23 @@ export const updateProject = async (projectId: string, updates: Partial<Project>
 };
 
 export const saveChat = async (collectionId: string, messages: Message[]) => {
+  console.log('Saving chat for collection:', collectionId);
+  console.log('Messages to save:', messages);
+  
   const { data: { user } } = await supabase.auth.getUser();
+  console.log('Current user:', user?.id);
   
   if (!user) {
+    console.error('No authenticated user found');
     throw new Error('User not authenticated');
   }
 
-  // Add timestamp to new messages that don't have one
   const messagesWithTimestamp = messages.map(msg => ({
     ...msg,
     timestamp: msg.timestamp || new Date().toISOString()
   }));
 
+  console.log('Checking for existing chat...');
   const { data: existingChat, error: fetchError } = await supabase
     .from('chats')
     .select('*')
@@ -158,12 +163,17 @@ export const saveChat = async (collectionId: string, messages: Message[]) => {
     .eq('user_id', user.id)
     .single();
 
-  if (fetchError && fetchError.code !== 'PGRST116') {
-    throw fetchError;
+  if (fetchError) {
+    if (fetchError.code === 'PGRST116') {
+      console.log('No existing chat found, will create new one');
+    } else {
+      console.error('Error checking for existing chat:', fetchError);
+      throw fetchError;
+    }
   }
 
   if (existingChat) {
-    // Update existing chat
+    console.log('Updating existing chat:', existingChat.id);
     const { error } = await supabase
       .from('chats')
       .update({
@@ -173,10 +183,14 @@ export const saveChat = async (collectionId: string, messages: Message[]) => {
       .eq('id', existingChat.id)
       .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating chat:', error);
+      throw error;
+    }
+    console.log('Chat updated successfully');
     return existingChat.id;
   } else {
-    // Create new chat
+    console.log('Creating new chat');
     const { data, error } = await supabase
       .from('chats')
       .insert({
@@ -187,18 +201,27 @@ export const saveChat = async (collectionId: string, messages: Message[]) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating chat:', error);
+      throw error;
+    }
+    console.log('New chat created successfully:', data.id);
     return data.id;
   }
 };
 
 export const loadChat = async (collectionId: string): Promise<Message[]> => {
+  console.log('Loading chat for collection:', collectionId);
+  
   const { data: { user } } = await supabase.auth.getUser();
+  console.log('Current user:', user?.id);
   
   if (!user) {
+    console.error('No authenticated user found');
     throw new Error('User not authenticated');
   }
 
+  console.log('Fetching chat messages from database...');
   const { data, error } = await supabase
     .from('chats')
     .select('messages')
@@ -206,7 +229,16 @@ export const loadChat = async (collectionId: string): Promise<Message[]> => {
     .eq('user_id', user.id)
     .single();
 
-  if (error && error.code !== 'PGRST116') throw error;
+  if (error) {
+    if (error.code === 'PGRST116') {
+      console.log('No existing chat found for this collection');
+    } else {
+      console.error('Error loading chat:', error);
+      throw error;
+    }
+  }
+
+  console.log('Loaded messages:', data?.messages);
   return (data?.messages || []) as Message[];
 };
 
