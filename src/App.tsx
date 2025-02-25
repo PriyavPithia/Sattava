@@ -331,25 +331,28 @@ function App() {
   };
 
   const handleSelectCollection = async (collection: Collection | null) => {
-    // Clear previous collection's state
+    try {
+      // Clear previous collection's state
       setSelectedVideo(null);
       setRawResponse(null);
-    setExtractedText([]);
-    setQuestion('');
-    setMessages([]);
-    
-    // Set the new collection
-    setSelectedCollection(collection);
-    
-    if (collection) {
-      try {
+      setExtractedText([]);
+      setQuestion('');
+      
+      // Set the new collection first
+      setSelectedCollection(collection);
+      
+      if (collection) {
+        console.log('Loading chat messages for collection:', collection.id);
         // Load existing chat messages for this collection
         const savedMessages = await loadChat(collection.id);
-        setMessages(savedMessages);
-    } catch (error) {
-        console.error('Error loading chat messages:', error);
+        console.log('Loaded messages:', savedMessages);
+        setMessages(savedMessages || []);
+      } else {
         setMessages([]);
       }
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+      setMessages([]);
     }
   };
 

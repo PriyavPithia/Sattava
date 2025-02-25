@@ -559,11 +559,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   }
   
   // Chat mode - show content and QA section
-  if (viewMode === 'chat') {
+  if (viewMode === 'chat' && selectedCollection) {
+    const items = selectedCollection.items || [];
     return (
       <div className="h-[calc(100vh-94px)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <button 
               onClick={handleBackToList}
               className="p-2 rounded-full hover:bg-gray-100"
@@ -571,14 +572,22 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleHomeClick}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900"
+            {/* File selection dropdown */}
+            <select
+              className="ml-4 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedVideo?.id || ''}
+              onChange={(e) => {
+                const video = items.find(item => item.id === e.target.value);
+                if (video) onVideoSelect(video);
+              }}
             >
-              Home
-            </button>
+              <option value="">Select a file</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title || item.url}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -590,7 +599,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <select
                 value={selectedVideo?.id || ''}
                 onChange={(e) => {
-                  const selected = selectedCollection.items.find(item => item.id === e.target.value);
+                  const selected = items.find(item => item.id === e.target.value);
                   if (selected && onVideoSelect) {
                     onVideoSelect(selected);
                   }
@@ -598,7 +607,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select a file to view</option>
-                {selectedCollection.items.map((item) => (
+                {items.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.title}
                   </option>
@@ -666,11 +675,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Render collection view when a collection is selected but not in chat mode
   if (selectedCollection && viewMode === 'list') {
+    const items = selectedCollection.items || [];
     console.log('Rendering collection view:', selectedCollection);
-    console.log('Collection items:', selectedCollection.items);
+    console.log('Collection items:', items);
     
     // Ensure items exist and is an array
-    const collectionItems = Array.isArray(selectedCollection.items) ? selectedCollection.items : [];
+    const collectionItems = Array.isArray(items) ? items : [];
     const filteredItems = filterItemsByType(collectionItems);
     
     console.log('Filtered items:', filteredItems);
@@ -678,7 +688,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     return (
       <div className="flex-1 p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <button 
               onClick={handleBackToList}
               className="p-2 rounded-full hover:bg-gray-100"
@@ -686,14 +696,24 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+            {/* File selection dropdown */}
+            <select
+              className="ml-4 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedVideo?.id || ''}
+              onChange={(e) => {
+                const video = items.find(item => item.id === e.target.value);
+                if (video) onVideoSelect(video);
+              }}
+            >
+              <option value="">Select a file</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title || item.url}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleHomeClick}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900"
-            >
-              Home
-            </button>
             <button
               onClick={() => handleViewModeChange('chat')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
