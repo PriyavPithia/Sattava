@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Youtube, FolderOpen, Plus, ArrowLeft, BookOpen, 
-  Loader2, Edit, MessageSquare, Trash2, Pencil
+  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TranscriptViewer from '../components/TranscriptViewer';
@@ -16,6 +16,7 @@ import { Reference } from '../types/reference';
 import { extractReferences } from '../utils/reference';
 import YoutubePlayer from '../components/YoutubePlayer';
 import ContentAddition from '../components/ContentAddition';
+import AddContentSection from '../components/AddContentSection';
 
 // Import the component-specific CombinedContent type
 import { CombinedContent as ComponentCombinedContent } from '../components/types';
@@ -60,8 +61,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'upload' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'upload' | 'file') => void;
+  addVideoMethod: 'youtube' | 'pdf' | 'file';
+  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -72,7 +73,7 @@ interface KnowledgebasePageProps {
 }
 
 // Types
-type ViewMode = 'list' | 'chat' | 'edit';
+type ViewMode = 'list' | 'chat';
 type FileType = 'all' | 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
 
 interface TranscriptSegment {
@@ -176,8 +177,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         onSelectCollection(collection);
         
         // Set view mode based on URL or default to list
-        const newViewMode = (viewModeFromUrl === 'chat' || viewModeFromUrl === 'edit') 
-          ? viewModeFromUrl 
+        const newViewMode = (viewModeFromUrl === 'chat') 
+          ? 'chat' 
           : 'list';
         console.log('Setting view mode:', newViewMode);
         setViewMode(newViewMode);
@@ -527,13 +528,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <MessageSquare className="w-4 h-4" />
               Chat
             </button>
-            <button
-              onClick={() => handleViewModeChange('edit')}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center gap-2"
-            >
-              <Edit className="w-4 h-4" />
-              Edit
-            </button>
           </div>
         </div>
         
@@ -650,82 +644,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     );
   }
   
-  // Edit mode - add/remove content
-  if (viewMode === 'edit') {
-    return (
-      <div className="flex-1 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <button 
-            onClick={handleHomeClick}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <h1 className="text-2xl font-bold">{selectedCollection.name} - Edit</h1>
-          <div className="flex-1" />
-          <button
-            onClick={handleHomeClick}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900"
-          >
-            Home
-          </button>
-        </div>
-        
-        <ContentAddition
-          addVideoMethod={addVideoMethod}
-          setAddVideoMethod={setAddVideoMethod}
-          url={url}
-          setUrl={setUrl}
-          onAddVideo={onAddVideo}
-          onFileSelect={onFileSelect}
-          isProcessingContent={isProcessingContent}
-          onTranscriptGenerated={onTranscriptGenerated}
-          onError={onError}
-        />
-        
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Collection Content</h2>
-          
-          {selectedCollection.items.length === 0 ? (
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 mb-4">No content in this knowledge base</p>
-              <p className="text-gray-500 text-sm">
-                Add YouTube videos, PDFs, or text files using the form above
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedCollection.items.map((item) => (
-                <div 
-                  key={item.id} 
-                  className="border border-gray-200 rounded-lg p-4"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    {item.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
-                    {item.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
-                    {item.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
-                    {(item.type === 'ppt' || item.type === 'pptx') && <FileText className="w-5 h-5 text-orange-600" />}
-                    <div className="font-medium text-gray-900 truncate flex-1">
-                      {item.title}
-                    </div>
-                    <button
-                      onClick={() => onDeleteContent(selectedCollection.id, item.id)}
-                      className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-  
-  // Render collection view when a collection is selected but not in chat/edit mode
+  // Render collection view when a collection is selected but not in chat mode
   if (selectedCollection && viewMode === 'list') {
     console.log('Rendering collection view:', selectedCollection);
     console.log('Collection items:', selectedCollection.items);
@@ -762,103 +681,108 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <MessageSquare className="w-4 h-4" />
               Chat
             </button>
-            <button
-              onClick={() => handleViewModeChange('edit')}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center gap-2"
-            >
-              <Edit className="w-4 h-4" />
-              Edit
-            </button>
           </div>
         </div>
 
-        {/* Collection contents */}
-        <div className="mt-6">
-          {/* Content filter tabs */}
-          <div className="border-b border-gray-200 mb-6">
-            <div className="flex gap-4">
+        {/* Add Content Section */}
+        <div className="mb-8">
+          <AddContentSection
+            addVideoMethod={addVideoMethod}
+            setAddVideoMethod={setAddVideoMethod}
+            url={url}
+            setUrl={setUrl}
+            onAddVideo={onAddVideo}
+            onFileSelect={onFileSelect}
+            isProcessingContent={isProcessingContent}
+            onTranscriptGenerated={onTranscriptGenerated}
+            onError={onError}
+          />
+        </div>
+
+        {/* Content Filter Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
               <button
-                className={`px-4 py-2 font-medium border-b-2 ${
-                  fileTypeFilter === 'all' 
-                    ? 'border-blue-600 text-blue-600' 
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
                 onClick={() => setFileTypeFilter('all')}
+                className={`${
+                  fileTypeFilter === 'all'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
               >
-                All
+                All Files
               </button>
               <button
-                className={`px-4 py-2 font-medium border-b-2 ${
-                  fileTypeFilter === 'youtube' 
-                    ? 'border-blue-600 text-blue-600' 
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
                 onClick={() => setFileTypeFilter('youtube')}
+                className={`${
+                  fileTypeFilter === 'youtube'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
               >
                 Videos
               </button>
               <button
-                className={`px-4 py-2 font-medium border-b-2 ${
-                  fileTypeFilter === 'pdf' 
-                    ? 'border-blue-600 text-blue-600' 
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
                 onClick={() => setFileTypeFilter('pdf')}
+                className={`${
+                  fileTypeFilter === 'pdf'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
               >
                 PDFs
               </button>
               <button
-                className={`px-4 py-2 font-medium border-b-2 ${
-                  fileTypeFilter === 'txt' 
-                    ? 'border-blue-600 text-blue-600' 
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
                 onClick={() => setFileTypeFilter('txt')}
+                className={`${
+                  fileTypeFilter === 'txt'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
               >
-                Text
+                Text Files
               </button>
-            </div>
+            </nav>
           </div>
-          
-          {/* Collection contents grid */}
-          {filteredItems.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => handleItemSelect(item)}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    {item.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
-                    {item.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
-                    {item.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
-                    {(item.type === 'ppt' || item.type === 'pptx') && <FileText className="w-5 h-5 text-orange-600" />}
-                    <div className="font-medium text-gray-900 truncate flex-1">
-                      {item.title || 'Untitled Item'}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteContent(selectedCollection.id, item.id);
-                      }}
-                      className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+        </div>
+
+        {/* Collection Contents */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredItems.map((item) => (
+            <div
+              key={item.id}
+              className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+            >
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      {item.type.toUpperCase()}
+                    </p>
                   </div>
+                  <button
+                    onClick={() => onDeleteContent(selectedCollection.id, item.id)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
-              ))}
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => handleItemSelect(item)}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View
+                  </button>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 mb-4">No content in this knowledge base</p>
-              <p className="text-gray-500 text-sm">
-                Click the "Edit" button above to add content to this knowledge base
-              </p>
-            </div>
-          )}
+          ))}
         </div>
       </div>
     );

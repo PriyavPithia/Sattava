@@ -15,14 +15,14 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: string;
-  setAddVideoMethod: (method: string) => void;
+  addVideoMethod: 'youtube' | 'pdf' | 'file';
+  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
   onTranscriptGenerated: (transcript: any) => void;
   onError: (error: string) => void;
-  onFileSelect: (file: File) => void;
+  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   isProcessingContent: boolean;
 }
 
@@ -34,6 +34,8 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   onAddVideo,
   onFileSelect,
   isProcessingContent,
+  onTranscriptGenerated,
+  onError,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,7 +48,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      onFileSelect(files[0]);
+      onFileSelect(e);
     }
   };
 
