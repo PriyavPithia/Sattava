@@ -377,7 +377,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     }
   };
 
-  // Add success handler for file addition
+  // Remove the chat loading effect since it's handled by the parent
   useEffect(() => {
     if (isProcessingContent === false) {
       setToast({
@@ -386,32 +386,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       });
     }
   }, [isProcessingContent]);
-
-  // Inside the component, update the chat history loading effect
-  useEffect(() => {
-    const loadChatHistory = async () => {
-      if (selectedCollection && viewMode === 'chat') {
-        try {
-          const chatHistory = await loadChat(selectedCollection.id);
-          if (chatHistory.length > 0) {
-            // Update messages with chat history
-            const updatedMessages = chatHistory.map(msg => ({
-              ...msg,
-              timestamp: msg.timestamp || new Date().toISOString()
-            }));
-            // Call the parent's message update handler
-            onQuestionChange(''); // Clear the question input
-            onAskQuestion(); // This should update the parent's messages state
-          }
-        } catch (error) {
-          console.error('Error loading chat history:', error);
-          onError('Failed to load chat history');
-        }
-      }
-    };
-
-    loadChatHistory();
-  }, [selectedCollection?.id, viewMode]);
 
   // First: check if we're showing the collection list (no selection or explicitly showing list)
   if (!selectedCollection) {
@@ -587,7 +561,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Chat mode - show content and QA section
   if (viewMode === 'chat') {
     return (
-      <div className="h-[calc(100vh-84px)] flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-94px)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <button 
