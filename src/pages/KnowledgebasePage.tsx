@@ -136,6 +136,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   isProcessingContent,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [fileTypeFilter, setFileTypeFilter] = useState<FileType>('all');
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
@@ -143,7 +144,36 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   
-  // Add useEffect to handle initial routing
+  // Add useEffect to handle URL changes and route params
+  useEffect(() => {
+    const pathParts = location.pathname.split('/');
+    if (pathParts.length >= 3 && pathParts[1] === 'knowledgebase') {
+      const collectionId = pathParts[2];
+      const foundCollection = collections.find(c => c.id === collectionId);
+      
+      if (foundCollection) {
+        // Update selected collection if it's different
+        if (!selectedCollection || selectedCollection.id !== foundCollection.id) {
+          onSelectCollection(foundCollection);
+        }
+        
+        // Update view mode based on URL
+        if (pathParts.length >= 4) {
+          const mode = pathParts[3] as ViewMode;
+          if (mode === 'chat' || mode === 'edit') {
+            setViewMode(mode);
+          } else {
+            setViewMode('list');
+          }
+        } else {
+          // Default to list view if no specific mode is in the URL
+          setViewMode('list');
+        }
+      }
+    }
+  }, [location.pathname, collections, selectedCollection, onSelectCollection]);
+  
+  // Keep the original useEffect for maintaining URL when selection changes
   useEffect(() => {
     if (selectedCollection && viewMode === 'list') {
       // Show collection view
@@ -260,8 +290,9 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     }
   };
 
-  // Render collection list when no collection is selected or in list view
-  if (!selectedCollection || viewMode === 'list') {
+  // First: check if we're showing the collection list (no selection or explicitly showing list)
+  if (!selectedCollection) {
+    // No collection selected, show the list of all collections
     return (
       <div className="flex-1 p-6">
         <div className="flex items-center justify-between mb-6">
@@ -429,6 +460,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       </div>
     );
   }
+  
+  // At this point, we have a selected collection
   
   // Chat mode - show content and QA section
   if (viewMode === 'chat') {
@@ -764,6 +797,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     );
   }
   
+  // This ensures we don't get a null return value
   return null;
 };
 
