@@ -200,15 +200,11 @@ function App() {
   const handleSelectVideo = async (video: VideoItem) => {
     console.log('DEBUG: handleSelectVideo called with:', video);
     try {
-      // Clear previous state
+      // Don't clear messages when switching files
       setRawResponse(null);
       setExtractedText([]);
       setLoadingTranscript(true);
-      
-      // Reset timestamp and highlighting when initially viewing content
       setCurrentTimestamp(0);
-      
-      // Set the selected video immediately
       setSelectedVideo(video);
       
       // For PDF/text files, set the extracted content immediately
@@ -339,15 +335,25 @@ function App() {
       setExtractedText([]);
       setQuestion('');
       
-      // Set the new collection first
+      // Set the new collection
       setSelectedCollection(collection);
       
       if (collection) {
-        console.log('Loading chat messages for collection:', collection.id);
-        // Load existing chat messages for this collection
-        const savedMessages = await loadChat(collection.id);
-        console.log('Loaded messages:', savedMessages);
-        setMessages(savedMessages || []);
+        // Only load chat messages if we don't already have them in memory
+        if (!chatHistories[collection.id]) {
+          console.log('Loading chat messages for collection:', collection.id);
+          const savedMessages = await loadChat(collection.id);
+          console.log('Loaded messages:', savedMessages);
+          
+          // Update both the current messages and chat histories
+          setChatHistories(prev => ({
+            ...prev,
+            [collection.id]: savedMessages || []
+          }));
+        }
+        
+        // Set current messages to this collection's history
+        setMessages(chatHistories[collection.id] || []);
       } else {
         setMessages([]);
       }
@@ -375,16 +381,11 @@ function App() {
       const currentHistory = chatHistories[selectedCollection.id] || [];
       const updatedMessages = [...currentHistory, newUserMessage];
       
-      // Update the chat histories state
-      setChatHistories(prev => ({
-        ...prev,
-        [selectedCollection.id]: updatedMessages
-      }));
-      
-      // Update the current messages display
+      // Update messages immediately for UI feedback
       setMessages(updatedMessages);
       setQuestion('');
 
+      // Save to database
       await saveChat(selectedCollection.id, updatedMessages);
 
       const allContent: CombinedContent[] = selectedCollection.items.flatMap(item => {
@@ -468,7 +469,29 @@ function App() {
 
     } catch (error) {
       console.error('Error asking question:', error);
-      setError('Failed to get an answer. Please try again.');
+      
+      // Handle error by adding error message to this collection's history
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: error instanceof Error ? error.message : 'Failed to get an answer. Please try again.',
+        timestamp: new Date().toISOString()
+      };
+
+      const errorMessages = [...currentHistory, newUserMessage, errorMessage];
+      
+      // Update both states with error message
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedCollection.id]: errorMessages
+      }));
+      setMessages(errorMessages);
+
+      // Save error state to database
+      if (selectedCollection) {
+        await saveChat(selectedCollection.id, errorMessages).catch(saveError => {
+          console.error('Error saving error state:', saveError);
+        });
+      }
     } finally {
       setAskingQuestion(false);
     }
@@ -1139,6 +1162,16 @@ function App() {
       setGeneratingNotes(false);
     }
   };
+
+  // Add a useEffect to handle chat history when switching collections
+  useEffect(() => {
+    if (selectedCollection) {
+      // Set the messages to the selected collection's history
+      setMessages(chatHistories[selectedCollection.id] || []);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedCollection?.id, chatHistories]);
 
   if (authLoading) {
     return <div>Loading...</div>;
