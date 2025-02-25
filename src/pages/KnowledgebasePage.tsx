@@ -520,6 +520,16 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <h1 className="text-2xl font-bold">{selectedCollection.name} - Chat</h1>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              setViewMode('list');
+              onSelectCollection(null);
+            }}
+            className="px-4 py-2 text-gray-600 hover:text-gray-900"
+          >
+            Home
+          </button>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -647,6 +657,16 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <h1 className="text-2xl font-bold">{selectedCollection.name} - Edit</h1>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              setViewMode('list');
+              onSelectCollection(null);
+            }}
+            className="px-4 py-2 text-gray-600 hover:text-gray-900"
+          >
+            Home
+          </button>
         </div>
         
         <ContentAddition

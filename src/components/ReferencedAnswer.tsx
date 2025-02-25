@@ -62,6 +62,13 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     return buttons;
   };
 
+  // Helper function to format timestamp
+  const formatTimestamp = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   // Replace reference patterns with buttons
   const replaceReferencesWithButtons = () => {
     let formattedContent = formatMarkdown(answer);
@@ -70,8 +77,23 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     // Replace all reference patterns with their corresponding buttons
     Object.entries(buttons).forEach(([pattern, button]) => {
       const ref = button.props.reference;
+      if (!ref || !ref.location || ref.location.value === undefined) return;
+      
       const isYoutube = ref.sourceType === 'youtube';
-      const locationValue = isYoutube ? formatTimestamp(ref.location.value) : ref.location.value;
+      let locationValue: string | number = ref.location.value;
+      
+      if (isYoutube) {
+        // Ensure we have a number for the timestamp
+        const numericValue = typeof locationValue === 'string' ? 
+          parseInt(locationValue) : 
+          (typeof locationValue === 'number' ? locationValue : NaN);
+          
+        if (!isNaN(numericValue)) {
+          locationValue = formatTimestamp(numericValue);
+        } else {
+          return; // Skip invalid timestamps
+        }
+      }
       
       formattedContent = formattedContent.replace(
         pattern,
@@ -106,54 +128,54 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const button = target.closest('.reference-link');
-    if (button) {
-      const locationType = button.getAttribute('data-location-type');
-      // Only proceed if location type is valid for Reference type
-      if (locationType === 'timestamp' || locationType === 'page') {
-        const locationValue = button.getAttribute('data-location-value') || '';
-        // Convert to number if it's a timestamp
-        const parsedValue = locationType === 'timestamp' ? 
-          parseInt(locationValue) : 
-          locationValue;
+    if (!button) return;
 
-        const reference: Reference = {
-          sourceId: button.getAttribute('data-source-id') || '',
-          sourceType: button.getAttribute('data-source-type') as Reference['sourceType'],
-          sourceTitle: button.getAttribute('data-source-title') || '',
-          location: {
-            type: locationType as ContentLocation['type'],
-            value: parsedValue
-          },
-          index: parseInt(button.getAttribute('data-index') || '0'),
-          text: button.getAttribute('data-text') || ''
-        };
-
-        // Create and set the highlighted reference with string location
-        const highlightedRef: CombinedContent = {
-          text: reference.text,
-          source: {
-            type: reference.sourceType,
-            title: reference.sourceTitle,
-            location: locationType === 'timestamp' ? 
-              formatTimestamp(reference.location.value as number) :
-              reference.location.value.toString()
-          }
-        };
-        
-        // Set the highlighted reference first
-        setHighlightedReference(highlightedRef);
-        
-        // Then call the click handler
-        onReferenceClick(reference);
-      }
+    const locationType = button.getAttribute('data-location-type');
+    const locationValue = button.getAttribute('data-location-value');
+    
+    // Only proceed if we have valid location data
+    if (!locationType || !locationValue || (locationType !== 'timestamp' && locationType !== 'page')) {
+      return;
     }
-  };
 
-  // Helper function to format timestamp
-  const formatTimestamp = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    // Convert to number if it's a timestamp
+    const parsedValue = locationType === 'timestamp' ? 
+      parseInt(locationValue) : 
+      locationValue;
+
+    if (locationType === 'timestamp' && isNaN(parsedValue)) {
+      return;
+    }
+
+    const reference: Reference = {
+      sourceId: button.getAttribute('data-source-id') || '',
+      sourceType: button.getAttribute('data-source-type') as Reference['sourceType'],
+      sourceTitle: button.getAttribute('data-source-title') || '',
+      location: {
+        type: locationType as ContentLocation['type'],
+        value: parsedValue
+      },
+      index: parseInt(button.getAttribute('data-index') || '0'),
+      text: button.getAttribute('data-text') || ''
+    };
+
+    // Create and set the highlighted reference with string location
+    const highlightedRef: CombinedContent = {
+      text: reference.text,
+      source: {
+        type: reference.sourceType,
+        title: reference.sourceTitle,
+        location: locationType === 'timestamp' ? 
+          formatTimestamp(reference.location.value as number) :
+          reference.location.value.toString()
+      }
+    };
+    
+    // Set the highlighted reference first
+    setHighlightedReference(highlightedRef);
+    
+    // Then call the click handler
+    onReferenceClick(reference);
   };
 
   return (
