@@ -8,6 +8,7 @@ import TranscriptViewer from '../components/TranscriptViewer';
 import PDFViewer from '../components/PDFViewer';
 import ReferencedAnswer from '../components/ReferencedAnswer';
 import QASection from '../components/QASection';
+import { loadChat } from '../utils/database';
 import { 
   VideoItem, ExtractedContent, Message, Collection, 
   ContentSource, ContentLocation
@@ -336,7 +337,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Handle reference clicks (for YouTube timestamps, PDF pages, etc.)
   const handleReferenceClick = (reference: Reference) => {
-    // Convert the reference location to match ContentSource format
+    // Convert Reference to ContentSource format
     const contentSource: ContentSource = {
       type: reference.sourceType,
       title: reference.sourceTitle,
@@ -385,6 +386,32 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       });
     }
   }, [isProcessingContent]);
+
+  // Inside the component, update the chat history loading effect
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (selectedCollection && viewMode === 'chat') {
+        try {
+          const chatHistory = await loadChat(selectedCollection.id);
+          if (chatHistory.length > 0) {
+            // Update messages with chat history
+            const updatedMessages = chatHistory.map(msg => ({
+              ...msg,
+              timestamp: msg.timestamp || new Date().toISOString()
+            }));
+            // Call the parent's message update handler
+            onQuestionChange(''); // Clear the question input
+            onAskQuestion(); // This should update the parent's messages state
+          }
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+          onError('Failed to load chat history');
+        }
+      }
+    };
+
+    loadChatHistory();
+  }, [selectedCollection?.id, viewMode]);
 
   // First: check if we're showing the collection list (no selection or explicitly showing list)
   if (!selectedCollection) {
@@ -560,7 +587,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Chat mode - show content and QA section
   if (viewMode === 'chat') {
     return (
-      <div className="h-[100vh] flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <button 
@@ -578,41 +605,47 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             >
               Home
             </button>
-            <button
-              onClick={() => handleViewModeChange('chat')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Chat
-            </button>
           </div>
         </div>
-        
-        <div className="flex flex-1 overflow-hidden">
-          {/* Content viewer - 35% width */}
-          <div className="w-[35%] border-r border-gray-200 overflow-y-auto p-4">
-            {selectedVideo && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    {selectedVideo.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
-                    {selectedVideo.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
-                    {selectedVideo.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
-                    {(selectedVideo.type === 'ppt' || selectedVideo.type === 'pptx') && (
-                      <FileText className="w-5 h-5 text-orange-600" />
-                    )}
-                    {selectedVideo.title}
-                  </h2>
-                  
-                  {selectedVideo.type === 'youtube' && selectedVideo.youtube_id && (
-                    <div className="aspect-video mb-4">
+
+        <div className="flex-1 flex overflow-hidden">
+          {/* Content viewer section - 35% width */}
+          <div className="w-[35%] border-r border-gray-200">
+            {/* Add file selector dropdown */}
+            <div className="p-4 border-b border-gray-200">
+              <select
+                value={selectedVideo?.id || ''}
+                onChange={(e) => {
+                  const selected = selectedCollection.items.find(item => item.id === e.target.value);
+                  if (selected && onVideoSelect) {
+                    onVideoSelect(selected);
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a file to view</option>
+                {selectedCollection.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Content viewer */}
+            <div className="h-full overflow-y-auto">
+              {selectedVideo && (
+                <div className="h-full">
+                  {selectedVideo.type === 'youtube' && (
+                    <div className="h-[300px] bg-black">
                       <YoutubePlayer
-                        videoId={selectedVideo.youtube_id}
+                        videoId={selectedVideo.youtube_id || ''}
                         currentTime={currentTimestamp}
+                        onSeek={onSeek}
                       />
                     </div>
                   )}
-                  
+
                   {selectedVideo.type === 'youtube' && rawResponse && (
                     <TranscriptViewer
                       videoUrl={selectedVideo.url}
@@ -627,7 +660,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                       formatDurationLabel={formatDurationLabel}
                     />
                   )}
-                  
+
                   {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
                     <PDFViewer
                       type={selectedVideo.type}
@@ -637,45 +670,19 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                     />
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-          
+
           {/* QA section - 65% width */}
           <div className="w-[65%] overflow-hidden flex flex-col">
             <QASection
-              messages={messages.map(msg => {
-                // Convert Message to QASection's expected message format
-                const qaMessage = {
-                  role: msg.role,
-                  content: msg.content,
-                  references: msg.references ? msg.references.map(ref => {
-                    // Convert ContentSource location to string format expected by CombinedContent
-                    const locationString = ref.source.location 
-                      ? (typeof ref.source.location === 'string' 
-                        ? ref.source.location 
-                        : ref.source.location.type === 'timestamp' 
-                          ? `${Math.floor(ref.source.location.value / 60)}:${String(Math.floor(ref.source.location.value % 60)).padStart(2, '0')}` 
-                          : String(ref.source.location.value))
-                      : undefined;
-                    
-                    // Create a CombinedContent compatible object
-                    return {
-                      text: ref.text,
-                      source: {
-                        type: ref.source.type,
-                        title: ref.source.title,
-                        location: locationString
-                      }
-                    } as ComponentCombinedContent;
-                  }) : undefined
-                };
-                return qaMessage;
-              })}
+              messages={messages}
               question={question}
               askingQuestion={askingQuestion}
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
+              onReferenceClick={handleReferenceClick}
             />
           </div>
         </div>
