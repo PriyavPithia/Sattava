@@ -153,18 +153,22 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       // @ts-ignore - Intentionally passing null to reset the video selection
       onVideoSelect(null);
     }
+    // Navigate to home page
+    navigate('/');
   };
   
   // Handle navigating back to the list view
   const handleBackToList = () => {
     setViewMode('list');
     onSelectCollection(null);
+    navigate('/knowledgebase');
   };
   
   // Handle selecting a collection and showing the mode selection UI
   const handleCollectionSelect = (collection: Collection) => {
     onSelectCollection(collection);
     setViewMode('list');
+    navigate(`/knowledgebase/${collection.id}`);
   };
   
   // Handle creating a new collection
@@ -236,6 +240,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       }
     };
     onReferenceClick(contentSource);
+  };
+
+  // Update the view mode handlers
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (selectedCollection) {
+      navigate(`/knowledgebase/${selectedCollection.id}/${mode}`);
+    }
   };
 
   // Render collection list when no collection is selected or in list view
@@ -412,21 +424,32 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   if (viewMode === 'chat') {
     return (
       <div className="flex-1 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <button 
-            onClick={handleHomeClick}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <h1 className="text-2xl font-bold">{selectedCollection.name} - Chat</h1>
-          <div className="flex-1" />
-          <button
-            onClick={handleHomeClick}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900"
-          >
-            Home
-          </button>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleBackToList}
+              className="p-2 rounded-full hover:bg-gray-100"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleViewModeChange('chat')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat
+            </button>
+            <button
+              onClick={() => handleViewModeChange('edit')}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center gap-2"
+            >
+              <Edit className="w-4 h-4" />
+              Edit
+            </button>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
