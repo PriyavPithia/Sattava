@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, Youtube, FolderOpen, Plus, ArrowLeft, BookOpen, 
   Loader2, Edit, MessageSquare, Trash2, Pencil
@@ -143,6 +143,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   
+  // Add useEffect to handle initial routing
+  useEffect(() => {
+    if (selectedCollection && viewMode === 'list') {
+      // Show collection view
+      navigate(`/knowledgebase/${selectedCollection.id}`);
+    }
+  }, [selectedCollection, viewMode, navigate]);
+  
   // Add this function near the top of the component
   const handleHomeClick = () => {
     // Reset all necessary state
@@ -166,7 +174,9 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Handle selecting a collection and showing the mode selection UI
   const handleCollectionSelect = (collection: Collection) => {
+    // First update the selection
     onSelectCollection(collection);
+    // Then update view mode and navigate
     setViewMode('list');
     navigate(`/knowledgebase/${collection.id}`);
   };
@@ -635,6 +645,120 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               ))}
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+  
+  // Render collection view when a collection is selected but not in chat/edit mode
+  if (selectedCollection && viewMode === 'list') {
+    return (
+      <div className="flex-1 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleBackToList}
+              className="p-2 rounded-full hover:bg-gray-100"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleViewModeChange('chat')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat
+            </button>
+            <button
+              onClick={() => handleViewModeChange('edit')}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center gap-2"
+            >
+              <Edit className="w-4 h-4" />
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Collection contents */}
+        <div className="mt-6">
+          {/* Content filter tabs */}
+          <div className="border-b border-gray-200 mb-6">
+            <div className="flex gap-4">
+              <button
+                className={`px-4 py-2 font-medium border-b-2 ${
+                  fileTypeFilter === 'all' 
+                    ? 'border-blue-600 text-blue-600' 
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+                onClick={() => setFileTypeFilter('all')}
+              >
+                All
+              </button>
+              <button
+                className={`px-4 py-2 font-medium border-b-2 ${
+                  fileTypeFilter === 'youtube' 
+                    ? 'border-blue-600 text-blue-600' 
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+                onClick={() => setFileTypeFilter('youtube')}
+              >
+                Videos
+              </button>
+              <button
+                className={`px-4 py-2 font-medium border-b-2 ${
+                  fileTypeFilter === 'pdf' 
+                    ? 'border-blue-600 text-blue-600' 
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+                onClick={() => setFileTypeFilter('pdf')}
+              >
+                PDFs
+              </button>
+              <button
+                className={`px-4 py-2 font-medium border-b-2 ${
+                  fileTypeFilter === 'txt' 
+                    ? 'border-blue-600 text-blue-600' 
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+                onClick={() => setFileTypeFilter('txt')}
+              >
+                Text
+              </button>
+            </div>
+          </div>
+          
+          {/* Collection contents grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filterItemsByType(selectedCollection.items).map((item) => (
+              <div 
+                key={item.id} 
+                className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                onClick={() => handleItemSelect(item)}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  {item.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
+                  {item.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
+                  {item.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
+                  {(item.type === 'ppt' || item.type === 'pptx') && <FileText className="w-5 h-5 text-orange-600" />}
+                  <div className="font-medium text-gray-900 truncate flex-1">
+                    {item.title}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteContent(selectedCollection.id, item.id);
+                    }}
+                    className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
