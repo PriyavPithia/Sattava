@@ -1220,6 +1220,8 @@ function App() {
                     onError={setError}
                     onFileSelect={handleFileSelect}
                     isProcessingContent={isProcessingContent}
+                    loadChat={loadChat}
+                    setMessages={setMessages}
                   />
                 } 
               />
@@ -1264,6 +1266,8 @@ function App() {
                     onError={setError}
                     onFileSelect={handleFileSelect}
                     isProcessingContent={isProcessingContent}
+                    loadChat={loadChat}
+                    setMessages={setMessages}
                   />
                 } 
               />
@@ -1308,6 +1312,8 @@ function App() {
                     onError={setError}
                     onFileSelect={handleFileSelect}
                     isProcessingContent={isProcessingContent}
+                    loadChat={loadChat}
+                    setMessages={setMessages}
                   />
                 } 
               />

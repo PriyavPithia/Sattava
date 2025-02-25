@@ -71,6 +71,10 @@ interface KnowledgebasePageProps {
   onError: (error: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   isProcessingContent: boolean;
+  
+  // Chat history
+  loadChat: (collectionId: string) => Promise<Message[]>;
+  setMessages: (messages: Message[]) => void;
 }
 
 // Types
@@ -163,6 +167,10 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   onError,
   onFileSelect,
   isProcessingContent,
+  
+  // Chat history props
+  loadChat,
+  setMessages,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -214,6 +222,17 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           : 'list';
         console.log('Setting view mode:', newViewMode);
         setViewMode(newViewMode);
+
+        // Load chat history when entering chat mode
+        if (newViewMode === 'chat') {
+          loadChat(collection.id).then(savedMessages => {
+            if (savedMessages && savedMessages.length > 0) {
+              setMessages(savedMessages);
+            }
+          }).catch(error => {
+            console.error('Error loading chat history:', error);
+          });
+        }
       }
     }
   }, [location.pathname, collections]);
@@ -578,43 +597,46 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         <div className="flex-1 flex overflow-hidden">
           {/* Content viewer section - 35% width */}
           <div className="w-[35%] border-r border-gray-200">
-            {selectedVideo && (
-              <div className="h-full">
-                {selectedVideo.type === 'youtube' && (
-                  <div className="h-[300px] bg-black">
-                    <YoutubePlayer
-                      videoId={selectedVideo.youtube_id || ''}
-                      currentTime={currentTimestamp}
+            {/* Content viewer */}
+            <div className="h-full overflow-y-auto">
+              {selectedVideo && (
+                <div className="h-full">
+                  {selectedVideo.type === 'youtube' && (
+                    <div className="h-[300px] bg-black">
+                      <YoutubePlayer
+                        videoId={selectedVideo.youtube_id || ''}
+                        currentTime={currentTimestamp}
+                        onSeek={onSeek}
+                      />
+                    </div>
+                  )}
+
+                  {selectedVideo.type === 'youtube' && rawResponse && (
+                    <TranscriptViewer
+                      videoUrl={selectedVideo.url}
+                      transcripts={rawResponse.transcripts}
+                      durationFilter={durationFilter}
+                      onDurationFilterChange={onDurationFilterChange}
                       onSeek={onSeek}
+                      loadingTranscript={loadingTranscript}
+                      groupTranscriptsByDuration={groupTranscriptsByDuration}
+                      formatTime={formatTime}
+                      calculateTotalDuration={calculateTotalDuration}
+                      formatDurationLabel={formatDurationLabel}
                     />
-                  </div>
-                )}
+                  )}
 
-                {selectedVideo.type === 'youtube' && rawResponse && (
-                  <TranscriptViewer
-                    videoUrl={selectedVideo.url}
-                    transcripts={rawResponse.transcripts}
-                    durationFilter={durationFilter}
-                    onDurationFilterChange={onDurationFilterChange}
-                    onSeek={onSeek}
-                    loadingTranscript={loadingTranscript}
-                    groupTranscriptsByDuration={groupTranscriptsByDuration}
-                    formatTime={formatTime}
-                    calculateTotalDuration={calculateTotalDuration}
-                    formatDurationLabel={formatDurationLabel}
-                  />
-                )}
-
-                {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
-                  <PDFViewer
-                    type={selectedVideo.type}
-                    title={selectedVideo.title}
-                    loading={loadingTranscript}
-                    extractedText={extractedText}
-                  />
-                )}
-              </div>
-            )}
+                  {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
+                    <PDFViewer
+                      type={selectedVideo.type}
+                      title={selectedVideo.title}
+                      loading={loadingTranscript}
+                      extractedText={extractedText}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* QA section - 65% width */}
