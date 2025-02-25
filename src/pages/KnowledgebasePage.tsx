@@ -147,6 +147,16 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Add useEffect to handle URL changes and route params
   useEffect(() => {
     const pathParts = location.pathname.split('/');
+    
+    // Reset state if navigated to the base knowledgebase path
+    if (pathParts.length === 2 && pathParts[1] === 'knowledgebase') {
+      if (selectedCollection) {
+        onSelectCollection(null);
+      }
+      setViewMode('list');
+      return;
+    }
+    
     if (pathParts.length >= 3 && pathParts[1] === 'knowledgebase') {
       const collectionId = pathParts[2];
       const foundCollection = collections.find(c => c.id === collectionId);
@@ -197,8 +207,16 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Handle navigating back to the list view
   const handleBackToList = () => {
+    // Reset view mode
     setViewMode('list');
+    // Reset collection selection
     onSelectCollection(null);
+    // Reset other relevant state
+    if (selectedVideo && onVideoSelect) {
+      // @ts-ignore - Intentionally passing null to reset the video selection
+      onVideoSelect(null);
+    }
+    // Navigate to the main knowledgebase page
     navigate('/knowledgebase');
   };
   
@@ -479,6 +497,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           </div>
           <div className="flex gap-2">
             <button
+              onClick={handleHomeClick}
+              className="px-4 py-2 text-gray-600 hover:text-gray-900"
+            >
+              Home
+            </button>
+            <button
               onClick={() => handleViewModeChange('chat')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
             >
@@ -698,6 +722,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={handleHomeClick}
+              className="px-4 py-2 text-gray-600 hover:text-gray-900"
+            >
+              Home
+            </button>
             <button
               onClick={() => handleViewModeChange('chat')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
