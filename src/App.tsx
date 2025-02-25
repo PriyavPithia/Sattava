@@ -31,7 +31,6 @@ import { Content } from './types/database';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
-import TranscriptionsPage from './pages/TranscriptionsPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
 import NavLink from './components/NavLink';
 
@@ -96,7 +95,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'upload' | 'file'>('youtube');
+  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'pdf' | 'file'>('youtube');
   const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
