@@ -385,11 +385,9 @@ function App() {
       setMessages(updatedMessages);
       setQuestion('');
 
-      // Save to database
-      await saveChat(selectedCollection.id, updatedMessages);
-
+      // Process the question and get AI response
       const allContent: CombinedContent[] = selectedCollection.items.flatMap(item => {
-          if (item.type === 'youtube' && item.transcript) {
+        if (item.type === 'youtube' && item.transcript) {
           let transcriptArray = Array.isArray(item.transcript) ? item.transcript :
             typeof item.transcript === 'string' ? JSON.parse(item.transcript) : [];
           
@@ -420,10 +418,6 @@ function App() {
           return [];
       });
 
-      if (allContent.length === 0) {
-        throw new Error('No content available in this knowledge base to answer questions.');
-      }
-
       const relevantContent = await findMostRelevantChunks(question, allContent, 5);
       
       if (relevantContent.length === 0) {
@@ -434,7 +428,15 @@ function App() {
         };
         
         const finalMessages = [...updatedMessages, noContentMessage];
+        
+        // Update both states with single update
+        setChatHistories(prev => ({
+          ...prev,
+          [selectedCollection.id]: finalMessages
+        }));
         setMessages(finalMessages);
+        
+        // Save to database
         await saveChat(selectedCollection.id, finalMessages);
         return;
       }
@@ -455,17 +457,18 @@ function App() {
         timestamp: new Date().toISOString()
       };
 
+      // Create final messages array with both user and assistant messages
       const finalMessages = [...updatedMessages, newAssistantMessage];
-      setMessages(finalMessages);
-      await saveChat(selectedCollection.id, finalMessages);
-
-      // After getting the AI response, update both states
-      const updatedMessagesWithResponse = [...finalMessages, newAssistantMessage];
+      
+      // Update both states with a single update
       setChatHistories(prev => ({
         ...prev,
-        [selectedCollection.id]: updatedMessagesWithResponse
+        [selectedCollection.id]: finalMessages
       }));
-      setMessages(updatedMessagesWithResponse);
+      setMessages(finalMessages);
+
+      // Save to database
+      await saveChat(selectedCollection.id, finalMessages);
 
     } catch (error) {
       console.error('Error asking question:', error);
@@ -479,7 +482,7 @@ function App() {
 
       const errorMessages = [...currentHistory, newUserMessage, errorMessage];
       
-      // Update both states with error message
+      // Update both states with single update
       setChatHistories(prev => ({
         ...prev,
         [selectedCollection.id]: errorMessages
@@ -487,11 +490,7 @@ function App() {
       setMessages(errorMessages);
 
       // Save error state to database
-      if (selectedCollection) {
-        await saveChat(selectedCollection.id, errorMessages).catch(saveError => {
-          console.error('Error saving error state:', saveError);
-        });
-      }
+      await saveChat(selectedCollection.id, errorMessages);
     } finally {
       setAskingQuestion(false);
     }
