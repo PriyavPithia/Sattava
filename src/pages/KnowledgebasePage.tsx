@@ -572,89 +572,49 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
-            {/* File selection dropdown */}
-            <select
-              className="ml-4 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedVideo?.id || ''}
-              onChange={(e) => {
-                const video = items.find(item => item.id === e.target.value);
-                if (video) onVideoSelect(video);
-              }}
-            >
-              <option value="">Select a file</option>
-              {items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title || item.url}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
         <div className="flex-1 flex overflow-hidden">
           {/* Content viewer section - 35% width */}
           <div className="w-[35%] border-r border-gray-200">
-            {/* Add file selector dropdown */}
-            <div className="p-4 border-b border-gray-200">
-              <select
-                value={selectedVideo?.id || ''}
-                onChange={(e) => {
-                  const selected = items.find(item => item.id === e.target.value);
-                  if (selected && onVideoSelect) {
-                    onVideoSelect(selected);
-                  }
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a file to view</option>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Content viewer */}
-            <div className="h-full overflow-y-auto">
-              {selectedVideo && (
-                <div className="h-full">
-                  {selectedVideo.type === 'youtube' && (
-                    <div className="h-[300px] bg-black">
-                      <YoutubePlayer
-                        videoId={selectedVideo.youtube_id || ''}
-                        currentTime={currentTimestamp}
-                        onSeek={onSeek}
-                      />
-                    </div>
-                  )}
-
-                  {selectedVideo.type === 'youtube' && rawResponse && (
-                    <TranscriptViewer
-                      videoUrl={selectedVideo.url}
-                      transcripts={rawResponse.transcripts}
-                      durationFilter={durationFilter}
-                      onDurationFilterChange={onDurationFilterChange}
+            {selectedVideo && (
+              <div className="h-full">
+                {selectedVideo.type === 'youtube' && (
+                  <div className="h-[300px] bg-black">
+                    <YoutubePlayer
+                      videoId={selectedVideo.youtube_id || ''}
+                      currentTime={currentTimestamp}
                       onSeek={onSeek}
-                      loadingTranscript={loadingTranscript}
-                      groupTranscriptsByDuration={groupTranscriptsByDuration}
-                      formatTime={formatTime}
-                      calculateTotalDuration={calculateTotalDuration}
-                      formatDurationLabel={formatDurationLabel}
                     />
-                  )}
+                  </div>
+                )}
 
-                  {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
-                    <PDFViewer
-                      type={selectedVideo.type}
-                      title={selectedVideo.title}
-                      loading={loadingTranscript}
-                      extractedText={extractedText}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
+                {selectedVideo.type === 'youtube' && rawResponse && (
+                  <TranscriptViewer
+                    videoUrl={selectedVideo.url}
+                    transcripts={rawResponse.transcripts}
+                    durationFilter={durationFilter}
+                    onDurationFilterChange={onDurationFilterChange}
+                    onSeek={onSeek}
+                    loadingTranscript={loadingTranscript}
+                    groupTranscriptsByDuration={groupTranscriptsByDuration}
+                    formatTime={formatTime}
+                    calculateTotalDuration={calculateTotalDuration}
+                    formatDurationLabel={formatDurationLabel}
+                  />
+                )}
+
+                {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
+                  <PDFViewer
+                    type={selectedVideo.type}
+                    title={selectedVideo.title}
+                    loading={loadingTranscript}
+                    extractedText={extractedText}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {/* QA section - 65% width */}
@@ -696,22 +656,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
-            {/* File selection dropdown */}
-            <select
-              className="ml-4 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedVideo?.id || ''}
-              onChange={(e) => {
-                const video = items.find(item => item.id === e.target.value);
-                if (video) onVideoSelect(video);
-              }}
-            >
-              <option value="">Select a file</option>
-              {items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title || item.url}
-                </option>
-              ))}
-            </select>
           </div>
           <div className="flex gap-2">
             <button
