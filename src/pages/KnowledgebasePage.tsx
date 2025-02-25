@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Youtube, FolderOpen, Plus, ArrowLeft, BookOpen, 
-  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye
+  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye, CheckCircle, XCircle
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TranscriptViewer from '../components/TranscriptViewer';
@@ -88,6 +88,33 @@ interface TranscriptGroup {
   text: string;
 }
 
+// Add Toast component
+const Toast: React.FC<{
+  message: string;
+  type: 'success' | 'error';
+  onClose: () => void;
+}> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`fixed bottom-4 right-4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white transform transition-transform duration-300 ${
+      type === 'success' ? 'bg-green-600' : 'bg-red-600'
+    }`}>
+      {type === 'success' ? (
+        <CheckCircle className="w-5 h-5" />
+      ) : (
+        <XCircle className="w-5 h-5" />
+      )}
+      {message}
+    </div>
+  );
+};
+
 const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Collection props
   collections,
@@ -144,6 +171,10 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const [isEditingCollection, setIsEditingCollection] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
   
   // Add useEffect to handle URL changes
   useEffect(() => {
@@ -326,6 +357,34 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       navigate(`/knowledgebase/${selectedCollection.id}/${mode}`);
     }
   };
+
+  // Update the content deletion handler
+  const handleDeleteContent = async (collectionId: string, contentId: string) => {
+    if (!window.confirm('Are you sure you want to delete this content?')) return;
+    
+    try {
+      await onDeleteContent(collectionId, contentId);
+      setToast({
+        message: 'Content deleted successfully',
+        type: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: 'Failed to delete content',
+        type: 'error'
+      });
+    }
+  };
+
+  // Add success handler for file addition
+  useEffect(() => {
+    if (isProcessingContent === false) {
+      setToast({
+        message: 'Content added successfully',
+        type: 'success'
+      });
+    }
+  }, [isProcessingContent]);
 
   // First: check if we're showing the collection list (no selection or explicitly showing list)
   if (!selectedCollection) {
@@ -752,32 +811,56 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 group"
             >
-              <div className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
-                      {item.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      {item.type.toUpperCase()}
-                    </p>
+              {/* Card Header with Icon */}
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {item.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
+                    {item.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
+                    {item.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
+                    {(item.type === 'ppt' || item.type === 'pptx') && (
+                      <FileText className="w-5 h-5 text-orange-600" />
+                    )}
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {item.type}
+                    </span>
                   </div>
                   <button
-                    onClick={() => onDeleteContent(selectedCollection.id, item.id)}
-                    className="text-gray-400 hover:text-red-500"
+                    onClick={() => handleDeleteContent(selectedCollection.id, item.id)}
+                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="flex justify-end mt-4">
+              </div>
+
+              {/* Card Content */}
+              <div className="p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                  {item.title}
+                </h3>
+                
+                {/* YouTube Thumbnail or File Icon */}
+                {item.type === 'youtube' && item.youtube_id && (
+                  <div className="aspect-video mb-4 rounded-md overflow-hidden">
+                    <img 
+                      src={`https://img.youtube.com/vi/${item.youtube_id}/mqdefault.jpg`}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
+                {/* Action Buttons */}
+                <div className="flex justify-end mt-4 space-x-2">
                   <button
                     onClick={() => handleItemSelect(item)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg font-medium flex items-center gap-2 transition-colors"
                   >
                     <Eye className="w-4 h-4" />
-                    View
+                    View Content
                   </button>
                 </div>
               </div>

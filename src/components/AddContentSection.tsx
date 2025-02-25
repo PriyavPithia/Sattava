@@ -198,17 +198,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
       </div>
-
-      {/* Helpful Instructions */}
-      <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900">Tips</h3>
-        <ul className="mt-2 text-sm text-gray-600 space-y-1 list-disc pl-5">
-          <li>Content will be processed and added to the selected knowledgebase</li>
-          <li>You can add multiple items to the same knowledgebase</li>
-          <li>Large files and long videos may take longer to process</li>
-          <li>Supported formats: YouTube videos, PDFs, text files, markdown, and Word documents</li>
-        </ul>
-      </div>
     </div>
   );
 };
