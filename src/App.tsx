@@ -1103,16 +1103,10 @@ function App() {
     }
   };
 
-  // Update the loading check to use authLoading
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-red-600"></div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
-  // Show login if not authenticated
   if (!user) {
     return <Login />;
   }
@@ -1120,75 +1114,68 @@ function App() {
   return (
     <Router>
       <HighlightProvider>
-        <div className="min-h-screen flex">
-          {/* Sidebar */}
-          <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
-            <div className="p-4 border-b border-gray-200">
-              <h1 className="text-xl font-semibold">Sattva AI</h1>
-            </div>
-            
-            <nav className="flex-1 p-4 space-y-2">
-              <NavLink to="/" icon={Home}>Home</NavLink>
-              <NavLink to="/knowledgebase" icon={FileText}>Knowledgebase</NavLink>
-            </nav>
-
-            {/* User Profile Section */}
-            <div className="p-4 border-t border-gray-200">
-              <div className="flex items-center space-x-3 mb-3">
-                <UserCircle className="w-8 h-8 text-gray-600" />
-                <div className="flex-1 truncate">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user?.email}
-                  </p>
-            </div>
+        <div className="min-h-screen bg-gray-50">
+          {/* Navigation */}
+          <nav className="bg-white shadow-sm">
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="flex justify-between h-16">
+                <div className="flex">
+                  <Link 
+                    to="/" 
+                    className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
+                  >
+                    <Home className="w-5 h-5 mr-2" />
+                    Home
+                  </Link>
+                  <Link 
+                    to="/knowledgebase"
+                    className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
+                  >
+                    <FileText className="w-5 h-5 mr-2" />
+                    Knowledgebase
+                  </Link>
+                </div>
+                <div className="flex items-center">
+                  <UserCircle className="w-6 h-6 text-gray-600" />
+                  <button
+                    onClick={signOut}
+                    className="ml-4 text-gray-600 hover:text-gray-900"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => signOut()}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out</span>
-              </button>
             </div>
+          </nav>
 
-            
-          </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col">
+          {/* Main content */}
+          <main className="max-w-7xl mx-auto px-4 py-6">
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route 
                 path="/knowledgebase" 
                 element={
-                  <KnowledgebasePage 
-                    // Collection management
+                  <KnowledgebasePage
                     collections={collections}
                     selectedCollection={selectedCollection}
-                    onSelectCollection={handleSelectCollection}
+                    onSelectCollection={setSelectedCollection}
                     onCreateProject={handleCreateProject}
                     onUpdateProject={handleUpdateProject}
                     onDeleteProject={handleDeleteProject}
                     onDeleteContent={handleDeleteContent}
-                    
-                    // Content viewing
                     selectedVideo={selectedVideo}
                     rawResponse={rawResponse}
                     loadingTranscript={loadingTranscript}
                     extractedText={extractedText}
                     currentTimestamp={currentTimestamp}
-                    onSeek={(timestamp) => setCurrentTimestamp(timestamp)}
+                    onSeek={setCurrentTimestamp}
                     onVideoSelect={handleSelectVideo}
-                    
-                    // Transcript settings
                     durationFilter={durationFilter}
                     onDurationFilterChange={setDurationFilter}
                     formatTime={formatTime}
                     groupTranscriptsByDuration={groupTranscriptsByDuration}
                     calculateTotalDuration={calculateTotalDuration}
                     formatDurationLabel={formatDurationLabel}
-                    
-                    // QA functionality
                     messages={messages}
                     question={question}
                     askingQuestion={askingQuestion}
@@ -1197,8 +1184,94 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    
-                    // Content addition
+                    addVideoMethod={addVideoMethod}
+                    setAddVideoMethod={setAddVideoMethod}
+                    url={url}
+                    setUrl={setUrl}
+                    onAddVideo={handleAddVideo}
+                    onTranscriptGenerated={handleTranscriptGenerated}
+                    onError={setError}
+                    onFileSelect={handleFileSelect}
+                    isProcessingContent={isProcessingContent}
+                  />
+                } 
+              />
+              <Route 
+                path="/knowledgebase/:id" 
+                element={
+                  <KnowledgebasePage
+                    collections={collections}
+                    selectedCollection={selectedCollection}
+                    onSelectCollection={setSelectedCollection}
+                    onCreateProject={handleCreateProject}
+                    onUpdateProject={handleUpdateProject}
+                    onDeleteProject={handleDeleteProject}
+                    onDeleteContent={handleDeleteContent}
+                    selectedVideo={selectedVideo}
+                    rawResponse={rawResponse}
+                    loadingTranscript={loadingTranscript}
+                    extractedText={extractedText}
+                    currentTimestamp={currentTimestamp}
+                    onSeek={setCurrentTimestamp}
+                    onVideoSelect={handleSelectVideo}
+                    durationFilter={durationFilter}
+                    onDurationFilterChange={setDurationFilter}
+                    formatTime={formatTime}
+                    groupTranscriptsByDuration={groupTranscriptsByDuration}
+                    calculateTotalDuration={calculateTotalDuration}
+                    formatDurationLabel={formatDurationLabel}
+                    messages={messages}
+                    question={question}
+                    askingQuestion={askingQuestion}
+                    onQuestionChange={setQuestion}
+                    onAskQuestion={handleAskQuestion}
+                    onReferenceClick={handleReferenceClick}
+                    onGenerateNotes={handleGenerateNotes}
+                    generatingNotes={generatingNotes}
+                    addVideoMethod={addVideoMethod}
+                    setAddVideoMethod={setAddVideoMethod}
+                    url={url}
+                    setUrl={setUrl}
+                    onAddVideo={handleAddVideo}
+                    onTranscriptGenerated={handleTranscriptGenerated}
+                    onError={setError}
+                    onFileSelect={handleFileSelect}
+                    isProcessingContent={isProcessingContent}
+                  />
+                } 
+              />
+              <Route 
+                path="/knowledgebase/:id/:mode" 
+                element={
+                  <KnowledgebasePage
+                    collections={collections}
+                    selectedCollection={selectedCollection}
+                    onSelectCollection={setSelectedCollection}
+                    onCreateProject={handleCreateProject}
+                    onUpdateProject={handleUpdateProject}
+                    onDeleteProject={handleDeleteProject}
+                    onDeleteContent={handleDeleteContent}
+                    selectedVideo={selectedVideo}
+                    rawResponse={rawResponse}
+                    loadingTranscript={loadingTranscript}
+                    extractedText={extractedText}
+                    currentTimestamp={currentTimestamp}
+                    onSeek={setCurrentTimestamp}
+                    onVideoSelect={handleSelectVideo}
+                    durationFilter={durationFilter}
+                    onDurationFilterChange={setDurationFilter}
+                    formatTime={formatTime}
+                    groupTranscriptsByDuration={groupTranscriptsByDuration}
+                    calculateTotalDuration={calculateTotalDuration}
+                    formatDurationLabel={formatDurationLabel}
+                    messages={messages}
+                    question={question}
+                    askingQuestion={askingQuestion}
+                    onQuestionChange={setQuestion}
+                    onAskQuestion={handleAskQuestion}
+                    onReferenceClick={handleReferenceClick}
+                    onGenerateNotes={handleGenerateNotes}
+                    generatingNotes={generatingNotes}
                     addVideoMethod={addVideoMethod}
                     setAddVideoMethod={setAddVideoMethod}
                     url={url}
@@ -1212,7 +1285,7 @@ function App() {
                 } 
               />
             </Routes>
-          </div>
+          </main>
         </div>
       </HighlightProvider>
     </Router>
