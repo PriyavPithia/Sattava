@@ -591,6 +591,24 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+            {/* Add file selector dropdown */}
+            <select
+              className="ml-4 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedVideo?.id || ''}
+              onChange={(e) => {
+                const video = selectedCollection.items.find(item => item.id === e.target.value);
+                if (video && onVideoSelect) {
+                  onVideoSelect(video);
+                }
+              }}
+            >
+              <option value="">Select a file to view</option>
+              {selectedCollection.items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title || item.url}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

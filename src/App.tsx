@@ -107,6 +107,7 @@ function App() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState<boolean>(false);
   const [isProcessingContent, setIsProcessingContent] = useState<boolean>(false);
   const [combinedContent, setCombinedContent] = useState<CombinedContent[]>([]);
+  const [chatHistories, setChatHistories] = useState<{ [key: string]: Message[] }>({});
 
   // Update PDF.js worker configuration
   GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -370,7 +371,17 @@ function App() {
     };
 
     try {
-      const updatedMessages = [...messages, newUserMessage];
+      // Get the current collection's chat history
+      const currentHistory = chatHistories[selectedCollection.id] || [];
+      const updatedMessages = [...currentHistory, newUserMessage];
+      
+      // Update the chat histories state
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedCollection.id]: updatedMessages
+      }));
+      
+      // Update the current messages display
       setMessages(updatedMessages);
       setQuestion('');
 
@@ -447,22 +458,17 @@ function App() {
       setMessages(finalMessages);
       await saveChat(selectedCollection.id, finalMessages);
 
+      // After getting the AI response, update both states
+      const updatedMessagesWithResponse = [...finalMessages, newAssistantMessage];
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedCollection.id]: updatedMessagesWithResponse
+      }));
+      setMessages(updatedMessagesWithResponse);
+
     } catch (error) {
       console.error('Error asking question:', error);
-      const errorMessage: Message = {
-        role: 'assistant', 
-        content: error instanceof Error ? error.message : 'I encountered an error while processing your question. Please try again.',
-        timestamp: new Date().toISOString()
-      };
-
-      const errorMessages = [...messages, newUserMessage, errorMessage];
-      setMessages(errorMessages);
-      
-      if (selectedCollection) {
-        await saveChat(selectedCollection.id, errorMessages).catch(saveError => {
-          console.error('Error saving error state:', saveError);
-        });
-      }
+      setError('Failed to get an answer. Please try again.');
     } finally {
       setAskingQuestion(false);
     }
