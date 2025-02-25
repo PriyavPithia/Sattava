@@ -1159,7 +1159,7 @@ function App() {
                     <FileText className="w-5 h-5 mr-2" />
                     Knowledgebase
                   </Link>
-                </div>
+            </div>
                 <div className="flex items-center">
                   <UserCircle className="w-6 h-6 text-gray-600" />
                   <button
@@ -1168,8 +1168,8 @@ function App() {
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
-                </div>
-              </div>
+            </div>
+          </div>
             </div>
           </nav>
 

@@ -557,13 +557,11 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     );
   }
   
-  // At this point, we have a selected collection
-  
   // Chat mode - show content and QA section
   if (viewMode === 'chat') {
     return (
-      <div className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="h-[100vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <button 
               onClick={handleBackToList}
@@ -590,59 +588,61 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Content viewer */}
-          <div className="space-y-6">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Content viewer - 35% width */}
+          <div className="w-[35%] border-r border-gray-200 overflow-y-auto p-4">
             {selectedVideo && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  {selectedVideo.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
-                  {selectedVideo.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
-                  {selectedVideo.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
-                  {(selectedVideo.type === 'ppt' || selectedVideo.type === 'pptx') && (
-                    <FileText className="w-5 h-5 text-orange-600" />
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    {selectedVideo.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
+                    {selectedVideo.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
+                    {selectedVideo.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
+                    {(selectedVideo.type === 'ppt' || selectedVideo.type === 'pptx') && (
+                      <FileText className="w-5 h-5 text-orange-600" />
+                    )}
+                    {selectedVideo.title}
+                  </h2>
+                  
+                  {selectedVideo.type === 'youtube' && selectedVideo.youtube_id && (
+                    <div className="aspect-video mb-4">
+                      <YoutubePlayer
+                        videoId={selectedVideo.youtube_id}
+                        currentTime={currentTimestamp}
+                      />
+                    </div>
                   )}
-                  {selectedVideo.title}
-                </h2>
-                
-                {selectedVideo.type === 'youtube' && selectedVideo.youtube_id && (
-                  <div className="aspect-video mb-4">
-                    <YoutubePlayer
-                      videoId={selectedVideo.youtube_id}
-                      currentTime={currentTimestamp}
+                  
+                  {selectedVideo.type === 'youtube' && rawResponse && (
+                    <TranscriptViewer
+                      videoUrl={selectedVideo.url}
+                      transcripts={rawResponse.transcripts}
+                      durationFilter={durationFilter}
+                      onDurationFilterChange={onDurationFilterChange}
+                      onSeek={onSeek}
+                      loadingTranscript={loadingTranscript}
+                      groupTranscriptsByDuration={groupTranscriptsByDuration}
+                      formatTime={formatTime}
+                      calculateTotalDuration={calculateTotalDuration}
+                      formatDurationLabel={formatDurationLabel}
                     />
-                  </div>
-                )}
-                
-                {selectedVideo.type === 'youtube' && rawResponse && (
-                  <TranscriptViewer
-                    videoUrl={selectedVideo.url}
-                    transcripts={rawResponse.transcripts}
-                    durationFilter={durationFilter}
-                    onDurationFilterChange={onDurationFilterChange}
-                    onSeek={onSeek}
-                    loadingTranscript={loadingTranscript}
-                    groupTranscriptsByDuration={groupTranscriptsByDuration}
-                    formatTime={formatTime}
-                    calculateTotalDuration={calculateTotalDuration}
-                    formatDurationLabel={formatDurationLabel}
-                  />
-                )}
-                
-                {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
-                  <PDFViewer
-                    type={selectedVideo.type}
-                    title={selectedVideo.title}
-                    loading={loadingTranscript}
-                    extractedText={extractedText}
-                  />
-                )}
+                  )}
+                  
+                  {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
+                    <PDFViewer
+                      type={selectedVideo.type}
+                      title={selectedVideo.title}
+                      loading={loadingTranscript}
+                      extractedText={extractedText}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
           
-          {/* QA section */}
-          <div>
+          {/* QA section - 65% width */}
+          <div className="w-[65%] overflow-hidden flex flex-col">
             <QASection
               messages={messages.map(msg => {
                 // Convert Message to QASection's expected message format
@@ -677,26 +677,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
             />
-            
-            <div className="mt-4">
-              <button
-                onClick={onGenerateNotes}
-                disabled={generatingNotes}
-                className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {generatingNotes ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating Notes...
-                  </>
-                ) : (
-                  <>
-                    <BookOpen className="w-4 h-4" />
-                    Generate Study Notes
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </div>
