@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import axios from 'axios';
 import { FileText, Plus, Home, Upload, UserCircle, LogOut } from 'lucide-react';
 import OpenAI from 'openai';
+import { useNavigate } from 'react-router-dom';
 
 import { getDocument } from 'pdfjs-dist';
 import { GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
@@ -48,6 +49,34 @@ interface ChunkEmbedding {
 interface TranscriptResponse {
   transcripts: TranscriptSegment[];
 }
+
+// HomeButton props interface
+interface HomeButtonProps {
+  onSelectCollection: Dispatch<SetStateAction<Collection | null>>;
+}
+
+// HomeButton component
+const HomeButton: React.FC<HomeButtonProps> = ({ onSelectCollection }) => {
+  const navigate = useNavigate();
+  
+  const handleHomeClick = () => {
+    // Reset collection selection
+    onSelectCollection(null);
+    
+    // Navigate to home page
+    navigate('/');
+  };
+  
+  return (
+    <button 
+      onClick={handleHomeClick}
+      className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
+    >
+      <Home className="w-5 h-5 mr-2" />
+      Home
+    </button>
+  );
+};
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -1120,13 +1149,9 @@ function App() {
             <div className="max-w-7xl mx-auto px-4">
               <div className="flex justify-between h-16">
                 <div className="flex">
-                  <Link 
-                    to="/" 
-                    className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
-                  >
-                    <Home className="w-5 h-5 mr-2" />
-                    Home
-                  </Link>
+                  <HomeButton 
+                    onSelectCollection={setSelectedCollection}
+                  />
                   <Link 
                     to="/knowledgebase"
                     className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
