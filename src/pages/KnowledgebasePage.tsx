@@ -143,6 +143,18 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   
+  // Add this function near the top of the component
+  const handleHomeClick = () => {
+    // Reset all necessary state
+    setViewMode('list');
+    onSelectCollection(null);
+    // Reset any other relevant state here
+    if (selectedVideo && onVideoSelect) {
+      // @ts-ignore - Intentionally passing null to reset the video selection
+      onVideoSelect(null);
+    }
+  };
+  
   // Handle navigating back to the list view
   const handleBackToList = () => {
     setViewMode('list');
@@ -230,229 +242,117 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   if (!selectedCollection || viewMode === 'list') {
     return (
       <div className="flex-1 p-6">
-        {selectedCollection ? (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={handleBackToList}
-                  className="p-2 rounded-full hover:bg-gray-100"
-                >
-                  <ArrowLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Knowledge Bases</h1>
+          <button
+            onClick={() => {
+              setIsCreatingCollection(true);
+              setNewName('');
+              setNewDescription('');
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            New Knowledge Base
+          </button>
+        </div>
+        
+        {isCreatingCollection ? (
+          <div className="bg-white p-6 rounded-lg border border-gray-200 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Create Knowledge Base</h2>
+            <form onSubmit={handleCreateCollection}>
+              <div className="mb-4">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setViewMode('chat')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Chat
-                </button>
-                <button
-                  onClick={() => setViewMode('edit')}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium flex items-center gap-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </button>
+              <div className="mb-4">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  rows={3}
+                />
               </div>
-            </div>
-            <p className="text-gray-600 mb-6">{selectedCollection.description}</p>
-            
-            {/* Content filter tabs */}
-            <div className="border-b border-gray-200 mb-6">
-              <div className="flex gap-4">
+              <div className="flex justify-end gap-2">
                 <button
-                  className={`px-4 py-2 font-medium border-b-2 ${
-                    fileTypeFilter === 'all' 
-                      ? 'border-blue-600 text-blue-600' 
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                  onClick={() => setFileTypeFilter('all')}
+                  type="button"
+                  onClick={() => setIsCreatingCollection(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md"
                 >
-                  All
+                  Cancel
                 </button>
                 <button
-                  className={`px-4 py-2 font-medium border-b-2 ${
-                    fileTypeFilter === 'youtube' 
-                      ? 'border-blue-600 text-blue-600' 
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                  onClick={() => setFileTypeFilter('youtube')}
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md"
                 >
-                  Videos
-                </button>
-                <button
-                  className={`px-4 py-2 font-medium border-b-2 ${
-                    fileTypeFilter === 'pdf' 
-                      ? 'border-blue-600 text-blue-600' 
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                  onClick={() => setFileTypeFilter('pdf')}
-                >
-                  PDFs
-                </button>
-                <button
-                  className={`px-4 py-2 font-medium border-b-2 ${
-                    fileTypeFilter === 'txt' 
-                      ? 'border-blue-600 text-blue-600' 
-                      : 'border-transparent text-gray-600 hover:text-gray-900'
-                  }`}
-                  onClick={() => setFileTypeFilter('txt')}
-                >
-                  Text
+                  Create
                 </button>
               </div>
-            </div>
-            
-            {/* Collection contents */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filterItemsByType(selectedCollection.items).map((item) => (
-                <div 
-                  key={item.id} 
-                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => handleItemSelect(item)}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    {item.type === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
-                    {item.type === 'pdf' && <FileText className="w-5 h-5 text-blue-600" />}
-                    {item.type === 'txt' && <FileText className="w-5 h-5 text-green-600" />}
-                    {(item.type === 'ppt' || item.type === 'pptx') && <FileText className="w-5 h-5 text-orange-600" />}
-                    <div className="font-medium text-gray-900 truncate flex-1">
-                      {item.title}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteContent(selectedCollection.id, item.id);
-                      }}
-                      className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            </form>
           </div>
-        ) : (
-          <>
-            {/* Knowledge bases list */}
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Knowledge Bases</h1>
-              <button
-                onClick={() => {
-                  setIsCreatingCollection(true);
-                  setNewName('');
-                  setNewDescription('');
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                New Knowledge Base
-              </button>
-            </div>
-            
-            {isCreatingCollection ? (
-              <div className="bg-white p-6 rounded-lg border border-gray-200 mb-6">
-                <h2 className="text-xl font-semibold mb-4">Create Knowledge Base</h2>
-                <form onSubmit={handleCreateCollection}>
-                  <div className="mb-4">
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      required
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      id="description"
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingCollection(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md"
-                    >
-                      Create
-                    </button>
-                  </div>
-                </form>
-              </div>
-            ) : null}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {collections.map((collection) => (
-                <div
-                  key={collection.id}
-                  className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold">{collection.name}</h3>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setIsEditingCollection(true);
-                          setNewName(collection.name);
-                          setNewDescription(collection.description || '');
-                          onSelectCollection(collection);
-                        }}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCollection(collection.id)}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  {collection.description && (
-                    <p className="text-gray-600 mb-3 text-sm line-clamp-2">{collection.description}</p>
-                  )}
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="text-sm text-gray-500">
-                      {collection.items.length} items
-                    </div>
-                    <button
-                      onClick={() => handleCollectionSelect(collection)}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
-                    >
-                      View
-                    </button>
-                  </div>
+        ) : null}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {collections.map((collection) => (
+            <div
+              key={collection.id}
+              className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold">{collection.name}</h3>
                 </div>
-              ))}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setIsEditingCollection(true);
+                      setNewName(collection.name);
+                      setNewDescription(collection.description || '');
+                      onSelectCollection(collection);
+                    }}
+                    className="p-1.5 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCollection(collection.id)}
+                    className="p-1.5 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {collection.description && (
+                <p className="text-gray-600 mb-3 text-sm line-clamp-2">{collection.description}</p>
+              )}
+              <div className="flex justify-between items-center mt-4">
+                <div className="text-sm text-gray-500">
+                  {collection.items.length} items
+                </div>
+                <button
+                  onClick={() => handleCollectionSelect(collection)}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+                >
+                  View
+                </button>
+              </div>
             </div>
-          </>
-        )}
+          ))}
+        </div>
         
         {/* Edit collection form */}
         {isEditingCollection && selectedCollection && (
@@ -514,7 +414,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       <div className="flex-1 p-6">
         <div className="flex items-center gap-2 mb-6">
           <button 
-            onClick={() => setViewMode('list')}
+            onClick={handleHomeClick}
             className="p-2 rounded-full hover:bg-gray-100"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -522,10 +422,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           <h1 className="text-2xl font-bold">{selectedCollection.name} - Chat</h1>
           <div className="flex-1" />
           <button
-            onClick={() => {
-              setViewMode('list');
-              onSelectCollection(null);
-            }}
+            onClick={handleHomeClick}
             className="px-4 py-2 text-gray-600 hover:text-gray-900"
           >
             Home
@@ -651,7 +548,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       <div className="flex-1 p-6">
         <div className="flex items-center gap-2 mb-6">
           <button 
-            onClick={() => setViewMode('list')}
+            onClick={handleHomeClick}
             className="p-2 rounded-full hover:bg-gray-100"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -659,10 +556,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           <h1 className="text-2xl font-bold">{selectedCollection.name} - Edit</h1>
           <div className="flex-1" />
           <button
-            onClick={() => {
-              setViewMode('list');
-              onSelectCollection(null);
-            }}
+            onClick={handleHomeClick}
             className="px-4 py-2 text-gray-600 hover:text-gray-900"
           >
             Home
