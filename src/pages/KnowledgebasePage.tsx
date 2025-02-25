@@ -587,7 +587,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Chat mode - show content and QA section
   if (viewMode === 'chat') {
     return (
-      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-84px)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <button 
