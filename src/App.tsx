@@ -31,6 +31,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import TranscriptionsPage from './pages/TranscriptionsPage';
+import KnowledgebasePage from './pages/KnowledgebasePage';
 import NavLink from './components/NavLink';
 
 
@@ -271,12 +272,12 @@ function App() {
 
   const handleTranscriptGenerated = async (transcript: TranscriptResponse) => {
     try {
-      const newVideo: VideoItem = {
-        id: `local-${Date.now()}`,
-        url: 'local',
-        title: `Uploaded Video ${videoList.length + 1}`,
-        type: 'local'
-      };
+    const newVideo: VideoItem = {
+      id: `local-${Date.now()}`,
+      url: 'local',
+      title: `Uploaded Video ${videoList.length + 1}`,
+      type: 'local'
+    };
 
       // Generate embeddings for the transcript
       const embeddingsPromises = transcript.transcripts.map(async (segment: TranscriptSegment) => {
@@ -290,8 +291,8 @@ function App() {
       const chunkEmbeddings = await Promise.all(embeddingsPromises);
 
       // Update state
-      setVideoList(prevList => [newVideo, ...prevList]);
-      setSelectedVideo(newVideo);
+    setVideoList(prevList => [newVideo, ...prevList]);
+    setSelectedVideo(newVideo);
       setRawResponse(transcript);
       setEmbeddings(chunkEmbeddings);
       
@@ -303,8 +304,8 @@ function App() {
 
   const handleSelectCollection = async (collection: Collection | null) => {
     // Clear previous collection's state
-    setSelectedVideo(null);
-    setRawResponse(null);
+      setSelectedVideo(null);
+      setRawResponse(null);
     setExtractedText([]);
     setQuestion('');
     setMessages([]);
@@ -317,7 +318,7 @@ function App() {
         // Load existing chat messages for this collection
         const savedMessages = await loadChat(collection.id);
         setMessages(savedMessages);
-      } catch (error) {
+    } catch (error) {
         console.error('Error loading chat messages:', error);
         setMessages([]);
       }
@@ -345,35 +346,35 @@ function App() {
       await saveChat(selectedCollection.id, updatedMessages);
 
       const allContent: CombinedContent[] = selectedCollection.items.flatMap(item => {
-        if (item.type === 'youtube' && item.transcript) {
+          if (item.type === 'youtube' && item.transcript) {
           let transcriptArray = Array.isArray(item.transcript) ? item.transcript :
             typeof item.transcript === 'string' ? JSON.parse(item.transcript) : [];
           
           return transcriptArray.map((segment: any) => ({
-            text: segment.text,
-            source: {
+              text: segment.text,
+              source: {
               type: 'youtube' as ContentSource['type'],
               title: item.title || item.url,
-              location: {
-                type: 'timestamp',
+                location: {
+                  type: 'timestamp',
                 value: Math.floor(segment.start)
+                }
               }
-            }
-          }));
-        } else if (['pdf', 'txt', 'ppt', 'pptx'].includes(item.type) && item.extractedContent) {
-          return item.extractedContent.map((chunk, index) => ({
-            text: chunk.text,
-            source: {
+            }));
+          } else if (['pdf', 'txt', 'ppt', 'pptx'].includes(item.type) && item.extractedContent) {
+            return item.extractedContent.map((chunk, index) => ({
+              text: chunk.text,
+              source: {
               type: item.type as ContentSource['type'],
-              title: item.title,
-              location: {
+                title: item.title,
+                location: {
                 type: (item.type === 'pdf' ? 'page' : 'section') as ContentLocation['type'],
-                value: chunk.pageNumber || index + 1
+                  value: chunk.pageNumber || index + 1
+                }
               }
-            }
-          }));
-        }
-        return [];
+            }));
+          }
+          return [];
       });
 
       if (allContent.length === 0) {
@@ -418,7 +419,7 @@ function App() {
     } catch (error) {
       console.error('Error asking question:', error);
       const errorMessage: Message = {
-        role: 'assistant',
+        role: 'assistant', 
         content: error instanceof Error ? error.message : 'I encountered an error while processing your question. Please try again.',
         timestamp: new Date().toISOString()
       };
@@ -606,25 +607,25 @@ function App() {
 
       // Process content in background
       const processContent = async () => {
-        if (fileType === 'pdf') {
-          const pdfData = await file.arrayBuffer();
-          const pdf = await getDocument(pdfData).promise;
-          const numPages = pdf.numPages;
-          const textContent = [];
-          
-          for (let i = 1; i <= numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            textContent.push(content.items.map((item: any) => item.str).join(' '));
-          }
-          
-          return textContent.join('\n');
-        } else if (fileType === 'txt') {
-          return await file.text();
-        } else if (['ppt', 'pptx'].includes(fileType)) {
-          const slides = await extractPowerPointContent(file);
-          return slides.map(slide => slide.text).join('\n\n');
+      if (fileType === 'pdf') {
+        const pdfData = await file.arrayBuffer();
+        const pdf = await getDocument(pdfData).promise;
+        const numPages = pdf.numPages;
+        const textContent = [];
+        
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          textContent.push(content.items.map((item: any) => item.str).join(' '));
         }
+        
+          return textContent.join('\n');
+      } else if (fileType === 'txt') {
+          return await file.text();
+      } else if (['ppt', 'pptx'].includes(fileType)) {
+        const slides = await extractPowerPointContent(file);
+          return slides.map(slide => slide.text).join('\n\n');
+      }
         return '';
       };
 
@@ -665,7 +666,7 @@ function App() {
       ));
 
       if (!selectedVideo) {
-        setSelectedVideo(newItem);
+      setSelectedVideo(newItem);
       }
 
       // Clear input
@@ -830,18 +831,18 @@ function App() {
         });
 
         const collectionsWithContent = projects.map(project => ({
-          id: project.id,
-          name: project.name,
-          description: project.description,
+        id: project.id,
+        name: project.name,
+        description: project.description,
           items: contentMap.get(project.id) || [],
-          createdAt: new Date(project.created_at)
+        createdAt: new Date(project.created_at)
         }));
 
         setCollections(collectionsWithContent);
-      } catch (error) {
-        setError('Failed to load projects');
-      }
-    };
+    } catch (error) {
+      setError('Failed to load projects');
+    }
+  };
 
     loadInitialData();
   }, [user, authLoading]);
@@ -929,11 +930,11 @@ function App() {
       if (error) {
         // Rollback on error
         if (itemToDelete) {
-          setCollections(prev => prev.map(col => 
-            col.id === collectionId
+      setCollections(prev => prev.map(col => 
+        col.id === collectionId
               ? { ...col, items: [...col.items, itemToDelete] }
-              : col
-          ));
+          : col
+      ));
         }
         throw error;
       }
@@ -1128,8 +1129,7 @@ function App() {
             
             <nav className="flex-1 p-4 space-y-2">
               <NavLink to="/" icon={Home}>Home</NavLink>
-              <NavLink to="/upload" icon={Upload}>Knowledgebases</NavLink>
-              <NavLink to="/transcriptions" icon={FileText}>Transcriptions</NavLink>
+              <NavLink to="/knowledgebase" icon={FileText}>Knowledgebase</NavLink>
             </nav>
 
             {/* User Profile Section */}
@@ -1140,7 +1140,7 @@ function App() {
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {user?.email}
                   </p>
-                </div>
+            </div>
               </div>
               <button
                 onClick={() => signOut()}
@@ -1159,9 +1159,46 @@ function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route 
-                path="/upload" 
+                path="/knowledgebase" 
                 element={
-                  <UploadPage 
+                  <KnowledgebasePage 
+                    // Collection management
+                    collections={collections}
+                    selectedCollection={selectedCollection}
+                    onSelectCollection={handleSelectCollection}
+                    onCreateProject={handleCreateProject}
+                    onUpdateProject={handleUpdateProject}
+                    onDeleteProject={handleDeleteProject}
+                    onDeleteContent={handleDeleteContent}
+                    
+                    // Content viewing
+                    selectedVideo={selectedVideo}
+                    rawResponse={rawResponse}
+                    loadingTranscript={loadingTranscript}
+                    extractedText={extractedText}
+                    currentTimestamp={currentTimestamp}
+                    onSeek={(timestamp) => setCurrentTimestamp(timestamp)}
+                    onVideoSelect={handleSelectVideo}
+                    
+                    // Transcript settings
+                    durationFilter={durationFilter}
+                    onDurationFilterChange={setDurationFilter}
+                    formatTime={formatTime}
+                    groupTranscriptsByDuration={groupTranscriptsByDuration}
+                    calculateTotalDuration={calculateTotalDuration}
+                    formatDurationLabel={formatDurationLabel}
+                    
+                    // QA functionality
+                    messages={messages}
+                    question={question}
+                    askingQuestion={askingQuestion}
+                    onQuestionChange={setQuestion}
+                    onAskQuestion={handleAskQuestion}
+                    onReferenceClick={handleReferenceClick}
+                    onGenerateNotes={handleGenerateNotes}
+                    generatingNotes={generatingNotes}
+                    
+                    // Content addition
                     addVideoMethod={addVideoMethod}
                     setAddVideoMethod={setAddVideoMethod}
                     url={url}
@@ -1171,58 +1208,6 @@ function App() {
                     onError={setError}
                     onFileSelect={handleFileSelect}
                     isProcessingContent={isProcessingContent}
-                    collections={collections}
-                    selectedCollection={selectedCollection}
-                    onSelectCollection={handleSelectCollection}
-                    onCreateProject={handleCreateProject}
-                    onUpdateProject={handleUpdateProject}
-                    onDeleteProject={handleDeleteProject}
-                    onDeleteContent={handleDeleteContent}
-                  />
-                } 
-              />
-              <Route 
-                path="/transcriptions" 
-                element={
-                  <TranscriptionsPage 
-                    collections={collections}
-                    selectedCollection={selectedCollection}
-                    onSelectCollection={handleSelectCollection}
-                    selectedVideo={selectedVideo}
-                    rawResponse={rawResponse}
-                    messages={messages}
-                    question={question}
-                    askingQuestion={askingQuestion}
-                    onQuestionChange={setQuestion}
-                    onAskQuestion={handleAskQuestion}
-                    durationFilter={durationFilter}
-                    onDurationFilterChange={setDurationFilter}
-                    onSeek={(timestamp) => {
-                      console.log('DEBUG: Setting timestamp:', timestamp);
-                      setCurrentTimestamp(timestamp);
-                    }}
-                    loadingTranscript={loadingTranscript}
-                    extractedText={extractedText}
-                    formatTime={formatTime}
-                    groupTranscriptsByDuration={groupTranscriptsByDuration}
-                    calculateTotalDuration={calculateTotalDuration}
-                    formatDurationLabel={formatDurationLabel}
-                    currentTimestamp={currentTimestamp}
-                    onReferenceClick={(source) => {
-                      console.log('DEBUG: Reference click in App:', source);
-                      handleReferenceClick(source);
-                    }}
-                    onTranscriptLoad={(data) => {
-                      console.log('DEBUG: Loading transcript:', data);
-                      setRawResponse(data);
-                    }}
-                    onVideoSelect={(video) => {
-                      console.log('DEBUG: Video selection in App:', video);
-                      setSelectedVideo(video);
-                      handleSelectVideo(video);
-                    }}
-                    onGenerateNotes={handleGenerateNotes}
-                    generatingNotes={generatingNotes}
                   />
                 } 
               />
