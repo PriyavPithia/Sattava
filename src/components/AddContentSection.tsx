@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Upload, Youtube, FileText, Paperclip } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Upload, Youtube, FileText, Paperclip, Mic, Type } from 'lucide-react';
 
 interface SpinnerProps {
   className?: string;
@@ -15,14 +15,15 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'pdf' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
   onTranscriptGenerated: (transcript: any) => void;
   onError: (error: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onTextSubmit?: (text: string) => void;
   isProcessingContent: boolean;
 }
 
@@ -36,8 +37,10 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   isProcessingContent,
   onTranscriptGenerated,
   onError,
+  onTextSubmit,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [textInput, setTextInput] = useState<string>('');
 
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
@@ -49,6 +52,12 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     const files = e.target.files;
     if (files && files.length > 0) {
       onFileSelect(e);
+    }
+  };
+
+  const handleTextSubmit = () => {
+    if (onTextSubmit && textInput.trim()) {
+      onTextSubmit(textInput);
     }
   };
 
@@ -68,26 +77,37 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           <span>YouTube</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('pdf')}
+          onClick={() => setAddVideoMethod('files')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'pdf' 
+            addVideoMethod === 'files' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           <FileText className="w-5 h-5" />
-          <span>PDF</span>
+          <span>Upload Files</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('file')}
+          onClick={() => setAddVideoMethod('speech')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'file' 
+            addVideoMethod === 'speech' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Paperclip className="w-5 h-5" />
-          <span>Other File</span>
+          <Mic className="w-5 h-5" />
+          <span>Speech to Text</span>
+        </button>
+        <button
+          onClick={() => setAddVideoMethod('text')}
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'text' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Type className="w-5 h-5" />
+          <span>Input Text</span>
         </button>
       </div>
 
@@ -130,49 +150,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* PDF Mode */}
-        {addVideoMethod === 'pdf' && (
+        {/* Consolidated Files Mode */}
+        {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".pdf"
-                className="hidden"
-                disabled={isProcessingContent}
-              />
-              {isProcessingContent ? (
-                <div className="flex flex-col items-center">
-                  <Spinner className="w-8 h-8 text-blue-500" />
-                  <p className="mt-2 text-sm text-gray-600">Processing PDF...</p>
-                </div>
-              ) : (
-                <div 
-                  className="flex flex-col items-center cursor-pointer"
-                  onClick={handleFileButtonClick}
-                >
-                  <Upload className="w-12 h-12 text-gray-400" />
-                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload PDF</p>
-                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
-                </div>
-              )}
-            </div>
-            <p className="mt-4 text-sm text-gray-500">
-              Upload a PDF file to extract and process its text content.
-            </p>
-          </div>
-        )}
-
-        {/* Other File Mode */}
-        {addVideoMethod === 'file' && (
-          <div>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".txt,.md,.doc,.docx"
+                accept=".pdf,.txt,.ppt,.pptx,.doc,.docx"
                 className="hidden"
                 disabled={isProcessingContent}
               />
@@ -187,13 +173,78 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                   onClick={handleFileButtonClick}
                 >
                   <Upload className="w-12 h-12 text-gray-400" />
-                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload file</p>
+                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload files</p>
                   <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
                 </div>
               )}
             </div>
             <p className="mt-4 text-sm text-gray-500">
-              Upload text files (.txt), markdown (.md), or Word documents (.doc, .docx).
+              Upload PDF, text files (.txt), PowerPoint (.ppt, .pptx), or Word documents (.doc, .docx).
+            </p>
+          </div>
+        )}
+
+        {/* Speech to Text Mode */}
+        {addVideoMethod === 'speech' && (
+          <div>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              {isProcessingContent ? (
+                <div className="flex flex-col items-center">
+                  <Spinner className="w-8 h-8 text-blue-500" />
+                  <p className="mt-2 text-sm text-gray-600">Processing audio...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <button
+                    className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                  >
+                    <Mic className="w-10 h-10 text-blue-500" />
+                  </button>
+                  <p className="mt-4 text-sm font-medium text-gray-900">Click to start recording</p>
+                  <p className="mt-1 text-xs text-gray-500">or upload an audio file</p>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    className="mt-4 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+            <p className="mt-4 text-sm text-gray-500">
+              Record speech or upload an audio file to convert to text.
+            </p>
+          </div>
+        )}
+
+        {/* Input Text Mode */}
+        {addVideoMethod === 'text' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Enter Text
+            </label>
+            <textarea
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Enter or paste your text here..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+              disabled={isProcessingContent}
+            />
+            <button
+              onClick={handleTextSubmit}
+              disabled={!textInput.trim() || isProcessingContent}
+              className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
+                !textInput.trim() || isProcessingContent
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              {isProcessingContent ? (
+                <Spinner className="w-5 h-5 mr-2" />
+              ) : null}
+              <span>Add to Knowledge Base</span>
+            </button>
+            <p className="mt-2 text-sm text-gray-500">
+              Directly enter or paste text to add to your knowledge base.
             </p>
           </div>
         )}

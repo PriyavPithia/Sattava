@@ -62,8 +62,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'pdf' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -465,10 +465,27 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     setViewMode('list');
     setMessages([]);
     if (selectedVideo && onVideoSelect) {
-      onVideoSelect(null);
+      onVideoSelect(null as any);
     }
     onSelectCollection(null);
     navigate('/knowledgebase');
+  };
+
+  const handleTextSubmit = (text: string) => {
+    // Pass the text to the parent component's handler
+    if (text && text.trim()) {
+      const file = new File([text], `text-input-${Date.now()}.txt`, { type: 'text/plain' });
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      
+      const event = {
+        target: {
+          files: dataTransfer.files
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      
+      onFileSelect(event);
+    }
   };
 
   // First: check if we're showing the collection list (no selection or explicitly showing list)
@@ -775,7 +792,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                       formatTime={formatTime}
                       calculateTotalDuration={calculateTotalDuration}
                       formatDurationLabel={(duration) => `${duration} sec`}
-                      className="text-sm"
                     />
                   )}
 
@@ -801,7 +817,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
               onReferenceClick={handleReferenceClick}
-              className="text-sm"
             />
           </div>
         </div>
@@ -901,6 +916,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             isProcessingContent={isProcessingContent}
             onTranscriptGenerated={onTranscriptGenerated}
             onError={onError}
+            onTextSubmit={handleTextSubmit}
           />
         </div>
 

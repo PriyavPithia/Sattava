@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import ContentAddition from '../components/ContentAddition';
-import { Collection } from '../types/database';
+import { Collection, VideoItem } from '../types';
 import { Plus, FolderPlus, FileText, Youtube, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 
 interface UploadPageProps {
-  addVideoMethod: 'youtube' | 'upload' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'upload' | 'file') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
   onTranscriptGenerated: (transcript: any) => void;
   onError: (error: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onTextSubmit?: (text: string) => void;
   isProcessingContent: boolean;
   collections: Collection[];
   selectedCollection: Collection | null;
@@ -31,6 +32,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
   onTranscriptGenerated,
   onError,
   onFileSelect,
+  onTextSubmit,
   isProcessingContent,
   collections,
   selectedCollection,
@@ -92,6 +94,22 @@ const UploadPage: React.FC<UploadPageProps> = ({
     } catch (error) {
       console.error('Error deleting content:', error);
       onError('Failed to delete content');
+    }
+  };
+
+  const handleTextSubmit = (text: string) => {
+    if (text && text.trim()) {
+      const file = new File([text], `text-input-${Date.now()}.txt`, { type: 'text/plain' });
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      
+      const event = {
+        target: {
+          files: dataTransfer.files
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      
+      onFileSelect(event);
     }
   };
 
@@ -192,6 +210,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
                 onTranscriptGenerated={onTranscriptGenerated}
                 onError={onError}
                 onFileSelect={onFileSelect}
+                onTextSubmit={handleTextSubmit}
                 isProcessingContent={isProcessingContent}
               />
             </div>
@@ -207,7 +226,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
 
           {/* Content List */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedCollection.items.map(item => (
+            {selectedCollection.items.map((item: VideoItem) => (
               <div 
                 key={item.id}
                 className="p-4 border rounded-lg hover:bg-gray-50"
@@ -291,7 +310,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {collections.map(collection => (
+          {collections.map((collection: Collection) => (
             <div
               key={collection.id}
               onClick={() => onSelectCollection(collection)}
@@ -307,7 +326,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
                 <p className="text-gray-600 mb-4 line-clamp-2">{collection.description}</p>
               )}
               <div className="flex flex-wrap gap-2">
-                {collection.items.slice(0, 3).map(item => (
+                {collection.items.slice(0, 3).map((item: VideoItem) => (
                   <div 
                     key={item.id}
                     className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1 text-sm"

@@ -95,7 +95,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'pdf' | 'file'>('youtube');
+  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'files' | 'speech' | 'text'>('youtube');
   const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
@@ -666,25 +666,29 @@ function App() {
 
       // Process content in background
       const processContent = async () => {
-      if (fileType === 'pdf') {
-        const pdfData = await file.arrayBuffer();
-        const pdf = await getDocument(pdfData).promise;
-        const numPages = pdf.numPages;
-        const textContent = [];
-        
-        for (let i = 1; i <= numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          textContent.push(content.items.map((item: any) => item.str).join(' '));
-        }
-        
+        if (fileType === 'pdf') {
+          const pdfData = await file.arrayBuffer();
+          const pdf = await getDocument(pdfData).promise;
+          const numPages = pdf.numPages;
+          const textContent = [];
+          
+          for (let i = 1; i <= numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            textContent.push(content.items.map((item: any) => item.str).join(' '));
+          }
+          
           return textContent.join('\n');
-      } else if (fileType === 'txt') {
+        } else if (fileType === 'txt') {
           return await file.text();
-      } else if (['ppt', 'pptx'].includes(fileType)) {
-        const slides = await extractPowerPointContent(file);
+        } else if (['ppt', 'pptx'].includes(fileType)) {
+          const slides = await extractPowerPointContent(file);
           return slides.map(slide => slide.text).join('\n\n');
-      }
+        } else if (['doc', 'docx'].includes(fileType)) {
+          // For Word documents, we'd need a specific library
+          // This is a placeholder - in a real app, you'd use a library like mammoth.js
+          return await file.text(); // Simplified approach
+        }
         return '';
       };
 
@@ -736,6 +740,88 @@ function App() {
     } catch (error) {
       console.error('Error processing file:', error);
       setError('Failed to process file. Please try again.');
+      
+      // Remove temporary item
+      setCollections(prev => prev.map(col => 
+        col.id === selectedCollection.id
+          ? { 
+              ...col, 
+              items: col.items.filter(item => !item.id.startsWith('temp-'))
+            }
+          : col
+      ));
+    } finally {
+      setIsProcessingContent(false);
+    }
+  };
+
+  const handleTextSubmit = async (text: string) => {
+    if (!text || !selectedCollection) return;
+
+    try {
+      setIsProcessingContent(true);
+      setError('');
+
+      // Create optimistic update
+      const optimisticId = 'temp-' + Date.now();
+      const tempItem: VideoItem = {
+        id: optimisticId,
+        url: 'text-input',
+        title: `Text Input (${new Date().toLocaleString()})`,
+        type: 'txt',
+        extractedContent: [{
+          text: 'Processing content...',
+          pageNumber: 1
+        }]
+      };
+
+      // Optimistic update
+      setCollections(prev => prev.map(col => 
+        col.id === selectedCollection.id
+          ? { ...col, items: [...col.items, tempItem] }
+          : col
+      ));
+
+      // Save to database
+      const content = await addContent(selectedCollection.id, {
+        title: `Text Input (${new Date().toLocaleString()})`,
+        type: 'txt',
+        content: text,
+        url: 'text-input'
+      });
+
+      // Update with real content
+      const newItem: VideoItem = {
+        id: content.id,
+        url: 'text-input',
+        title: `Text Input (${new Date().toLocaleString()})`,
+        type: 'txt',
+        content: text,
+        extractedContent: [{
+          text: text,
+          pageNumber: 1
+        }]
+      };
+
+      // Update collections with real item
+      setCollections(prev => prev.map(col => 
+        col.id === selectedCollection.id
+          ? { 
+              ...col, 
+              items: col.items
+                .filter(item => item.id !== optimisticId)
+                .concat(newItem)
+            }
+          : col
+      ));
+
+      if (!selectedVideo) {
+        setSelectedVideo(newItem);
+      }
+
+    } catch (error) {
+      console.error('Error processing text input:', error);
+      setError('Failed to process text input. Please try again.');
       
       // Remove temporary item
       setCollections(prev => prev.map(col => 
