@@ -154,13 +154,21 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     }
   };
 
+  // Function to strip HTML tags
+  const stripHtmlTags = (html: string): string => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
+  };
+
   const handleTextSubmit = () => {
     if (onTextSubmit) {
       // For Notes tab, use rich text value from the editor
       if (addVideoMethod === 'text' && editor) {
         const html = editor.getHTML();
         if (html && html !== '<p></p>') {
-          onTextSubmit(html);
+          // Strip HTML tags before submitting
+          const plainText = stripHtmlTags(html);
+          onTextSubmit(plainText);
         }
       } else if (textInput.trim()) {
         // For other tabs, use regular text input

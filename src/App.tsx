@@ -866,7 +866,9 @@ function App() {
   };
 
   const createChunksFromText = (text: string): ExtractedContent[] => {
-    const sentences = text.split('. ');
+    // Strip any HTML tags that might have made it through
+    const plainText = text.replace(/<[^>]*>/g, '');
+    const sentences = plainText.split('. ');
     return sentences.map((sentence, index) => ({
       text: sentence,
       pageNumber: index + 1
