@@ -197,14 +197,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       onSelectCollection(collection);
       setViewMode(newViewMode);
 
-      // Load chat history when entering chat mode
+      // Load chat history and select file when entering chat mode
       if (newViewMode === 'chat') {
         try {
           const savedMessages = await loadChat(collection.id);
           console.log('Loaded messages:', savedMessages);
           setMessages(savedMessages || []);
 
-          // Automatically select first file if none is selected
+          // Always ensure a file is selected in chat mode
           if (!selectedVideo && collection.items.length > 0) {
             const firstItem = collection.items[0];
             if (onVideoSelect) {
@@ -222,9 +222,11 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     if (path === '/knowledgebase') {
       console.log('At base knowledgebase path, resetting state');
       setViewMode('list');
-      if (selectedCollection) {
-        onSelectCollection(null);
+      setMessages([]);
+      if (selectedVideo && onVideoSelect) {
+        onVideoSelect(null);
       }
+      onSelectCollection(null);
       return;
     }
     
@@ -380,31 +382,34 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   };
 
   // Update the view mode handlers
-  const handleViewModeChange = async (mode: ViewMode) => {
+  const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
     setViewMode(mode);
     
-    if (mode === 'chat' && selectedCollection) {
+    if (mode === 'chat') {
       try {
-        // Load chat history first
-        const savedMessages = await loadChat(selectedCollection.id);
+        // First select the collection
+        onSelectCollection(collection);
+
+        // Load chat history
+        const savedMessages = await loadChat(collection.id);
         setMessages(savedMessages || []);
 
-        // Then handle file selection if needed
-        if (!selectedVideo && selectedCollection.items.length > 0) {
-          const firstItem = selectedCollection.items[0];
+        // Ensure a file is selected before navigating
+        if (!selectedVideo && collection.items.length > 0) {
+          const firstItem = collection.items[0];
           if (onVideoSelect) {
             onVideoSelect(firstItem);
           }
         }
 
         // Navigate to chat mode
-        navigate(`/knowledgebase/${selectedCollection.id}/chat`);
+        navigate(`/knowledgebase/${collection.id}/chat`);
       } catch (error) {
         console.error('Error loading chat history:', error);
         setMessages([]);
       }
-    } else if (selectedCollection) {
-      navigate(`/knowledgebase/${selectedCollection.id}/${mode}`);
+    } else if (collection) {
+      navigate(`/knowledgebase/${collection.id}/${mode}`);
     }
   };
 
@@ -466,6 +471,18 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         type: 'error'
       });
     }
+  };
+
+  // Add this function to handle navbar knowledgebase click
+  const handleKnowledgebaseNavClick = () => {
+    // Reset all states
+    setViewMode('list');
+    setMessages([]);
+    if (selectedVideo && onVideoSelect) {
+      onVideoSelect(null);
+    }
+    onSelectCollection(null);
+    navigate('/knowledgebase');
   };
 
   // First: check if we're showing the collection list (no selection or explicitly showing list)
@@ -622,18 +639,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleCollectionSelect(collection);
-                  }}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  View
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewModeChange('chat');
-                    onSelectCollection(collection);
+                    handleViewModeChange('chat', collection);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
                   disabled={collection.items?.length === 0}
@@ -874,7 +880,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => handleViewModeChange('chat')}
+              onClick={() => handleViewModeChange('chat', selectedCollection)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
               disabled={selectedCollection.items.length === 0}
               title={selectedCollection.items.length === 0 ? "Add content to start chatting" : "Start chatting"}

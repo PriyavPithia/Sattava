@@ -1192,14 +1192,22 @@ function App() {
                   <HomeButton 
                     onSelectCollection={setSelectedCollection}
                   />
-                  <Link 
-                    to="/knowledgebase"
+                  <button 
+                    onClick={() => {
+                      setViewMode('list');
+                      setMessages([]);
+                      if (selectedVideo && onVideoSelect) {
+                        onVideoSelect(null);
+                      }
+                      onSelectCollection(null);
+                      navigate('/knowledgebase');
+                    }}
                     className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
                   >
                     <FileText className="w-5 h-5 mr-2" />
                     Knowledgebase
-                  </Link>
-            </div>
+                  </button>
+                </div>
                 <div className="flex items-center">
                   <UserCircle className="w-6 h-6 text-gray-600" />
                   <button
@@ -1208,8 +1216,8 @@ function App() {
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
-            </div>
-          </div>
+                </div>
+              </div>
             </div>
           </nav>
 
