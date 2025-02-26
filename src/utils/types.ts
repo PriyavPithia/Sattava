@@ -23,4 +23,7 @@ export interface CombinedContent {
     title: string;
     location?: string;
   };
-} 
+}
+
+// Add a console log to check if this file is being loaded
+console.log('types.ts loaded'); 

@@ -17,6 +17,7 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
   const lastVideoId = useRef(videoId);
   const seekTimeout = useRef<NodeJS.Timeout | undefined>();
   const lastSeekTime = useRef<number>(0);
+  const timeUpdateInterval = useRef<NodeJS.Timeout | undefined>();
 
   // Reset player state when video changes
   useEffect(() => {
@@ -61,6 +62,34 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
       }
     };
   }, [currentTime, player, isReady]);
+
+  // Set up time update interval when player is ready
+  useEffect(() => {
+    if (player && isReady && onSeek) {
+      // Clear any existing interval
+      if (timeUpdateInterval.current) {
+        clearInterval(timeUpdateInterval.current);
+      }
+
+      // Set up new interval to track current time
+      timeUpdateInterval.current = setInterval(() => {
+        try {
+          const currentTime = player.getCurrentTime();
+          if (typeof currentTime === 'number' && currentTime !== lastSeekTime.current) {
+            onSeek(currentTime);
+          }
+        } catch (error) {
+          console.error('Error getting current time:', error);
+        }
+      }, 1000); // Update every second
+    }
+
+    return () => {
+      if (timeUpdateInterval.current) {
+        clearInterval(timeUpdateInterval.current);
+      }
+    };
+  }, [player, isReady, onSeek]);
 
   const onReady = (event: YouTubeEvent) => {
     console.log('DEBUG: YouTube player ready');
