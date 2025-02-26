@@ -41,6 +41,12 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   const [showDeviceSettings, setShowDeviceSettings] = useState<boolean>(false);
   const [recordingTime, setRecordingTime] = useState<number>(0);
   const recordingTimerRef = useRef<number | null>(null);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
@@ -77,6 +83,64 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
     }
   };
 
+  // Function to start audio visualization
+  const startAudioVisualization = (stream: MediaStream) => {
+    try {
+      // Create audio context
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioContext;
+      
+      // Create analyser
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      
+      // Create buffer
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      dataArrayRef.current = dataArray;
+      
+      // Connect stream to analyser
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      
+      // Start visualization loop
+      const updateAudioLevel = () => {
+        if (!analyserRef.current || !dataArrayRef.current) return;
+        
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        
+        // Calculate average level
+        const average = dataArrayRef.current.reduce((acc, val) => acc + val, 0) / dataArrayRef.current.length;
+        setAudioLevel(average);
+        
+        // Continue loop
+        animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+      };
+      
+      updateAudioLevel();
+    } catch (error) {
+      console.error('Error setting up audio visualization:', error);
+    }
+  };
+
+  // Function to stop audio visualization
+  const stopAudioVisualization = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
+    }
+    
+    analyserRef.current = null;
+    dataArrayRef.current = null;
+    setAudioLevel(0);
+  };
+
   const startRecording = async () => {
     console.log('startRecording function called');
     try {
@@ -95,25 +159,67 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
           : true
       };
       
+      // Get audio stream
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Microphone access granted, creating MediaRecorder');
-      const recorder = new MediaRecorder(stream);
+      console.log('Microphone access granted, stream tracks:', stream.getAudioTracks().length);
+      
+      // Store stream for later use
+      setAudioStream(stream);
+      
+      // Start audio visualization
+      startAudioVisualization(stream);
+      
+      // Create media recorder with explicit MIME type
+      const options = { mimeType: 'audio/webm' };
+      let recorder: MediaRecorder;
+      
+      try {
+        recorder = new MediaRecorder(stream, options);
+        console.log('Created MediaRecorder with options:', options);
+      } catch (e) {
+        console.error('Failed to create MediaRecorder with audio/webm, trying without MIME type');
+        recorder = new MediaRecorder(stream);
+        console.log('Created MediaRecorder without options');
+      }
+      
       setMediaRecorder(recorder);
       
-      // Reset recording time
+      // Reset recording time and chunks
       setRecordingTime(0);
+      setAudioChunks([]);
       
       const chunks: Blob[] = [];
+      
+      // Set up event handlers
       recorder.ondataavailable = (e) => {
         console.log('Data available from recorder', e.data.size);
         if (e.data.size > 0) {
           chunks.push(e.data);
-          setAudioChunks([...chunks]);
+          setAudioChunks(prevChunks => [...prevChunks, e.data]);
+          console.log('Updated audio chunks, total chunks:', chunks.length);
         }
       };
       
+      recorder.onstart = () => {
+        console.log('MediaRecorder started');
+      };
+      
+      recorder.onpause = () => {
+        console.log('MediaRecorder paused');
+      };
+      
+      recorder.onresume = () => {
+        console.log('MediaRecorder resumed');
+      };
+      
+      recorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        onError('Recording error: ' + (event.error ? event.error.message : 'Unknown error'));
+      };
+      
       recorder.onstop = async () => {
-        console.log('Recorder stopped, processing chunks', chunks.length);
+        console.log('MediaRecorder stopped, processing chunks', chunks.length);
+        
         // Only process if we have audio chunks
         if (chunks.length > 0) {
           setIsTranscribing(true);
@@ -121,7 +227,17 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
           try {
             // Create a blob from all chunks
             const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-            console.log('Created audio blob', audioBlob.size);
+            console.log('Created audio blob', audioBlob.size, 'bytes');
+            
+            // Create audio element for debugging
+            const audioURL = URL.createObjectURL(audioBlob);
+            console.log('Audio URL created:', audioURL);
+            
+            const audioElement = document.createElement('audio');
+            audioElement.src = audioURL;
+            audioElement.controls = true;
+            document.body.appendChild(audioElement);
+            console.log('Audio element added to body for debugging');
             
             // Create form data
             const formData = new FormData();
@@ -135,24 +251,40 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
             // Update transcription
             if (response.data && response.data.transcription) {
               setTranscription(prev => prev + ' ' + response.data.transcription);
+              console.log('Transcription updated');
+            } else {
+              console.error('No transcription in response:', response.data);
+              onError('Failed to transcribe audio: No transcription returned');
             }
+            
+            // Clean up
+            document.body.removeChild(audioElement);
+            URL.revokeObjectURL(audioURL);
           } catch (error) {
             console.error('Error transcribing audio:', error);
-            onError('Failed to transcribe audio');
+            onError('Failed to transcribe audio: ' + (error instanceof Error ? error.message : 'Unknown error'));
           } finally {
             setIsTranscribing(false);
           }
+        } else {
+          console.warn('No audio chunks collected during recording');
+          onError('No audio was recorded. Please try again.');
         }
+        
+        // Stop audio visualization
+        stopAudioVisualization();
       };
       
+      // Start recording with smaller time slices for more frequent ondataavailable events
       console.log('Starting recorder...');
-      recorder.start(5000); // Collect in 5-second chunks
+      recorder.start(1000); // Collect in 1-second chunks
       setIsRecording(true);
       setIsPaused(false);
       console.log('Recorder started successfully');
     } catch (error) {
       console.error('Error starting recording:', error);
-      onError('Failed to access microphone');
+      onError('Failed to access microphone: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      stopAudioVisualization();
     }
   };
 
@@ -200,14 +332,25 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   };
 
   const stopRecording = () => {
+    console.log('stopRecording called, recorder state:', mediaRecorder?.state);
     if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
+      try {
+        mediaRecorder.stop();
+        console.log('MediaRecorder stopped');
+      } catch (error) {
+        console.error('Error stopping MediaRecorder:', error);
+      }
+      
       setIsRecording(false);
       setIsPaused(false);
       
       // Stop all tracks on the stream
-      if (mediaRecorder.stream) {
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Audio track stopped');
+        });
+        setAudioStream(null);
       }
     }
   };
@@ -349,14 +492,20 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   useEffect(() => {
     return () => {
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        
-        if (mediaRecorder.stream) {
-          mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        try {
+          mediaRecorder.stop();
+        } catch (error) {
+          console.error('Error stopping MediaRecorder on unmount:', error);
         }
       }
+      
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+      }
+      
+      stopAudioVisualization();
     };
-  }, [mediaRecorder]);
+  }, [mediaRecorder, audioStream]);
 
   return (
     <div className="p-6">
@@ -542,11 +691,19 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
                           <Square className="w-6 h-6 text-red-600" />
                         </button>
                       </div>
-                      <div className="flex items-center justify-center w-full">
+                      <div className="flex items-center justify-center w-full mb-2">
                         <div className={`h-4 w-4 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'} mr-2`}></div>
                         <span className="text-sm font-medium">
                           {isPaused ? 'Recording paused' : 'Recording'} - {formatTime(recordingTime)}
                         </span>
+                      </div>
+                      
+                      {/* Audio level visualization */}
+                      <div className="w-full max-w-xs h-8 bg-gray-100 rounded-full overflow-hidden mt-2">
+                        <div 
+                          className="h-full bg-blue-500 transition-all duration-100"
+                          style={{ width: `${Math.min(100, audioLevel * 100 / 255)}%` }}
+                        ></div>
                       </div>
                     </div>
                   ) : (
