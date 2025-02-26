@@ -44,18 +44,6 @@ const QASection: React.FC<QASectionProps> = ({
           <MessageSquare className="w-5 h-5 text-red-600" />
           Ask Questions
         </h2>
-        <button
-          onClick={onGenerateNotes}
-          disabled={generatingNotes}
-          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {generatingNotes ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <FileText className="w-4 h-4" />
-          )}
-          Generate Notes
-        </button>
       </div>
       
       {/* Messages area */}
@@ -71,11 +59,16 @@ const QASection: React.FC<QASectionProps> = ({
               className={`max-w-[80%] rounded-lg p-4 ${
                 message.role === 'user'
                   ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-800'
+                  : message.isStudyNotes 
+                    ? 'bg-blue-50 text-gray-800 border border-blue-200'
+                    : 'bg-gray-100 text-gray-800'
               }`}
             >
-              <div className="font-medium mb-2">
-                {message.role === 'user' ? 'You' : 'Assistant'}:
+              <div className="font-medium mb-2 flex items-center gap-2">
+                {message.role === 'user' ? 'You' : 'Assistant'}
+                {message.isStudyNotes && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Study Notes</span>
+                )}
               </div>
               {message.role === 'assistant' && message.references ? (
                 <ReferencedAnswer
@@ -96,35 +89,64 @@ const QASection: React.FC<QASectionProps> = ({
             </div>
           </div>
         )}
+        {generatingNotes && (
+          <div className="flex justify-start">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                <span className="text-blue-700">Generating study notes...</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input area */}
       <div className="p-4 border-t border-gray-200">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => onQuestionChange(e.target.value)}
-            placeholder="Ask a question about the content..."
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 focus:outline-none"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onAskQuestion();
-              }
-            }}
-          />
+        <div className="flex flex-col gap-3">
           <button
-            onClick={onAskQuestion}
-            disabled={askingQuestion || !question}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={onGenerateNotes}
+            disabled={generatingNotes}
+            className="w-full px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {askingQuestion ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+            {generatingNotes ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating Notes...
+              </>
             ) : (
-              <Send className="w-4 h-4" />
+              <>
+                <FileText className="w-4 h-4" />
+                Generate Study Notes
+              </>
             )}
           </button>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => onQuestionChange(e.target.value)}
+              placeholder="Ask a question about the content..."
+              className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 focus:outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  onAskQuestion();
+                }
+              }}
+            />
+            <button
+              onClick={onAskQuestion}
+              disabled={askingQuestion || !question}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {askingQuestion ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
