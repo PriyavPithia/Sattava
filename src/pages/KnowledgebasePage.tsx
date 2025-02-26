@@ -396,13 +396,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             onVideoSelect(firstItem);
           }
         }
+
+        // Navigate to chat mode
+        navigate(`/knowledgebase/${selectedCollection.id}/chat`);
       } catch (error) {
         console.error('Error loading chat history:', error);
         setMessages([]);
       }
-    }
-    
-    if (selectedCollection) {
+    } else if (selectedCollection) {
       navigate(`/knowledgebase/${selectedCollection.id}/${mode}`);
     }
   };
@@ -443,6 +444,27 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     } catch (error) {
       console.error('Error updating knowledge base name:', error);
       onError('Failed to update knowledge base name');
+    }
+  };
+
+  // Add this function to handle project deletion
+  const handleDeleteProject = async (collectionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this knowledge base? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await onDeleteProject(collectionId);
+      setToast({
+        message: 'Knowledge base deleted successfully',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Error deleting knowledge base:', error);
+      setToast({
+        message: 'Failed to delete knowledge base',
+        type: 'error'
+      });
     }
   };
 
@@ -526,23 +548,69 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                 className="p-6 cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-4">
+                  {editingCollectionName === collection.id ? (
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleNameEdit(collection.id, newName);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2 flex-1"
+                    >
+                      <input
+                        type="text"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        className="p-1 text-green-600 hover:text-green-700"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCollectionName(null);
+                          setNewName(collection.name);
+                        }}
+                        className="p-1 text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-1">
+                      <FolderOpen className="w-5 h-5 text-blue-600" />
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        {collection.name}
+                      </h2>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
-                    <FolderOpen className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      {collection.name}
-                    </h2>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingCollectionName(collection.id);
+                        setNewName(collection.name);
+                      }}
+                      className="p-2 text-gray-400 hover:text-gray-600"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteProject(collection.id);
+                      }}
+                      className="p-2 text-gray-400 hover:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent card click
-                      setIsEditingCollection(true);
-                      setNewName(collection.name);
-                      setNewDescription(collection.description || '');
-                    }}
-                    className="p-2 text-gray-400 hover:text-gray-600"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
                 </div>
                 <p className="text-gray-600 mb-4">
                   {collection.items?.length || 0} items
@@ -565,7 +633,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     handleViewModeChange('chat');
-                    handleCollectionSelect(collection);
+                    onSelectCollection(collection);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
                   disabled={collection.items?.length === 0}
