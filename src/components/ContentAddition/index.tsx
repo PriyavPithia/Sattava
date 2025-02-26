@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Loader2, Upload, Youtube, FileText, Mic, Type, Square, Pause, Play } from 'lucide-react';
+import { Loader2, Upload, Youtube, FileText, Mic, Type, Square, Pause, Play, Settings } from 'lucide-react';
 import axios from 'axios';
 
 interface ContentAdditionProps {
@@ -36,6 +36,11 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [showDeviceSettings, setShowDeviceSettings] = useState<boolean>(false);
+  const [recordingTime, setRecordingTime] = useState<number>(0);
+  const recordingTimerRef = useRef<number | null>(null);
 
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
@@ -83,11 +88,20 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
         return;
       }
       
-      console.log('Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Requesting microphone access with device ID:', selectedDeviceId);
+      const constraints = {
+        audio: selectedDeviceId 
+          ? { deviceId: { exact: selectedDeviceId } } 
+          : true
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Microphone access granted, creating MediaRecorder');
       const recorder = new MediaRecorder(stream);
       setMediaRecorder(recorder);
+      
+      // Reset recording time
+      setRecordingTime(0);
       
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
@@ -239,6 +253,70 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
     } else {
       console.log('No audio file selected');
     }
+  };
+
+  // Load available audio input devices
+  useEffect(() => {
+    const loadAudioDevices = async () => {
+      try {
+        // First request permission to access media devices
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Then enumerate devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        
+        console.log('Available audio input devices:', audioInputs);
+        setAudioDevices(audioInputs);
+        
+        // Set default device if available
+        if (audioInputs.length > 0) {
+          setSelectedDeviceId(audioInputs[0].deviceId);
+        }
+      } catch (error) {
+        console.error('Error loading audio devices:', error);
+      }
+    };
+    
+    loadAudioDevices();
+    
+    // Listen for device changes
+    navigator.mediaDevices.addEventListener('devicechange', loadAudioDevices);
+    
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', loadAudioDevices);
+    };
+  }, []);
+
+  // Timer for recording duration
+  useEffect(() => {
+    if (isRecording && !isPaused) {
+      // Start or resume timer
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else if (recordingTimerRef.current) {
+      // Pause or stop timer
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    
+    // Reset timer when recording stops
+    if (!isRecording) {
+      setRecordingTime(0);
+    }
+    
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, [isRecording, isPaused]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Check browser compatibility and permissions
@@ -393,7 +471,44 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
         {/* Speech to Text Tab */}
         {addVideoMethod === 'speech' && (
           <div>
-            <h2 className="text-sm font-medium mb-2">Speech to Text</h2>
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-sm font-medium">Speech to Text</h2>
+              <button 
+                onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+              >
+                <Settings className="w-4 h-4 mr-1" />
+                <span>Audio Settings</span>
+              </button>
+            </div>
+            
+            {/* Device Settings */}
+            {showDeviceSettings && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Microphone
+                </label>
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {audioDevices.length === 0 ? (
+                    <option value="">No microphones found</option>
+                  ) : (
+                    audioDevices.map(device => (
+                      <option key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Microphone ${device.deviceId.slice(0, 5)}...`}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Select the microphone you want to use for recording.
+                </p>
+              </div>
+            )}
+            
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               {isTranscribing ? (
                 <div className="flex flex-col items-center">
@@ -403,28 +518,36 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
               ) : (
                 <div className="flex flex-col items-center">
                   {isRecording ? (
-                    <div className="flex items-center gap-4">
-                      {isPaused ? (
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-4 mb-2">
+                        {isPaused ? (
+                          <button
+                            onClick={resumeRecording}
+                            className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center hover:bg-green-100 transition-colors"
+                          >
+                            <Play className="w-6 h-6 text-green-600" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={pauseRecording}
+                            className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center hover:bg-yellow-100 transition-colors"
+                          >
+                            <Pause className="w-6 h-6 text-yellow-600" />
+                          </button>
+                        )}
                         <button
-                          onClick={resumeRecording}
-                          className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center hover:bg-green-100 transition-colors"
+                          onClick={stopRecording}
+                          className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors"
                         >
-                          <Play className="w-6 h-6 text-green-600" />
+                          <Square className="w-6 h-6 text-red-600" />
                         </button>
-                      ) : (
-                        <button
-                          onClick={pauseRecording}
-                          className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center hover:bg-yellow-100 transition-colors"
-                        >
-                          <Pause className="w-6 h-6 text-yellow-600" />
-                        </button>
-                      )}
-                      <button
-                        onClick={stopRecording}
-                        className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors"
-                      >
-                        <Square className="w-6 h-6 text-red-600" />
-                      </button>
+                      </div>
+                      <div className="flex items-center justify-center w-full">
+                        <div className={`h-4 w-4 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'} mr-2`}></div>
+                        <span className="text-sm font-medium">
+                          {isPaused ? 'Recording paused' : 'Recording'} - {formatTime(recordingTime)}
+                        </span>
+                      </div>
                     </div>
                   ) : (
                     <button
@@ -440,8 +563,8 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
                   <p className="mt-4 text-sm font-medium text-gray-900">
                     {isRecording 
                       ? isPaused 
-                        ? "Recording paused - click to resume" 
-                        : "Recording in progress - click to pause" 
+                        ? "Click to resume recording" 
+                        : "Click to pause recording" 
                       : "Click to start recording"}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">or upload an audio file</p>
@@ -462,10 +585,10 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
               )}
             </div>
             
-            {/* Real-time transcription display */}
+            {/* Always show transcription area */}
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Transcription
+                Transcription {isRecording && !isPaused && !isTranscribing && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
               </label>
               <textarea
                 value={transcription}
