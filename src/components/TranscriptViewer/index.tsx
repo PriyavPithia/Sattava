@@ -193,17 +193,17 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
               {formatDurationLabel(calculateTotalDuration(transcripts))}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-600" />
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200">
             <select
               value={durationFilter}
               onChange={(e) => onDurationFilterChange(Number(e.target.value))}
-              className="bg-white text-gray-900 border border-gray-300 rounded-lg px-3 py-1 text-sm font-geist focus:border-red-500 focus:ring-2 focus:ring-red-200 focus:outline-none"
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              <option value="0">No grouping</option>
-              <option value="15">15 second chunks</option>
-              <option value="30">30 second chunks</option>
-              <option value="60">1 minute chunks</option>
+              {[15, 20, 25, 30, 35, 40, 45, 60].map((duration) => (
+                <option key={duration} value={duration}>
+                  {duration} sec
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -216,7 +216,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        <div className="space-y-4 p-4">
+        <div className="space-y-4 ">
           {transcriptChunks.map((chunk, index) => {
             const location = highlightedReference?.source?.location as ContentLocation | string;
             const isHighlighted = highlightedReference?.source?.type === 'youtube' &&

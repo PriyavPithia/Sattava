@@ -774,7 +774,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                       groupTranscriptsByDuration={groupTranscriptsByDuration}
                       formatTime={formatTime}
                       calculateTotalDuration={calculateTotalDuration}
-                      formatDurationLabel={formatDurationLabel}
+                      formatDurationLabel={(duration) => `${duration} sec`}
+                      className="text-sm"
                     />
                   )}
 
@@ -800,6 +801,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
               onReferenceClick={handleReferenceClick}
+              className="text-sm"
             />
           </div>
         </div>
@@ -996,17 +998,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                     />
                   </div>
                 )}
-                
-                {/* Action Buttons */}
-                <div className="flex justify-end mt-4 space-x-2">
-                  <button
-                    onClick={() => handleItemSelect(item)}
-                    className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg font-medium flex items-center gap-2 transition-colors"
-                  >
-                    <Eye className="w-4 h-4" />
-                    View Content
-                  </button>
-                </div>
               </div>
             </div>
           ))}
