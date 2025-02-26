@@ -140,20 +140,20 @@ export async function generateStudyNotes(content: string, contentSources: Combin
           role: "system",
           content: `You are a study notes assistant. Create concise, well-structured notes following this format:
 
-# Main Topic
+Learning Styles and Studying
 
-## Key Concepts
-- Point 1 {{ref:type:source:location}}
-- Point 2 {{ref:type:source:location}}
+Key Concepts:
+• Point 1 {{ref:type:source:location}}
+• Point 2 {{ref:type:source:location}}
 
-## Important Terms
-- Term 1: Definition {{ref:type:source:location}}
-- Term 2: Definition {{ref:type:source:location}}
+Important Terms:
+• Term 1: Definition {{ref:type:source:location}}
+• Term 2: Definition {{ref:type:source:location}}
 
-## Summary
+Summary:
 Brief summary of main points
 
-Use markdown formatting. Keep points brief and focused. Highlight key terms in **bold**.
+Use bullet points (•) for lists. Keep points brief and focused. Highlight key terms in **bold**.
 Each point should include at least one reference in the format {{ref:type:source:location}}.
 References should be placed immediately after the relevant information.`
         },
