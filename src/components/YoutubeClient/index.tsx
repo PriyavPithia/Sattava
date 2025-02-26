@@ -52,9 +52,21 @@ const YoutubeClient: React.FC<YoutubeClientProps> = ({
       onTranscriptGenerated(transcript);
     } catch (error) {
       console.error('Error in handleSubmit:', error);
-      const errorMsg = error instanceof Error 
-        ? error.message 
-        : 'Failed to fetch transcript. Please try another video.';
+      
+      let errorMsg = 'Failed to fetch transcript. Please try another video.';
+      
+      if (error instanceof Error) {
+        // Provide more specific error messages based on the error
+        if (error.message.includes('captions')) {
+          errorMsg = 'Failed to fetch transcript. This video may not have captions available, or the captions may be disabled. Please try another video or check if captions are enabled.';
+        } else if (error.message.includes('network') || error.message.includes('timeout')) {
+          errorMsg = 'Network error while fetching transcript. Please check your internet connection and try again.';
+        } else if (error.message.includes('rate limit') || error.message.includes('429')) {
+          errorMsg = 'Rate limit exceeded. Please wait a moment and try again.';
+        } else {
+          errorMsg = error.message;
+        }
+      }
       
       setErrorMessage(errorMsg);
       onError(errorMsg);
@@ -115,6 +127,7 @@ const YoutubeClient: React.FC<YoutubeClientProps> = ({
       
       <div className="text-xs text-gray-500 mt-2">
         <p>Note: This feature requires the YouTube video to have captions/subtitles enabled.</p>
+        <p className="mt-1">If you're having trouble, try using a video with official captions rather than auto-generated ones.</p>
       </div>
     </div>
   );
