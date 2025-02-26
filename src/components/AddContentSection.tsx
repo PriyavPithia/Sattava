@@ -104,17 +104,76 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   // Speech recognition handlers
   const handleSpeechSubmit = () => {
     if (onTextSubmit && transcription.trim()) {
-      // Create a custom event with the speech type
-      const speechData = {
-        text: transcription,
-        type: 'speech'
-      };
-      
-      // Pass the speech data to the parent component
-      onTextSubmit(JSON.stringify(speechData));
+      // Send only the text content directly, not a JSON object
+      onTextSubmit(transcription.trim());
       
       // Reset the transcription
+      setPermanentTranscript('');
+      setInterimTranscript('');
       setTranscription('');
+    }
+  };
+
+  // Audio file handling
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
+
+  const handleAudioFileButtonClick = () => {
+    if (audioFileInputRef.current) {
+      audioFileInputRef.current.click();
+    }
+  };
+
+  const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const audioFile = files[0];
+    if (!audioFile.type.startsWith('audio/')) {
+      onError('Please select an audio file.');
+      return;
+    }
+
+    try {
+      setIsTranscribingAudio(true);
+      setDebugInfo(`Transcribing audio file: ${audioFile.name}`);
+      
+      // Create a FormData object to send the file
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+      
+      // Send to Whisper API endpoint
+      const response = await fetch('/api/whisper-transcription', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error transcribing audio: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      // Update the transcription area with the result
+      setPermanentTranscript(data.transcription);
+      setInterimTranscript('');
+      setDebugInfo(`Transcription complete: ${data.transcription.substring(0, 50)}...`);
+      
+    } catch (error) {
+      console.error('Error transcribing audio file:', error);
+      setDebugInfo(`Error transcribing audio: ${error instanceof Error ? error.message : String(error)}`);
+      onError(`Failed to transcribe audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsTranscribingAudio(false);
+      
+      // Reset the file input so the same file can be selected again
+      if (audioFileInputRef.current) {
+        audioFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -456,6 +515,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                           ? 'bg-red-600 text-white hover:bg-red-700'
                           : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
+                      disabled={isTranscribingAudio}
                     >
                       {isRecording ? (
                         <>
@@ -471,6 +531,29 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                     </button>
                     
                     <button
+                      onClick={handleAudioFileButtonClick}
+                      disabled={isRecording || isTranscribingAudio}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                        isRecording || isTranscribingAudio
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span>Upload Audio</span>
+                    </button>
+                    
+                    {/* Hidden audio file input */}
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      ref={audioFileInputRef}
+                      onChange={handleAudioFileChange}
+                      disabled={isRecording || isTranscribingAudio}
+                    />
+                    
+                    <button
                       onClick={clearTranscription}
                       className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
                     >
@@ -483,6 +566,13 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                     <div className="flex items-center gap-2 text-blue-600 mb-4">
                       <Spinner className="w-4 h-4" />
                       <span>Listening...</span>
+                    </div>
+                  )}
+                  
+                  {isTranscribingAudio && (
+                    <div className="flex items-center gap-2 text-blue-600 mb-4">
+                      <Spinner className="w-4 h-4" />
+                      <span>Transcribing audio file...</span>
                     </div>
                   )}
                 </div>
