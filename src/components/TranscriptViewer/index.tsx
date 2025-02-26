@@ -180,7 +180,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 h-full flex flex-col font-geist">
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 h-full flex flex-col font-geist overflow-hidden">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <FileText className="w-5 h-5 text-red-600" />
@@ -194,22 +194,16 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
               onChange={(e) => onDurationFilterChange(Number(e.target.value))}
               className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              {[15, 20, 25, 30, 35, 40, 45, 60].map((duration) => (
-                <option key={duration} value={duration}>
-                  {duration} sec
-                </option>
-              ))}
+              <option value={15}>15 sec</option>
+              <option value={30}>30 sec</option>
+              <option value={60}>1 min</option>
             </select>
           </div>
         </div>
       </div>
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto bg-gray-50 rounded-lg"
-        style={{ 
-          overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch'
-        }}
+        className="flex-1 overflow-y-auto"
       >
         <div className="space-y-4 ">
           {transcriptChunks.map((chunk, index) => {
