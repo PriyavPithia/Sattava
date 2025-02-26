@@ -39,24 +39,14 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   useEffect(() => {
     const processTranscripts = () => {
       console.log('Processing transcripts with duration filter:', durationFilter);
-      
-      // Check if transcripts array is valid
-      if (!transcripts || !Array.isArray(transcripts) || transcripts.length === 0) {
-        console.log('No valid transcripts to process');
-        setTranscriptChunks([]);
-        return;
-      }
-      
       const chunks = durationFilter === 0 ? transcripts : groupTranscriptsByDuration(transcripts, durationFilter);
       console.log('Processed chunks:', chunks);
 
       const processedChunks = chunks.map((chunk, index) => {
         const startTime = typeof chunk.start === 'number' ? chunk.start : 
-                         typeof chunk.startTime === 'number' ? chunk.startTime : 
-                         typeof chunk.offset === 'number' ? chunk.offset / 1000 : 0;
+                         typeof chunk.startTime === 'number' ? chunk.startTime : 0;
         
-        const duration = typeof chunk.duration === 'number' ? 
-                        (chunk.duration > 1000 ? chunk.duration / 1000 : chunk.duration) :
+        const duration = typeof chunk.duration === 'number' ? chunk.duration :
                         (chunk.endTime && chunk.startTime) ? chunk.endTime - chunk.startTime : 0;
 
         return {

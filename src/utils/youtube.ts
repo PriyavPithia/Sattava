@@ -36,8 +36,6 @@ export interface TranscriptItem {
 }
 
 export const groupTranscriptByInterval = (items: TranscriptItem[], intervalSeconds: number): TranscriptItem[] => {
-  if (!items || items.length === 0) return [];
-  
   if (intervalSeconds <= 1) return items.map(item => ({
     ...item,
     text: decodeHtmlEntities(item.text)

@@ -60,239 +60,111 @@ export const formatDurationLabel = (duration: number): string => {
   return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
 };
 
-// Main function to get transcript with multiple fallback methods
-export async function getTranscript(videoId: string) {
-  try {
-    console.log('Fetching transcript for video ID:', videoId);
-    
-    // Add more detailed logging
-    console.log('Using youtube-transcript package version:', require('youtube-transcript/package.json').version);
-    console.log('Node environment:', process.env.NODE_ENV);
-    
-    try {
-      const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-      
-      if (!transcript || transcript.length === 0) {
-        console.error('Empty transcript array returned for video ID:', videoId);
-        throw new Error('No transcript data found');
-      }
-      
-      console.log('Successfully fetched transcript with', transcript.length, 'segments');
-      console.log('First segment sample:', JSON.stringify(transcript[0]));
-      return transcript;
-    } catch (ytError) {
-      // Log detailed error from youtube-transcript
-      console.error('YouTube Transcript API error details:', {
-        name: ytError.name,
-        message: ytError.message,
-        stack: ytError.stack,
-        videoId: videoId
-      });
-      
-      // Try to determine if this is a network issue or a YouTube-specific issue
-      if (ytError.message.includes('network') || ytError.message.includes('ECONNREFUSED') || ytError.message.includes('timeout')) {
-        throw new Error(`Network error while fetching transcript: ${ytError.message}`);
-      } else if (ytError.message.includes('403') || ytError.message.includes('Forbidden')) {
-        throw new Error('Access to YouTube API was denied. This may be due to rate limiting.');
-      } else {
-        throw new Error(`Failed to fetch transcript: ${ytError.message}`);
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching transcript:', {
-      error: error instanceof Error ? error.message : String(error),
-      videoId,
-      timestamp: new Date().toISOString()
-    });
-    throw error;
-  }
-}
-
-// Method 1: Direct fetch using youtube-transcript package
+// Improved implementation using youtube-transcript package
 export async function fetchTranscriptDirectly(videoId: string) {
+  console.log('Fetching transcript directly for video ID:', videoId);
+  
   try {
-    console.log('Fetching transcript directly for video ID:', videoId);
+    // Try using the youtube-transcript package
+    console.log('Using YoutubeTranscript.fetchTranscript');
     const transcript = await YoutubeTranscript.fetchTranscript(videoId);
     
     if (!transcript || transcript.length === 0) {
-      console.warn('Empty transcript returned from direct fetch');
-      throw new Error('No transcript data found');
+      throw new Error('No transcript data returned');
     }
     
-    console.log('Direct fetch successful, found', transcript.length, 'segments');
-    return transcript;
+    console.log('Transcript fetched successfully with package:', transcript.length, 'segments');
+    
+    // Transform the transcript data to match our expected format
+    const formattedTranscript = transcript.map(item => ({
+      text: item.text,
+      offset: item.offset,
+      duration: item.duration,
+      // Add compatibility with our TranscriptSegment interface
+      start: item.offset / 1000 // Convert milliseconds to seconds for compatibility
+    }));
+    
+    return formattedTranscript;
   } catch (error) {
-    console.error('Error in fetchTranscriptDirectly:', error);
-    throw error;
-  }
-}
-
-// Method 2: Using SearchAPI.io
-async function fetchTranscriptWithSearchApi(videoId: string) {
-  try {
-    console.log('Fetching transcript via SearchAPI.io for video ID:', videoId);
+    console.error('Error fetching transcript with youtube-transcript package:', error);
     
-    const apiKey = import.meta.env.VITE_SEARCH_API_KEY;
-    if (!apiKey) {
-      console.warn('No SearchAPI.io API key found');
-      throw new Error('SearchAPI.io API key not configured');
-    }
-    
-    const response = await axios.get('https://www.searchapi.io/api/v1/search', {
-      params: {
-        engine: 'youtube_transcripts',
-        video_id: videoId,
-        api_key: apiKey
-      }
-    });
-    
-    if (!response.data || !response.data.transcripts || response.data.transcripts.length === 0) {
-      console.warn('No transcript data in SearchAPI.io response');
-      throw new Error('No transcript data found in API response');
-    }
-    
-    console.log('SearchAPI.io fetch successful, found', response.data.transcripts.length, 'segments');
-    return response.data.transcripts;
-  } catch (error) {
-    console.error('Error in fetchTranscriptWithSearchApi:', error);
-    throw error;
-  }
-}
-
-// Method 3: Using proxy to bypass CORS
-async function fetchTranscriptWithProxy(videoId: string) {
-  try {
-    console.log('Fetching transcript via proxy for video ID:', videoId);
-    
-    // Try multiple CORS proxies in case one fails
-    const proxyUrls = [
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`,
-      `https://corsproxy.io/?${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`,
-      `https://cors-anywhere.herokuapp.com/https://www.youtube.com/watch?v=${videoId}`
-    ];
-    
-    let html = '';
-    let proxySuccess = false;
-    
-    // Try each proxy until one works
-    for (const proxyUrl of proxyUrls) {
-      try {
-        console.log('Trying proxy:', proxyUrl);
-        const response = await axios.get(proxyUrl, { timeout: 10000 });
-        html = response.data;
-        proxySuccess = true;
-        console.log('Proxy fetch successful');
-        break;
-      } catch (proxyError) {
-        console.warn(`Proxy ${proxyUrl} failed:`, proxyError.message);
-        continue;
-      }
-    }
-    
-    if (!proxySuccess) {
-      throw new Error('All proxies failed to fetch the YouTube page');
-    }
-    
-    // Try multiple regex patterns to extract captions data
-    const regexPatterns = [
-      /"captionTracks":\[(.*?)\]/,
-      /captionTracks"?:\s*?\[(.*?)\]/,
-      /\\"captionTracks\\":\[(.*?)\]/
-    ];
-    
-    let match = null;
-    for (const pattern of regexPatterns) {
-      match = html.match(pattern);
-      if (match && match[1]) {
-        console.log('Found captions data with pattern:', pattern);
-        break;
-      }
-    }
-    
-    if (!match || !match[1]) {
-      console.error('No captions found in the video');
-      throw new Error('No captions found for this video');
-    }
-    
-    console.log('Captions data found');
-    
-    // Clean up the JSON string before parsing
-    let captionDataStr = match[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-    
+    // Try fallback method with proxy
     try {
-      // Try to parse the captions data
-      const captionsData = JSON.parse(`[${captionDataStr}]`);
-      
-      if (!captionsData || captionsData.length === 0) {
-        throw new Error('No captions available for this video');
-      }
-      
-      // Get the first available caption track (usually English)
-      const firstCaption = captionsData[0];
-      const captionUrl = firstCaption.baseUrl;
-      
-      console.log('Fetching captions from URL via proxy');
-      
-      // Try multiple proxies for the caption URL too
-      let transcript = '';
-      let captionProxySuccess = false;
-      
-      for (const proxyBase of ['https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?']) {
-        try {
-          const captionProxyUrl = `${proxyBase}${encodeURIComponent(captionUrl)}`;
-          console.log('Trying caption proxy:', captionProxyUrl);
-          const captionResponse = await axios.get(captionProxyUrl, { timeout: 8000 });
-          transcript = captionResponse.data;
-          captionProxySuccess = true;
-          console.log('Caption proxy fetch successful');
-          break;
-        } catch (captionProxyError) {
-          console.warn('Caption proxy failed:', captionProxyError.message);
-          continue;
-        }
-      }
-      
-      if (!captionProxySuccess) {
-        throw new Error('Failed to fetch captions from all proxies');
-      }
-      
-      // Use regex-based parsing which works in both browser and Node.js
-      console.log('Using regex-based parsing');
-      const result = [];
-      const regex = /<text start="([\d\.]+)" dur="([\d\.]+)"[^>]*>(.*?)<\/text>/g;
-      let textMatch;
-      
-      while ((textMatch = regex.exec(transcript)) !== null) {
-        const start = parseFloat(textMatch[1]);
-        const duration = parseFloat(textMatch[2]);
-        const text = textMatch[3].replace(/&amp;/g, '&')
-                               .replace(/&lt;/g, '<')
-                               .replace(/&gt;/g, '>')
-                               .replace(/&quot;/g, '"')
-                               .replace(/&#39;/g, "'");
-        
-        result.push({
-          text,
-          start,
-          duration,
-          offset: start * 1000,
-        });
-      }
-      
-      if (result.length === 0) {
-        throw new Error('Failed to parse transcript data');
-      }
-      
-      console.log('Regex parsing successful, found', result.length, 'segments');
-      return result;
-      
-    } catch (parseError) {
-      console.error('Error parsing caption data:', parseError);
-      throw new Error('Failed to parse caption data from YouTube');
+      console.log('Trying fallback method with proxy');
+      return await fetchTranscriptWithProxy(videoId);
+    } catch (proxyError) {
+      console.error('Fallback method failed:', proxyError);
+      throw new Error(
+        'Failed to fetch transcript. This video may not have captions available, ' +
+        'or the captions may be disabled. Please try another video or check if captions are enabled.'
+      );
     }
-    
-  } catch (error) {
-    console.error('Error in fetchTranscriptWithProxy:', error);
-    throw error;
   }
+}
+
+// Fallback method using proxy
+async function fetchTranscriptWithProxy(videoId: string) {
+  console.log('Fetching transcript via proxy for video ID:', videoId);
+  
+  // Use a CORS proxy to fetch the YouTube page
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
+  
+  console.log('Fetching via proxy:', proxyUrl);
+  const response = await axios.get(proxyUrl);
+  const html = response.data;
+  
+  // Extract captions data from the HTML
+  const captionsRegex = /"captionTracks":\[(.*?)\]/;
+  const match = html.match(captionsRegex);
+  
+  if (!match || !match[1]) {
+    console.error('No captions found in the video');
+    throw new Error('No captions found for this video');
+  }
+  
+  console.log('Captions data found');
+  
+  // Parse the captions data
+  const captionsData = JSON.parse(`[${match[1]}]`);
+  if (!captionsData || captionsData.length === 0) {
+    throw new Error('No captions available for this video');
+  }
+  
+  // Get the first available caption track (usually English)
+  const firstCaption = captionsData[0];
+  const captionUrl = firstCaption.baseUrl;
+  
+  console.log('Fetching captions from URL via proxy');
+  
+  // Fetch the actual transcript through the proxy
+  const captionResponse = await axios.get(`https://api.allorigins.win/raw?url=${encodeURIComponent(captionUrl)}`);
+  const transcript = captionResponse.data;
+  
+  // Parse the XML transcript
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(transcript, 'text/xml');
+  const textElements = xmlDoc.getElementsByTagName('text');
+  
+  // Convert to our transcript format
+  const result = [];
+  for (let i = 0; i < textElements.length; i++) {
+    const text = textElements[i].textContent || '';
+    const start = parseFloat(textElements[i].getAttribute('start') || '0');
+    const duration = parseFloat(textElements[i].getAttribute('dur') || '0');
+    
+    result.push({
+      text,
+      offset: start * 1000, // Convert to milliseconds
+      duration: duration * 1000, // Convert to milliseconds
+      start: start // Add start in seconds for compatibility
+    });
+  }
+  
+  console.log('Transcript parsed successfully via proxy, entries:', result.length);
+  return result;
+}
+
+export async function getTranscript(videoId: string) {
+  console.log('Fetching transcript for video ID:', videoId);
+  return fetchTranscriptDirectly(videoId);
 } 
