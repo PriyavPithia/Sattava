@@ -62,40 +62,19 @@ export const formatDurationLabel = (duration: number): string => {
 
 // Main function to get transcript with multiple fallback methods
 export async function getTranscript(videoId: string) {
-  console.log('Getting transcript for video ID:', videoId);
-  
   try {
-    // Method 1: Try using youtube-transcript package first
-    console.log('Attempting to fetch transcript using youtube-transcript package');
-    const transcript = await fetchTranscriptDirectly(videoId);
+    console.log('Fetching transcript for video ID:', videoId);
+    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
     
-    if (transcript && transcript.length > 0) {
-      console.log('Successfully fetched transcript using youtube-transcript package');
-      return transcript;
+    if (!transcript || transcript.length === 0) {
+      throw new Error('No transcript data found');
     }
     
-    // Method 2: Try using SearchAPI.io if first method fails
-    console.log('First method failed, trying SearchAPI.io');
-    const searchApiTranscript = await fetchTranscriptWithSearchApi(videoId);
-    
-    if (searchApiTranscript && searchApiTranscript.length > 0) {
-      console.log('Successfully fetched transcript using SearchAPI.io');
-      return searchApiTranscript;
-    }
-    
-    // Method 3: Try using proxy method if both previous methods fail
-    console.log('Second method failed, trying proxy method');
-    const proxyTranscript = await fetchTranscriptWithProxy(videoId);
-    
-    if (proxyTranscript && proxyTranscript.length > 0) {
-      console.log('Successfully fetched transcript using proxy method');
-      return proxyTranscript;
-    }
-    
-    throw new Error('All transcript fetching methods failed');
+    console.log('Successfully fetched transcript with', transcript.length, 'segments');
+    return transcript;
   } catch (error) {
-    console.error('Error in getTranscript:', error);
-    throw error;
+    console.error('Error fetching transcript:', error);
+    throw new Error('Failed to fetch transcript. Make sure the video exists and has captions available.');
   }
 }
 
