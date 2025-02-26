@@ -190,6 +190,33 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     const path = location.pathname;
     console.log('URL path changed:', path);
     
+    const loadCollectionData = async (collection: Collection, newViewMode: ViewMode) => {
+      // Always update the selected collection
+      console.log('Setting selected collection from URL:', collection.name);
+      onSelectCollection(collection);
+      setViewMode(newViewMode);
+
+      // Load chat history when entering chat mode
+      if (newViewMode === 'chat') {
+        try {
+          const savedMessages = await loadChat(collection.id);
+          console.log('Loaded messages:', savedMessages);
+          setMessages(savedMessages || []);
+
+          // Automatically select first file if none is selected
+          if (!selectedVideo && collection.items.length > 0) {
+            const firstItem = collection.items[0];
+            if (onVideoSelect) {
+              onVideoSelect(firstItem);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+          setMessages([]);
+        }
+      }
+    };
+
     // If we're at the base knowledgebase path, reset state
     if (path === '/knowledgebase') {
       console.log('At base knowledgebase path, resetting state');
@@ -212,33 +239,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       console.log('Found collection:', collection);
       
       if (collection) {
-        // Always update the selected collection
-        console.log('Setting selected collection from URL:', collection.name);
-        onSelectCollection(collection);
-        
-        // Set view mode based on URL or default to list
         const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
-        console.log('Setting view mode:', newViewMode);
-        setViewMode(newViewMode);
-
-        // Load chat history when entering chat mode
-        if (newViewMode === 'chat') {
-          loadChat(collection.id).then(savedMessages => {
-            if (savedMessages && savedMessages.length > 0) {
-              setMessages(savedMessages);
-            }
-          }).catch(error => {
-            console.error('Error loading chat history:', error);
-          });
-          
-          // Automatically select first file if none is selected
-          if (!selectedVideo && collection.items.length > 0) {
-            const firstItem = collection.items[0];
-            if (onVideoSelect) {
-              onVideoSelect(firstItem);
-            }
-          }
-        }
+        loadCollectionData(collection, newViewMode);
       }
     }
   }, [location.pathname, collections]);
@@ -377,14 +379,25 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   };
 
   // Update the view mode handlers
-  const handleViewModeChange = (mode: ViewMode) => {
+  const handleViewModeChange = async (mode: ViewMode) => {
     setViewMode(mode);
     
-    // When entering chat mode, automatically select the first file if none is selected
-    if (mode === 'chat' && selectedCollection && !selectedVideo && selectedCollection.items.length > 0) {
-      const firstItem = selectedCollection.items[0];
-      if (onVideoSelect) {
-        onVideoSelect(firstItem);
+    if (mode === 'chat' && selectedCollection) {
+      try {
+        // Load chat history first
+        const savedMessages = await loadChat(selectedCollection.id);
+        setMessages(savedMessages || []);
+
+        // Then handle file selection if needed
+        if (!selectedVideo && selectedCollection.items.length > 0) {
+          const firstItem = selectedCollection.items[0];
+          if (onVideoSelect) {
+            onVideoSelect(firstItem);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        setMessages([]);
       }
     }
     
