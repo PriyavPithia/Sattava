@@ -229,19 +229,28 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     }
 
     try {
-      const targetPath = mode === 'chat' 
-        ? `/knowledgebase/${collection.id}/chat`
-        : `/knowledgebase/${collection.id}/${mode}`;
+      // Set navigation lock immediately
+      navigationLockRef.current = true;
 
-      // First navigate
-      if (location.pathname !== targetPath) {
-        navigate(targetPath, { replace: true });
-      }
-
-      // Then load data
+      // First load data
       await loadCollectionData(collection, mode);
+
+      // Then navigate after a short delay to ensure state is updated
+      setTimeout(() => {
+        const targetPath = mode === 'chat' 
+          ? `/knowledgebase/${collection.id}/chat`
+          : `/knowledgebase/${collection.id}/${mode}`;
+
+        if (location.pathname !== targetPath) {
+          navigate(targetPath, { replace: true });
+        }
+        
+        // Release navigation lock
+        navigationLockRef.current = false;
+      }, 100);
     } catch (error) {
       console.error('Error changing view mode:', error);
+      navigationLockRef.current = false;
     }
   };
 
