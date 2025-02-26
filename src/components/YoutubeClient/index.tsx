@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { extractVideoId } from '../../utils/youtube';
-import { fetchTranscriptDirectly } from '../../utils/transcript';
+import axios from 'axios';
 
 interface YoutubeClientProps {
   url: string;
@@ -42,7 +42,10 @@ const YoutubeClient: React.FC<YoutubeClientProps> = ({
 
     try {
       console.log('Fetching transcript for video ID:', videoId);
-      const transcript = await fetchTranscriptDirectly(videoId);
+      
+      // Use the server-side API endpoint instead of direct fetching
+      const response = await axios.post('/api/youtube-transcript', { videoId });
+      const transcript = response.data.transcript;
       
       if (!transcript || transcript.length === 0) {
         throw new Error('No transcript data available for this video');
@@ -50,22 +53,28 @@ const YoutubeClient: React.FC<YoutubeClientProps> = ({
       
       console.log('Transcript received:', transcript.length, 'segments');
       onTranscriptGenerated(transcript);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in handleSubmit:', error);
       
       let errorMsg = 'Failed to fetch transcript. Please try another video.';
       
-      if (error instanceof Error) {
-        // Provide more specific error messages based on the error
-        if (error.message.includes('captions')) {
-          errorMsg = 'Failed to fetch transcript. This video may not have captions available, or the captions may be disabled. Please try another video or check if captions are enabled.';
-        } else if (error.message.includes('network') || error.message.includes('timeout')) {
-          errorMsg = 'Network error while fetching transcript. Please check your internet connection and try again.';
-        } else if (error.message.includes('rate limit') || error.message.includes('429')) {
-          errorMsg = 'Rate limit exceeded. Please wait a moment and try again.';
-        } else {
-          errorMsg = error.message;
+      // Handle axios error responses
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.data && error.response.data.error) {
+          errorMsg = error.response.data.error;
+        } else if (error.response.status === 404) {
+          errorMsg = 'No captions found for this video. Please try another video.';
+        } else if (error.response.status === 500) {
+          errorMsg = 'Server error while fetching transcript. Please try again later.';
         }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMsg = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message) {
+        // Something happened in setting up the request that triggered an Error
+        errorMsg = error.message;
       }
       
       setErrorMessage(errorMsg);
