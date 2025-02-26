@@ -189,7 +189,36 @@ async function fetchTranscriptWithProxy(videoId: string) {
     const captionResponse = await axios.get(`https://api.allorigins.win/raw?url=${encodeURIComponent(captionUrl)}`);
     const transcript = captionResponse.data;
     
-    // Parse the XML transcript
+    // Check if we're in a browser environment
+    if (typeof DOMParser === 'undefined') {
+      console.log('DOMParser not available, using regex-based parsing');
+      // Use regex-based parsing as fallback
+      const result = [];
+      const regex = /<text start="([\d\.]+)" dur="([\d\.]+)"[^>]*>(.*?)<\/text>/g;
+      let match;
+      
+      while ((match = regex.exec(transcript)) !== null) {
+        const start = parseFloat(match[1]);
+        const duration = parseFloat(match[2]);
+        const text = match[3].replace(/&amp;/g, '&')
+                             .replace(/&lt;/g, '<')
+                             .replace(/&gt;/g, '>')
+                             .replace(/&quot;/g, '"')
+                             .replace(/&#39;/g, "'");
+        
+        result.push({
+          text,
+          start,
+          duration,
+          offset: start * 1000,
+        });
+      }
+      
+      console.log('Regex parsing successful, found', result.length, 'segments');
+      return result;
+    }
+    
+    // Parse the XML transcript using DOMParser (browser environment)
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(transcript, 'text/xml');
     const textElements = xmlDoc.getElementsByTagName('text');
@@ -209,7 +238,7 @@ async function fetchTranscriptWithProxy(videoId: string) {
       });
     }
     
-    console.log('Proxy fetch successful, found', result.length, 'segments');
+    console.log('DOM parsing successful, found', result.length, 'segments');
     return result;
   } catch (error) {
     console.error('Error in fetchTranscriptWithProxy:', error);
