@@ -6,6 +6,9 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 
+// Import our custom editor styles
+import '../styles/editor.css';
+
 // Note: You'll need to add the CSS import where applicable
 // Import styles in a CSS/SCSS file or global styles
 // import 'react-quill/dist/quill.snow.css';
@@ -129,7 +132,12 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     onUpdate: ({ editor }) => {
       // Get HTML content when editor changes
       const html = editor.getHTML();
-      // We don't need to set a separate state as the editor maintains its own state
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none',
+        spellcheck: 'true',
+      },
     },
   });
 
@@ -823,8 +831,11 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                   </MenuButton>
                 </div>
 
-                <div className="p-4">
-                  <EditorContent editor={editor} className="min-h-[120px] prose prose-sm max-w-none" />
+                <div className="p-4 tiptap-editor">
+                  <EditorContent 
+                    editor={editor} 
+                    className="min-h-[120px] prose prose-sm max-w-none focus-within:outline-none" 
+                  />
                 </div>
 
                 <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">

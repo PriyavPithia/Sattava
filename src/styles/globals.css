@@ -2,6 +2,17 @@
 .ProseMirror {
   outline: none;
   min-height: 120px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.ProseMirror:focus {
+  outline: none;
+  box-shadow: none;
+  border: none;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
@@ -19,6 +30,19 @@
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* Remove any selection styles that might be causing the rectangle */
+::selection {
+  background: rgba(0, 123, 255, 0.2);
+  text-shadow: none;
+}
+
+/* Override any remaining Quill styles */
+.ql-container, .ql-editor {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 /* Your existing CSS styles here */ 

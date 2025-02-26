@@ -1,0 +1,88 @@
+/* TipTap Editor Specific Styles */
+
+/* Basic editor styles */
+.tiptap-editor {
+  position: relative;
+  width: 100%;
+}
+
+.tiptap-editor .ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  min-height: 120px;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.tiptap-editor .ProseMirror:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Placeholder styles */
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before,
+.tiptap-editor .ProseMirror p.is-empty::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Typography styles */
+.tiptap-editor .ProseMirror h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tiptap-editor .ProseMirror p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tiptap-editor .ProseMirror ul,
+.tiptap-editor .ProseMirror ol {
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tiptap-editor .ProseMirror blockquote {
+  border-left: 3px solid #e2e8f0;
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  font-style: italic;
+}
+
+/* Selection styles */
+.tiptap-editor .ProseMirror ::selection {
+  background: rgba(0, 123, 255, 0.2);
+  text-shadow: none;
+}
+
+/* Override any remaining Quill styles */
+.ql-container, 
+.ql-editor,
+.ql-toolbar {
+  display: none !important;
+} 
