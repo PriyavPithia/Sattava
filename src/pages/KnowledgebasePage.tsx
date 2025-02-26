@@ -200,7 +200,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         console.log('Loaded messages:', savedMessages);
         setMessages(savedMessages || []);
 
-        // Always ensure a file is selected in chat mode
+        // Only select first item if no video is currently selected
         if (!selectedVideo && collection.items.length > 0) {
           const firstItem = collection.items[0];
           if (onVideoSelect) {
@@ -218,15 +218,24 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
     if (mode === 'chat') {
       try {
+        // First update the view mode and load data
         await loadCollectionData(collection, mode);
-        navigate(`/knowledgebase/${collection.id}/chat`);
+        
+        // Then update the URL only if it's different
+        const targetPath = `/knowledgebase/${collection.id}/chat`;
+        if (location.pathname !== targetPath) {
+          navigate(targetPath, { replace: true });
+        }
       } catch (error) {
         console.error('Error switching to chat mode:', error);
       }
     } else {
       setViewMode(mode);
       if (collection) {
-        navigate(`/knowledgebase/${collection.id}/${mode}`);
+        const targetPath = `/knowledgebase/${collection.id}/${mode}`;
+        if (location.pathname !== targetPath) {
+          navigate(targetPath, { replace: true });
+        }
       }
     }
   };
@@ -242,7 +251,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       setViewMode('list');
       setMessages([]);
       if (selectedVideo) {
-        onVideoSelect?.(null as any); // Type assertion to handle null
+        onVideoSelect?.(null as any);
       }
       onSelectCollection(null);
       return;
@@ -261,7 +270,10 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       
       if (collection) {
         const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
-        loadCollectionData(collection, newViewMode);
+        // Only load collection data if the collection or view mode has changed
+        if (collection.id !== selectedCollection?.id || viewMode !== newViewMode) {
+          loadCollectionData(collection, newViewMode);
+        }
       }
     }
   }, [location.pathname, collections]);
