@@ -1,6 +1,36 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Loader2, Upload, Youtube, FileText, Mic, Type, Square, Pause, Play, Settings } from 'lucide-react';
+import { Loader2, Upload, Youtube, FileText, Mic, MicOff, Type, Settings, X } from 'lucide-react';
 import axios from 'axios';
+
+// Define SpeechRecognition types
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
 
 interface ContentAdditionProps {
   addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
@@ -32,21 +62,14 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   const [textInput, setTextInput] = useState<string>('');
   const [transcription, setTranscription] = useState<string>('');
   const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  
+  // For audio file upload
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [showDeviceSettings, setShowDeviceSettings] = useState<boolean>(false);
-  const [recordingTime, setRecordingTime] = useState<number>(0);
-  const recordingTimerRef = useRef<number | null>(null);
-  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
-  const [audioLevel, setAudioLevel] = useState<number>(0);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
 
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
@@ -79,280 +102,119 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
       
       // Reset the transcription
       setTranscription('');
-      setAudioChunks([]);
     }
   };
 
-  // Function to start audio visualization
-  const startAudioVisualization = (stream: MediaStream) => {
-    try {
-      // Create audio context
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-      
-      // Create analyser
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-      
-      // Create buffer
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      dataArrayRef.current = dataArray;
-      
-      // Connect stream to analyser
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      
-      // Start visualization loop
-      const updateAudioLevel = () => {
-        if (!analyserRef.current || !dataArrayRef.current) return;
-        
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        
-        // Calculate average level
-        const average = dataArrayRef.current.reduce((acc, val) => acc + val, 0) / dataArrayRef.current.length;
-        setAudioLevel(average);
-        
-        // Continue loop
-        animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
-      };
-      
-      updateAudioLevel();
-    } catch (error) {
-      console.error('Error setting up audio visualization:', error);
+  // Initialize speech recognition
+  useEffect(() => {
+    // Check if browser supports SpeechRecognition
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.error('Speech recognition is not supported in this browser');
+      setIsSpeechSupported(false);
+      return;
     }
-  };
 
-  // Function to stop audio visualization
-  const stopAudioVisualization = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
+    // Use type assertion to handle the Speech Recognition API
+    const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognitionConstructor() as SpeechRecognition;
     
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(console.error);
-      audioContextRef.current = null;
-    }
-    
-    analyserRef.current = null;
-    dataArrayRef.current = null;
-    setAudioLevel(0);
-  };
-
-  const startRecording = async () => {
-    console.log('startRecording function called');
-    try {
-      // Check if we have microphone permission
-      const permissionStatus = await checkMicrophonePermission();
-      if (!permissionStatus) {
-        console.error('Microphone permission denied');
-        onError('Microphone access denied. Please allow microphone access in your browser settings.');
-        return;
-      }
+    if (recognitionRef.current) {
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
       
-      console.log('Requesting microphone access with device ID:', selectedDeviceId);
-      const constraints = {
-        audio: selectedDeviceId 
-          ? { deviceId: { exact: selectedDeviceId } } 
-          : true
-      };
-      
-      // Get audio stream
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Microphone access granted, stream tracks:', stream.getAudioTracks().length);
-      
-      // Store stream for later use
-      setAudioStream(stream);
-      
-      // Start audio visualization
-      startAudioVisualization(stream);
-      
-      // Create media recorder with explicit MIME type
-      const options = { mimeType: 'audio/webm' };
-      let recorder: MediaRecorder;
-      
-      try {
-        recorder = new MediaRecorder(stream, options);
-        console.log('Created MediaRecorder with options:', options);
-      } catch (e) {
-        console.error('Failed to create MediaRecorder with audio/webm, trying without MIME type');
-        recorder = new MediaRecorder(stream);
-        console.log('Created MediaRecorder without options');
-      }
-      
-      setMediaRecorder(recorder);
-      
-      // Reset recording time and chunks
-      setRecordingTime(0);
-      setAudioChunks([]);
-      
-      const chunks: Blob[] = [];
-      
-      // Set up event handlers
-      recorder.ondataavailable = (e) => {
-        console.log('Data available from recorder', e.data.size);
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-          setAudioChunks(prevChunks => [...prevChunks, e.data]);
-          console.log('Updated audio chunks, total chunks:', chunks.length);
-        }
-      };
-      
-      recorder.onstart = () => {
-        console.log('MediaRecorder started');
-      };
-      
-      recorder.onpause = () => {
-        console.log('MediaRecorder paused');
-      };
-      
-      recorder.onresume = () => {
-        console.log('MediaRecorder resumed');
-      };
-      
-      recorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
-        onError('Recording error: ' + (event.error ? event.error.message : 'Unknown error'));
-      };
-      
-      recorder.onstop = async () => {
-        console.log('MediaRecorder stopped, processing chunks', chunks.length);
-        
-        // Only process if we have audio chunks
-        if (chunks.length > 0) {
-          setIsTranscribing(true);
-          
-          try {
-            // Create a blob from all chunks
-            const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-            console.log('Created audio blob', audioBlob.size, 'bytes');
-            
-            // Create audio element for debugging
-            const audioURL = URL.createObjectURL(audioBlob);
-            console.log('Audio URL created:', audioURL);
-            
-            const audioElement = document.createElement('audio');
-            audioElement.src = audioURL;
-            audioElement.controls = true;
-            document.body.appendChild(audioElement);
-            console.log('Audio element added to body for debugging');
-            
-            // Create form data
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.webm');
-            
-            // Send to Whisper API
-            console.log('Sending to Whisper API...');
-            const response = await axios.post('/api/whisper-transcription', formData);
-            console.log('Received response from Whisper API', response.data);
-            
-            // Update transcription
-            if (response.data && response.data.transcription) {
-              setTranscription(prev => prev + ' ' + response.data.transcription);
-              console.log('Transcription updated');
-            } else {
-              console.error('No transcription in response:', response.data);
-              onError('Failed to transcribe audio: No transcription returned');
-            }
-            
-            // Clean up
-            document.body.removeChild(audioElement);
-            URL.revokeObjectURL(audioURL);
-          } catch (error) {
-            console.error('Error transcribing audio:', error);
-            onError('Failed to transcribe audio: ' + (error instanceof Error ? error.message : 'Unknown error'));
-          } finally {
-            setIsTranscribing(false);
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+  
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
           }
-        } else {
-          console.warn('No audio chunks collected during recording');
-          onError('No audio was recorded. Please try again.');
         }
-        
-        // Stop audio visualization
-        stopAudioVisualization();
+  
+        setTranscription(prevTranscript => {
+          const newTranscript = prevTranscript + finalTranscript;
+          return newTranscript;
+        });
       };
-      
-      // Start recording with smaller time slices for more frequent ondataavailable events
-      console.log('Starting recorder...');
-      recorder.start(1000); // Collect in 1-second chunks
-      setIsRecording(true);
-      setIsPaused(false);
-      console.log('Recorder started successfully');
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      onError('Failed to access microphone: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      stopAudioVisualization();
-    }
-  };
-
-  // Function to check microphone permission
-  const checkMicrophonePermission = async (): Promise<boolean> => {
-    try {
-      // Check if the browser supports the permissions API
-      if (navigator.permissions && navigator.permissions.query) {
-        console.log('Checking microphone permission using Permissions API');
-        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        console.log('Permission status:', permissionStatus.state);
-        
-        if (permissionStatus.state === 'granted') {
-          return true;
-        } else if (permissionStatus.state === 'prompt') {
-          // We'll get the prompt when we call getUserMedia
-          return true;
-        } else {
-          // Permission denied
-          return false;
+  
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error', event.error);
+        onError(`Speech recognition error: ${event.error}`);
+        setIsRecording(false);
+      };
+  
+      recognitionRef.current.onend = () => {
+        console.log('Speech recognition ended');
+        // Only set isRecording to false if we didn't manually stop it
+        // This prevents the recognition from stopping unexpectedly
+        if (isRecording) {
+          // Try to restart if it stopped unexpectedly
+          try {
+            if (recognitionRef.current) {
+              recognitionRef.current.start();
+              console.log('Restarted speech recognition after unexpected end');
+            }
+          } catch (error) {
+            console.error('Failed to restart speech recognition', error);
+            setIsRecording(false);
+          }
         }
-      } else {
-        // Fallback for browsers that don't support the permissions API
-        console.log('Permissions API not supported, will try direct access');
-        return true; // We'll handle the error in getUserMedia
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (error) {
+          console.error('Error stopping speech recognition on cleanup', error);
+        }
       }
+    };
+  }, [isRecording, onError]);
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const startRecording = () => {
+    if (!recognitionRef.current) {
+      onError('Speech recognition is not supported in your browser');
+      return;
+    }
+
+    try {
+      recognitionRef.current.start();
+      console.log('Speech recognition started');
+      setIsRecording(true);
     } catch (error) {
-      console.error('Error checking microphone permission:', error);
-      return true; // Let getUserMedia handle the error
-    }
-  };
-
-  const pauseRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.pause();
-      setIsPaused(true);
-    }
-  };
-
-  const resumeRecording = () => {
-    if (mediaRecorder && isRecording && isPaused) {
-      mediaRecorder.resume();
-      setIsPaused(false);
+      console.error('Error starting speech recognition:', error);
+      onError(`Failed to start speech recognition: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const stopRecording = () => {
-    console.log('stopRecording called, recorder state:', mediaRecorder?.state);
-    if (mediaRecorder && isRecording) {
+    if (recognitionRef.current && isRecording) {
       try {
-        mediaRecorder.stop();
-        console.log('MediaRecorder stopped');
+        recognitionRef.current.stop();
+        console.log('Speech recognition stopped');
       } catch (error) {
-        console.error('Error stopping MediaRecorder:', error);
+        console.error('Error stopping speech recognition:', error);
       }
-      
       setIsRecording(false);
-      setIsPaused(false);
-      
-      // Stop all tracks on the stream
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Audio track stopped');
-        });
-        setAudioStream(null);
-      }
     }
+  };
+
+  const clearTranscription = () => {
+    setTranscription('');
   };
 
   const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -431,81 +293,15 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
     };
   }, []);
 
-  // Timer for recording duration
+  // Check browser compatibility
   useEffect(() => {
-    if (isRecording && !isPaused) {
-      // Start or resume timer
-      recordingTimerRef.current = window.setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else if (recordingTimerRef.current) {
-      // Pause or stop timer
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
+    // Check if SpeechRecognition is supported
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.error('SpeechRecognition is not supported in this browser');
+      onError('Speech recognition is not supported in this browser. Please try Chrome, Edge, or Safari.');
+      setIsSpeechSupported(false);
     }
-    
-    // Reset timer when recording stops
-    if (!isRecording) {
-      setRecordingTime(0);
-    }
-    
-    return () => {
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-      }
-    };
-  }, [isRecording, isPaused]);
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Check browser compatibility and permissions
-  useEffect(() => {
-    // Check if MediaRecorder is supported
-    if (typeof MediaRecorder === 'undefined') {
-      console.error('MediaRecorder is not supported in this browser');
-      onError('Speech recording is not supported in this browser');
-      return;
-    }
-
-    // Check if getUserMedia is supported
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.error('getUserMedia is not supported in this browser');
-      onError('Microphone access is not supported in this browser');
-      return;
-    }
-
-    // Check if we're in a secure context (HTTPS or localhost)
-    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-      console.error('Microphone access requires a secure context (HTTPS or localhost)');
-      onError('Microphone access requires a secure connection (HTTPS)');
-      return;
-    }
-
-    console.log('Browser supports recording capabilities');
   }, [onError]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try {
-          mediaRecorder.stop();
-        } catch (error) {
-          console.error('Error stopping MediaRecorder on unmount:', error);
-        }
-      }
-      
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop());
-      }
-      
-      stopAudioVisualization();
-    };
-  }, [mediaRecorder, audioStream]);
 
   return (
     <div className="p-6">
@@ -658,94 +454,82 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
               </div>
             )}
             
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              {isTranscribing ? (
-                <div className="flex flex-col items-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                  <p className="mt-2 text-sm text-gray-600">Transcribing audio...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  {isRecording ? (
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center gap-4 mb-2">
-                        {isPaused ? (
-                          <button
-                            onClick={resumeRecording}
-                            className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center hover:bg-green-100 transition-colors"
-                          >
-                            <Play className="w-6 h-6 text-green-600" />
-                          </button>
+            {!isSpeechSupported ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                <p className="text-yellow-700">
+                  Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.
+                </p>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                {isTranscribing ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    <p className="mt-2 text-sm text-gray-600">Transcribing audio...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-4 mb-4">
+                      <button
+                        onClick={toggleRecording}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                          isRecording
+                            ? 'bg-red-600 text-white hover:bg-red-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {isRecording ? (
+                          <>
+                            <MicOff className="w-5 h-5" />
+                            <span>Stop Recording</span>
+                          </>
                         ) : (
-                          <button
-                            onClick={pauseRecording}
-                            className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center hover:bg-yellow-100 transition-colors"
-                          >
-                            <Pause className="w-6 h-6 text-yellow-600" />
-                          </button>
+                          <>
+                            <Mic className="w-5 h-5" />
+                            <span>Start Recording</span>
+                          </>
                         )}
-                        <button
-                          onClick={stopRecording}
-                          className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors"
-                        >
-                          <Square className="w-6 h-6 text-red-600" />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-center w-full mb-2">
-                        <div className={`h-4 w-4 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'} mr-2`}></div>
-                        <span className="text-sm font-medium">
-                          {isPaused ? 'Recording paused' : 'Recording'} - {formatTime(recordingTime)}
-                        </span>
-                      </div>
+                      </button>
                       
-                      {/* Audio level visualization */}
-                      <div className="w-full max-w-xs h-8 bg-gray-100 rounded-full overflow-hidden mt-2">
-                        <div 
-                          className="h-full bg-blue-500 transition-all duration-100"
-                          style={{ width: `${Math.min(100, audioLevel * 100 / 255)}%` }}
-                        ></div>
-                      </div>
+                      <button
+                        onClick={clearTranscription}
+                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Clear</span>
+                      </button>
                     </div>
-                  ) : (
+                    
+                    {isRecording && (
+                      <div className="flex items-center gap-2 text-blue-600 mb-4">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Listening...</span>
+                      </div>
+                    )}
+                    
+                    <p className="mt-1 text-xs text-gray-500">or upload an audio file</p>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      className="mt-4 text-sm hidden"
+                      onChange={handleAudioFileChange}
+                      ref={audioInputRef}
+                    />
                     <button
-                      onClick={() => {
-                        console.log('Recording button clicked');
-                        startRecording();
-                      }}
-                      className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                      onClick={handleAudioFileButtonClick}
+                      className="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
                     >
-                      <Mic className="w-10 h-10 text-blue-500" />
+                      Select Audio File
                     </button>
-                  )}
-                  <p className="mt-4 text-sm font-medium text-gray-900">
-                    {isRecording 
-                      ? isPaused 
-                        ? "Click to resume recording" 
-                        : "Click to pause recording" 
-                      : "Click to start recording"}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">or upload an audio file</p>
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="mt-4 text-sm hidden"
-                    onChange={handleAudioFileChange}
-                    ref={audioInputRef}
-                  />
-                  <button
-                    onClick={handleAudioFileButtonClick}
-                    className="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-                  >
-                    Select Audio File
-                  </button>
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Always show transcription area */}
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Transcription {isRecording && !isPaused && !isTranscribing && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
+                Transcription {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
               </label>
               <textarea
                 value={transcription}
@@ -771,7 +555,7 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
             </div>
             
             <p className="mt-2 text-sm text-gray-500">
-              Record speech or upload an audio file to convert to text using OpenAI Whisper.
+              Record speech or upload an audio file to convert to text.
             </p>
           </div>
         )}
