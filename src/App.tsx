@@ -2,7 +2,7 @@ import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import axios from 'axios';
 import { FileText, Plus, Home, Upload, UserCircle, LogOut } from 'lucide-react';
 import OpenAI from 'openai';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 import { getDocument } from 'pdfjs-dist';
 import { GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
@@ -28,7 +28,7 @@ import Login from './pages/Login';
 import { createProject, getProjects, addContent, saveChat, loadChat } from './utils/database';
 import { supabase } from './lib/supabase';
 import { Content } from './types/database';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
@@ -1192,19 +1192,18 @@ function App() {
                   <HomeButton 
                     onSelectCollection={setSelectedCollection}
                   />
-                  <button 
+                  <Link 
+                    to="/knowledgebase"
                     onClick={() => {
-                      // Reset states
                       setSelectedCollection(null);
                       setSelectedVideo(null);
                       setMessages([]);
-                      navigate('/knowledgebase');
                     }}
                     className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
                   >
                     <FileText className="w-5 h-5 mr-2" />
                     Knowledgebase
-                  </button>
+                  </Link>
                 </div>
                 <div className="flex items-center">
                   <UserCircle className="w-6 h-6 text-gray-600" />

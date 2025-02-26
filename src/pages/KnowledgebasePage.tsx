@@ -186,7 +186,52 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   } | null>(null);
   const [editingCollectionName, setEditingCollectionName] = useState<string | null>(null);
   
-  // Add useEffect to handle URL changes
+  // Keep loadCollectionData function inside the component but outside useEffect
+  const loadCollectionData = async (collection: Collection, newViewMode: ViewMode) => {
+    // Always update the selected collection
+    console.log('Setting selected collection from URL:', collection.name);
+    onSelectCollection(collection);
+    setViewMode(newViewMode);
+
+    // Load chat history and select file when entering chat mode
+    if (newViewMode === 'chat') {
+      try {
+        const savedMessages = await loadChat(collection.id);
+        console.log('Loaded messages:', savedMessages);
+        setMessages(savedMessages || []);
+
+        // Always ensure a file is selected in chat mode
+        if (!selectedVideo && collection.items.length > 0) {
+          const firstItem = collection.items[0];
+          if (onVideoSelect) {
+            onVideoSelect(firstItem);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        setMessages([]);
+      }
+    }
+  };
+
+  // Update the handleViewModeChange function
+  const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
+    if (mode === 'chat') {
+      try {
+        await loadCollectionData(collection, mode);
+        navigate(`/knowledgebase/${collection.id}/chat`);
+      } catch (error) {
+        console.error('Error switching to chat mode:', error);
+      }
+    } else {
+      setViewMode(mode);
+      if (collection) {
+        navigate(`/knowledgebase/${collection.id}/${mode}`);
+      }
+    }
+  };
+
+  // Update the URL change effect to use the defined loadCollectionData
   useEffect(() => {
     const path = location.pathname;
     console.log('URL path changed:', path);
@@ -196,8 +241,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       console.log('At base knowledgebase path, resetting state');
       setViewMode('list');
       setMessages([]);
-      if (selectedVideo && onVideoSelect) {
-        onVideoSelect(null);
+      if (selectedVideo) {
+        onVideoSelect?.(null as any); // Type assertion to handle null
       }
       onSelectCollection(null);
       return;
@@ -352,38 +397,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       }
     };
     onReferenceClick(contentSource);
-  };
-
-  // Update the view mode handlers
-  const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
-    setViewMode(mode);
-    
-    if (mode === 'chat') {
-      try {
-        // First select the collection
-        onSelectCollection(collection);
-
-        // Load chat history
-        const savedMessages = await loadChat(collection.id);
-        setMessages(savedMessages || []);
-
-        // Ensure a file is selected before navigating
-        if (!selectedVideo && collection.items.length > 0) {
-          const firstItem = collection.items[0];
-          if (onVideoSelect) {
-            onVideoSelect(firstItem);
-          }
-        }
-
-        // Navigate to chat mode
-        navigate(`/knowledgebase/${collection.id}/chat`);
-      } catch (error) {
-        console.error('Error loading chat history:', error);
-        setMessages([]);
-      }
-    } else if (collection) {
-      navigate(`/knowledgebase/${collection.id}/${mode}`);
-    }
   };
 
   // Update the content deletion handler
