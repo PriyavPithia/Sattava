@@ -138,41 +138,70 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       setIsTranscribingAudio(true);
       setDebugInfo(`Preparing to transcribe audio file: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`);
       
+      // Check file size before uploading
+      if (audioFile.size > 25 * 1024 * 1024) { // 25MB limit
+        throw new Error('Audio file exceeds 25MB limit. Please select a smaller file.');
+      }
+
       // Create a FormData object to send the file
       const formData = new FormData();
       formData.append('audio', audioFile);
       
       // Send to Whisper API endpoint
       setDebugInfo(`Sending audio file to Whisper API...`);
-      const response = await fetch('/api/whisper-transcription', {
-        method: 'POST',
-        body: formData,
-      });
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        // Extract error message from response
-        const errorMessage = data.error || response.statusText || 'Unknown error';
-        throw new Error(errorMessage);
+      try {
+        const response = await fetch('/api/whisper-transcription', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        // Check if response is OK first
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage;
+          
+          // Try to parse error as JSON if possible
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage = errorJson.error || `Server error: ${response.status} ${response.statusText}`;
+          } catch (jsonError) {
+            // If JSON parsing fails, use the raw text or status
+            errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        // Now try to parse the JSON response
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          console.error('JSON parsing error:', jsonError);
+          throw new Error('Failed to parse server response. The server might be experiencing issues.');
+        }
+        
+        if (!data || !data.transcription) {
+          throw new Error('Received empty transcription from server.');
+        }
+        
+        // Update the transcription area with the result
+        setPermanentTranscript(data.transcription);
+        setInterimTranscript('');
+        setTranscription(data.transcription);
+        setDebugInfo(`Transcription complete: ${data.transcription.substring(0, 50)}...`);
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw fetchError;
       }
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      // Update the transcription area with the result
-      setPermanentTranscript(data.transcription);
-      setInterimTranscript('');
-      setTranscription(data.transcription);
-      setDebugInfo(`Transcription complete: ${data.transcription.substring(0, 50)}...`);
       
     } catch (error) {
       console.error('Error transcribing audio file:', error);
       // Only include the original error message without adding "Error transcribing audio:" prefix
       const errorMessage = error instanceof Error ? error.message : String(error);
       setDebugInfo(`Transcription failed: ${errorMessage}`);
-      onError(`${errorMessage}`);
+      onError(errorMessage);
     } finally {
       setIsTranscribingAudio(false);
       
