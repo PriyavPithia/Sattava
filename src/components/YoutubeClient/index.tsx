@@ -21,20 +21,39 @@ const YoutubeClient: React.FC<YoutubeClientProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const videoId = extractVideoId(url);
+    e.preventDefault(); // Prevent form submission from refreshing the page
     
-    if (!videoId) {
-      onError('Invalid YouTube URL');
+    if (!url) {
+      onError('Please enter a YouTube URL');
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      const transcript = await getTranscript(videoId);
-      onTranscriptGenerated(transcript);
+      setIsLoading(true);
+      const response = await fetch('/api/youtube-transcript', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch transcript');
+      }
+
+      const data = await response.json();
+      console.log('Transcript data:', data);
+      
+      if (data.transcript && Array.isArray(data.transcript)) {
+        // Pass the transcript data to the parent component
+        onTranscriptGenerated(data.transcript);
+      } else {
+        throw new Error('Invalid transcript data received');
+      }
     } catch (error) {
+      console.error('Error fetching transcript:', error);
       onError(error instanceof Error ? error.message : 'Failed to fetch transcript');
     } finally {
       setIsLoading(false);

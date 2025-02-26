@@ -200,12 +200,18 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         console.log('Loaded messages:', savedMessages);
         setMessages(savedMessages || []);
 
-        // Always ensure a file is selected in chat mode
-        if (!selectedVideo && collection.items.length > 0) {
+        // If no video is selected or we're selecting a new one, ensure it's properly loaded
+        if ((!selectedVideo || selectedVideo.id === '') && collection.items.length > 0) {
           const firstItem = collection.items[0];
           if (onVideoSelect) {
+            console.log('Auto-selecting first item:', firstItem);
+            // Force reload of content by calling onVideoSelect
             onVideoSelect(firstItem);
           }
+        } else if (selectedVideo && onVideoSelect) {
+          // Force reload of the currently selected video to ensure content is displayed
+          console.log('Reloading current video:', selectedVideo);
+          onVideoSelect(selectedVideo);
         }
       } catch (error) {
         console.error('Error loading chat history:', error);
@@ -392,6 +398,10 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const handleItemSelect = (item: VideoItem) => {
     if (onVideoSelect) {
       onVideoSelect(item);
+      // After selecting a video, navigate to chat mode directly
+      if (selectedCollection) {
+        handleViewModeChange('chat', selectedCollection);
+      }
     }
   };
   
@@ -1000,7 +1010,10 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               </div>
 
               {/* Card Content */}
-              <div className="p-4">
+              <div 
+                className="p-4 cursor-pointer" 
+                onClick={() => handleItemSelect(item)}
+              >
                 <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                   {item.title}
                 </h3>
