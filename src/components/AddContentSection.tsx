@@ -79,6 +79,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   const [interimTranscript, setInterimTranscript] = useState<string>('');
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true);
+  const [isAudioApiSupported, setIsAudioApiSupported] = useState<boolean>(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
@@ -104,13 +105,22 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   // Speech recognition handlers
   const handleSpeechSubmit = () => {
     if (onTextSubmit && transcription.trim()) {
-      // Send only the text content directly, not a JSON object
-      onTextSubmit(transcription.trim());
+      // Create an object with metadata to identify it as a speech transcription
+      const speechData = {
+        text: transcription.trim(),
+        type: 'speech',
+        source: 'browser_transcription'
+      };
+      
+      // Convert to JSON string for consistency with the API response format
+      onTextSubmit(JSON.stringify(speechData));
       
       // Reset the transcription
       setPermanentTranscript('');
       setInterimTranscript('');
       setTranscription('');
+      
+      setDebugInfo('Speech transcription submitted to knowledge base');
     }
   };
 
@@ -138,84 +148,130 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       setIsTranscribingAudio(true);
       setDebugInfo(`Preparing to transcribe audio file: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`);
       
-      // Check file size before uploading
+      // Check file size before processing
       if (audioFile.size > 25 * 1024 * 1024) { // 25MB limit
         throw new Error('Audio file exceeds 25MB limit. Please select a smaller file.');
       }
 
-      // Create a FormData object to send the file
-      const formData = new FormData();
-      formData.append('audio', audioFile);
+      // Client-side audio processing
+      setDebugInfo(`Processing audio file client-side...`);
       
-      // Send to Whisper API endpoint
-      const apiEndpoint = '/api/whisper-transcription';
-      setDebugInfo(`Sending audio file to Whisper API at ${apiEndpoint}...`);
+      // Create an AudioContext
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      try {
-        console.log(`Sending POST request to ${apiEndpoint} with file: ${audioFile.name}`);
-        
-        // Try with explicit Content-Type header
-        const response = await fetch(apiEndpoint, {
-          method: 'POST',
-          body: formData,
-          // Don't set Content-Type for multipart/form-data, browser will set it with boundary
-        });
-        
-        console.log(`Received response: Status ${response.status} ${response.statusText}`);
-        setDebugInfo(`API Response: ${response.status} ${response.statusText}`);
-        
-        // Check if response is OK first
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorMessage;
-          
-          console.log(`Error response text: ${errorText}`);
-          setDebugInfo(`Error response: ${errorText}`);
-          
-          // Try to parse error as JSON if possible
-          try {
-            const errorJson = JSON.parse(errorText);
-            errorMessage = errorJson.error || `Server error: ${response.status} ${response.statusText}`;
-          } catch (jsonError) {
-            // If JSON parsing fails, use the raw text or status
-            errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
-          }
-          
-          throw new Error(errorMessage);
-        }
-        
-        // Now try to parse the JSON response
-        let data;
-        try {
-          const responseText = await response.text();
-          console.log('Raw response text:', responseText);
-          setDebugInfo(`Response text: ${responseText.substring(0, 100)}...`);
-          
-          // Only try to parse as JSON if there is content
-          if (responseText.trim()) {
-            data = JSON.parse(responseText);
-          } else {
-            throw new Error('Empty response from server');
-          }
-        } catch (jsonError) {
-          console.error('JSON parsing error:', jsonError);
-          throw new Error('Failed to parse server response. The server might be experiencing issues.');
-        }
-        
-        if (!data || !data.transcription) {
-          throw new Error('Received empty transcription from server.');
-        }
-        
-        // Update the transcription area with the result
-        setPermanentTranscript(data.transcription);
-        setInterimTranscript('');
-        setTranscription(data.transcription);
-        setDebugInfo(`Transcription complete: ${data.transcription.substring(0, 50)}...`);
-      } catch (fetchError) {
-        console.error('Fetch error:', fetchError);
-        setDebugInfo(`Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
-        throw fetchError;
+      // Read the file as an ArrayBuffer
+      const arrayBuffer = await audioFile.arrayBuffer();
+      
+      // Decode the audio data
+      const audioData = await audioContext.decodeAudioData(arrayBuffer);
+      
+      setDebugInfo(`Audio loaded: ${audioData.duration.toFixed(2)} seconds. Converting to speech using Web Speech API...`);
+      
+      // Attempt to use the Web Speech API to transcribe the audio
+      if (!recognitionRef.current) {
+        initializeSpeechRecognition();
+        setDebugInfo('Initialized speech recognition for file playback');
       }
+
+      if (!recognitionRef.current) {
+        throw new Error('Could not initialize speech recognition');
+      }
+
+      // Create an audio element to play the file while transcribing
+      const audioElement = new Audio();
+      
+      // Add error handling for cross-origin issues
+      audioElement.crossOrigin = "anonymous";
+      audioElement.onerror = (e) => {
+        setDebugInfo(`Audio element error: ${(e as any).message || 'Unknown error'}`);
+        throw new Error('Error loading audio file. This might be due to cross-origin restrictions.');
+      };
+      
+      const objectUrl = URL.createObjectURL(audioFile);
+      audioElement.src = objectUrl;
+
+      // Set up speech recognition
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      
+      // Start recording and playing simultaneously
+      setDebugInfo('Starting audio playback and recognition...');
+      
+      // Create a more robust promise-based approach
+      const transcriptionPromise = new Promise<string>((resolve, reject) => {
+        // Set timeout for max transcription duration (2x the audio duration to be safe)
+        const maxDuration = Math.max(audioData.duration * 2, 30) * 1000; // min 30 seconds
+        const timeout = setTimeout(() => {
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+          }
+          audioElement.pause();
+          resolve(permanentTranscript); // Resolve with what we got so far
+          setDebugInfo(`Transcription completed (timeout after ${maxDuration/1000}s)`);
+        }, maxDuration);
+        
+        // Set up event handler for when audio finishes
+        audioElement.onended = () => {
+          setDebugInfo('Audio playback ended, finalizing transcription...');
+          // Give a short delay to capture final words
+          setTimeout(() => {
+            if (recognitionRef.current) {
+              recognitionRef.current.stop();
+            }
+            clearTimeout(timeout);
+            resolve(permanentTranscript);
+          }, 1000);
+        };
+        
+        // Add a specific error handler for when audio can't be played
+        audioElement.oncanplaythrough = () => {
+          setDebugInfo('Audio loaded successfully, starting playback...');
+        };
+        
+        // Handle recognition errors
+        if (recognitionRef.current) {
+          const originalOnError = recognitionRef.current.onerror;
+          recognitionRef.current.onerror = (event) => {
+            setDebugInfo(`Recognition error during file playback: ${event.error}`);
+            // Still call the original handler
+            if (originalOnError) originalOnError(event);
+          };
+        }
+        
+        // Start the process
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.start();
+            audioElement.play().catch(e => {
+              setDebugInfo(`Audio playback error: ${e.message}. Try downloading the file and uploading again, or use real-time recording.`);
+              reject(new Error(`Could not play audio: ${e.message}. If you're uploading from another site, try downloading the file first.`));
+            });
+          } else {
+            reject(new Error('Speech recognition not available'));
+          }
+        } catch (e) {
+          clearTimeout(timeout);
+          audioElement.pause();
+          reject(e);
+        }
+      });
+      
+      // Wait for transcription to complete
+      const finalTranscript = await transcriptionPromise;
+      
+      // Cleanup
+      URL.revokeObjectURL(objectUrl);
+      
+      if (!finalTranscript.trim()) {
+        throw new Error('Unable to transcribe audio. The file might not contain clear speech or the format is not supported.');
+      }
+      
+      setDebugInfo(`Client-side transcription complete: ${finalTranscript.substring(0, 50)}...`);
+      
+      // Update the transcription area with the result
+      setPermanentTranscript(finalTranscript);
+      setInterimTranscript('');
+      setTranscription(finalTranscript);
       
     } catch (error) {
       console.error('Error transcribing audio file:', error);
@@ -236,15 +292,23 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   // Check browser compatibility on component mount
   useEffect(() => {
     // Check if SpeechRecognition is supported
-    const isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-    setIsSpeechSupported(isSupported);
+    const isSpeechSupp = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    setIsSpeechSupported(isSpeechSupp);
     
-    if (!isSupported) {
+    // Check if Web Audio API is supported
+    const isAudioSupp = 'AudioContext' in window || 'webkitAudioContext' in window;
+    setIsAudioApiSupported(isAudioSupp);
+    
+    if (!isSpeechSupp) {
       console.error('SpeechRecognition is not supported in this browser');
       onError('Speech recognition is not supported in this browser. Please try Chrome, Edge, or Safari.');
       setDebugInfo('SpeechRecognition API not supported in this browser');
+    } else if (!isAudioSupp) {
+      console.error('Web Audio API is not supported in this browser');
+      onError('Audio processing is not fully supported in this browser. Please try Chrome, Edge, or Safari for full functionality. ');
+      setDebugInfo('Web Audio API not supported in this browser');
     } else {
-      setDebugInfo('SpeechRecognition API supported');
+      setDebugInfo('Speech and Audio APIs supported');
       
       // Initialize the recognition object on mount
       initializeSpeechRecognition();
@@ -560,118 +624,139 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                   Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.
                 </p>
               </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-4 mb-4">
-                    <button
-                      onClick={toggleRecording}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                        isRecording
-                          ? 'bg-red-600 text-white hover:bg-red-700'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                      disabled={isTranscribingAudio}
-                    >
-                      {isRecording ? (
-                        <>
-                          <MicOff className="w-5 h-5" />
-                          <span>Stop Recording</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-5 h-5" />
-                          <span>Start Recording</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    <button
-                      onClick={handleAudioFileButtonClick}
-                      disabled={isRecording || isTranscribingAudio}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                        isRecording || isTranscribingAudio
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      <Upload className="w-5 h-5" />
-                      <span>Upload Audio</span>
-                    </button>
-                    
-                    {/* Hidden audio file input */}
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      className="hidden"
-                      ref={audioFileInputRef}
-                      onChange={handleAudioFileChange}
-                      disabled={isRecording || isTranscribingAudio}
-                    />
-                    
-                    <button
-                      onClick={clearTranscription}
-                      className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      <span>Clear</span>
-                    </button>
-                  </div>
-                  
-                  {isRecording && (
-                    <div className="flex items-center gap-2 text-blue-600 mb-4">
-                      <Spinner className="w-4 h-4" />
-                      <span>Listening...</span>
-                    </div>
-                  )}
-                  
-                  {isTranscribingAudio && (
-                    <div className="flex items-center gap-2 text-blue-600 mb-4">
-                      <Spinner className="w-4 h-4" />
-                      <span>Transcribing audio file...</span>
-                    </div>
-                  )}
-                </div>
+            ) : !isAudioApiSupported ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                <p className="text-yellow-700">
+                  Audio processing is not fully supported in your browser. Real-time speech works, but 
+                  processing audio files may not work properly. Please try Chrome, Edge, or Safari for full functionality.
+                </p>
               </div>
-            )}
-            
-            {/* Always show transcription area */}
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Transcription {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
-              </label>
-              <textarea
-                value={transcription}
-                onChange={(e) => setTranscription(e.target.value)}
-                placeholder="Transcription will appear here. You can edit it if needed."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
-              />
-              <button
-                onClick={handleSpeechSubmit}
-                disabled={!transcription.trim() || isProcessingContent}
-                className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
-                  !transcription.trim() || isProcessingContent
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isProcessingContent ? (
-                  <Spinner className="w-5 h-5 mr-2" />
-                ) : null}
-                <span>Add to Knowledge Base</span>
-              </button>
-              
-              {/* Debug information */}
-              {debugInfo && (
-                <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700 font-mono">
-                  <strong>Debug:</strong> {debugInfo}
+            ) : (
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+                  <p className="font-medium mb-1">How This Works:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Real-time speech: Your voice is transcribed as you speak</li>
+                    <li>Audio files: Files are played in your browser while being transcribed</li>
+                    <li>All processing happens locally - no server needed</li>
+                    <li>Quality may vary based on audio clarity and your browser</li>
+                  </ul>
                 </div>
-              )}
-            </div>
-            
-            <p className="mt-4 text-sm text-gray-500">
-              Speak clearly to convert your speech to text in real-time.
-            </p>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-4 mb-4">
+                      <button
+                        onClick={toggleRecording}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                          isRecording
+                            ? 'bg-red-600 text-white hover:bg-red-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                        disabled={isTranscribingAudio}
+                      >
+                        {isRecording ? (
+                          <>
+                            <MicOff className="w-5 h-5" />
+                            <span>Stop Recording</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-5 h-5" />
+                            <span>Start Recording</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={handleAudioFileButtonClick}
+                        disabled={isRecording || isTranscribingAudio}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                          isRecording || isTranscribingAudio
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        <Upload className="w-5 h-5" />
+                        <span>Upload Audio</span>
+                      </button>
+                      
+                      {/* Hidden audio file input */}
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        className="hidden"
+                        ref={audioFileInputRef}
+                        onChange={handleAudioFileChange}
+                        disabled={isRecording || isTranscribingAudio}
+                      />
+                      
+                      <button
+                        onClick={clearTranscription}
+                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Clear</span>
+                      </button>
+                    </div>
+                    
+                    {isRecording && (
+                      <div className="flex items-center gap-2 text-blue-600 mb-4">
+                        <Spinner className="w-4 h-4" />
+                        <span>Listening...</span>
+                      </div>
+                    )}
+                    
+                    {isTranscribingAudio && (
+                      <div className="flex items-center gap-2 text-blue-600 mb-4">
+                        <Spinner className="w-4 h-4" />
+                        <span>Transcribing audio file...</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500">
+                    All audio processing happens directly in your browser - no server needed!
+                  </div>
+                </div>
+                
+                {/* Always show transcription area */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Transcription {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
+                  </label>
+                  <textarea
+                    value={transcription}
+                    onChange={(e) => setTranscription(e.target.value)}
+                    placeholder="Transcription will appear here. You can edit it if needed."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+                  />
+                  <button
+                    onClick={handleSpeechSubmit}
+                    disabled={!transcription.trim() || isProcessingContent}
+                    className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
+                      !transcription.trim() || isProcessingContent
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
+                  >
+                    {isProcessingContent ? (
+                      <Spinner className="w-5 h-5 mr-2" />
+                    ) : null}
+                    <span>Add to Knowledge Base</span>
+                  </button>
+                  
+                  {/* Debug information */}
+                  {debugInfo && (
+                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700 font-mono">
+                      <strong>Debug:</strong> {debugInfo}
+                    </div>
+                  )}
+                </div>
+                
+                <p className="mt-4 text-sm text-gray-500">
+                  Speak clearly to convert your speech to text in real-time.
+                </p>
+              </>
+            )}
           </div>
         )}
 
