@@ -1228,6 +1228,10 @@ function App() {
         return [];
       });
 
+      if (allContent.length === 0) {
+        throw new Error('No content available to generate notes from');
+      }
+
       const notes = await generateStudyNotes(
         allContent.map(content => content.text).join('\n\n'),
         allContent
@@ -1251,7 +1255,9 @@ function App() {
       console.error('Error generating study notes:', error);
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Failed to generate study notes. Please try again.',
+        content: error instanceof Error 
+          ? `Failed to generate study notes: ${error.message}`
+          : 'Failed to generate study notes. Please try again.',
         timestamp: new Date().toISOString()
       };
       setMessages([...messages, errorMessage]);
