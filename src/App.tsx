@@ -378,9 +378,9 @@ function App() {
     };
 
     try {
-      // Get the current collection's chat history
-      const currentHistory = chatHistories[selectedCollection.id] || [];
-      const updatedMessages = [...currentHistory, newUserMessage];
+      // Get the current messages from the database first
+      const savedMessages = await loadChat(selectedCollection.id);
+      const updatedMessages = [...savedMessages, newUserMessage];
       
       // Update messages immediately for UI feedback
       setMessages(updatedMessages);
@@ -430,11 +430,7 @@ function App() {
         
         const finalMessages = [...updatedMessages, noContentMessage];
         
-        // Update both states with single update
-        setChatHistories(prev => ({
-          ...prev,
-          [selectedCollection.id]: finalMessages
-        }));
+        // Update messages state
         setMessages(finalMessages);
         
         // Save to database
@@ -461,11 +457,7 @@ function App() {
       // Create final messages array with both user and assistant messages
       const finalMessages = [...updatedMessages, newAssistantMessage];
       
-      // Update both states with a single update
-      setChatHistories(prev => ({
-        ...prev,
-        [selectedCollection.id]: finalMessages
-      }));
+      // Update messages state
       setMessages(finalMessages);
 
       // Save to database
@@ -481,15 +473,11 @@ function App() {
         timestamp: new Date().toISOString()
       };
 
-      // Get the current collection's chat history
-      const currentHistory = chatHistories[selectedCollection.id] || [];
-      const errorMessages = [...currentHistory, newUserMessage, errorMessage];
+      // Get the current messages from the database
+      const savedMessages = await loadChat(selectedCollection.id);
+      const errorMessages = [...savedMessages, newUserMessage, errorMessage];
       
-      // Update both states with single update
-      setChatHistories(prev => ({
-        ...prev,
-        [selectedCollection.id]: errorMessages
-      }));
+      // Update messages state
       setMessages(errorMessages);
 
       // Save error state to database
