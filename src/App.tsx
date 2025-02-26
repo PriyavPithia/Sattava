@@ -295,35 +295,114 @@ function App() {
     }
   };
 
-  const handleTranscriptGenerated = async (transcript: TranscriptResponse) => {
+  const handleTranscriptGenerated = async (transcript: any) => {
     try {
-    const newVideo: VideoItem = {
-      id: `local-${Date.now()}`,
-      url: 'local',
-      title: `Uploaded Video ${videoList.length + 1}`,
-      type: 'local'
-    };
+      // For YouTube client, the transcript comes directly from the youtube-transcript package
+      if (Array.isArray(transcript)) {
+        setIsProcessingContent(true);
+        setLoading(true);
+        setError('');
+        
+        const videoId = extractVideoId(url);
+        
+        // Create a new collection if none is selected
+        let targetCollection = selectedCollection;
+        if (!targetCollection) {
+          const newProject = await createProject('My Collection');
+          const newCollection: Collection = {
+            id: newProject.id,
+            name: newProject.name,
+            items: [],
+            createdAt: new Date(newProject.created_at)
+          };
+          targetCollection = newCollection;
+          setSelectedCollection(newCollection);
+          setCollections(prev => [...prev, newCollection]);
+        }
 
-      // Generate embeddings for the transcript
-      const embeddingsPromises = transcript.transcripts.map(async (segment: TranscriptSegment) => {
-        const embedding = await generateEmbeddings(segment.text);
-        return {
-          text: segment.text,
-          embedding: embedding || []
+        // Format transcript for storage
+        const formattedTranscript = transcript.map((item: any) => ({
+          text: item.text,
+          start: item.offset / 1000,
+          duration: item.duration / 1000
+        }));
+
+        // Add to database with transcript
+        const content = await addContent(targetCollection.id, {
+          title: url,
+          type: 'youtube',
+          url: url,
+          youtube_id: videoId,
+          transcript: JSON.stringify(formattedTranscript)
+        });
+
+        // Create the new video item
+        const newVideo: VideoItem = {
+          id: content.id,
+          url,
+          title: url,
+          type: 'youtube',
+          transcript: formattedTranscript
         };
-      });
 
-      const chunkEmbeddings = await Promise.all(embeddingsPromises);
+        // Update collections
+        setCollections(prev => prev.map(col => 
+          col.id === targetCollection!.id
+            ? { ...col, items: [...col.items, newVideo] }
+            : col
+        ));
 
-      // Update state
-    setVideoList(prevList => [newVideo, ...prevList]);
-    setSelectedVideo(newVideo);
-      setRawResponse(transcript);
-      setEmbeddings(chunkEmbeddings);
-      
+        setUrl('');
+        setError('');
+        
+        // Select the new video
+        setSelectedVideo(newVideo);
+        setRawResponse({ transcripts: formattedTranscript });
+        
+        // Generate embeddings for the transcript
+        const chunks = groupTranscriptsByDuration(formattedTranscript);
+        const embeddingsPromises = chunks.map(async (chunk) => {
+          const embedding = await generateEmbeddings(chunk.text);
+          return {
+            text: chunk.text,
+            embedding: embedding || []
+          };
+        });
+
+        const chunkEmbeddings = await Promise.all(embeddingsPromises);
+        setEmbeddings(chunkEmbeddings);
+      } else {
+        // Original functionality for local video uploads
+        const newVideo: VideoItem = {
+          id: `local-${Date.now()}`,
+          url: 'local',
+          title: `Uploaded Video ${videoList.length + 1}`,
+          type: 'local'
+        };
+
+        // Generate embeddings for the transcript
+        const embeddingsPromises = transcript.transcripts.map(async (segment: TranscriptSegment) => {
+          const embedding = await generateEmbeddings(segment.text);
+          return {
+            text: segment.text,
+            embedding: embedding || []
+          };
+        });
+
+        const chunkEmbeddings = await Promise.all(embeddingsPromises);
+
+        // Update state
+        setVideoList(prevList => [newVideo, ...prevList]);
+        setSelectedVideo(newVideo);
+        setRawResponse(transcript);
+        setEmbeddings(chunkEmbeddings);
+      }
     } catch (error) {
       console.error('Error processing transcript:', error);
       setError('Failed to process transcript. Please try again.');
+    } finally {
+      setIsProcessingContent(false);
+      setLoading(false);
     }
   };
 
