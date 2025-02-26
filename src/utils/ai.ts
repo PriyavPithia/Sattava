@@ -140,22 +140,25 @@ export async function generateStudyNotes(content: string, contentSources: Combin
           role: "system",
           content: `You are a study notes assistant. Create concise, well-structured notes following this format:
 
-Learning Styles and Studying
+**Learning Styles and Studying**
 
-Key Concepts:
-• Point 1 {{ref:type:source:location}}
-• Point 2 {{ref:type:source:location}}
+**Key Concepts:**
+• Professors are experts in their disciplines, while students are novices {{ref:type:source:location}}
+• Effective learning conditions include intrinsic motivation {{ref:type:source:location}}
 
-Important Terms:
-• Term 1: Definition {{ref:type:source:location}}
-• Term 2: Definition {{ref:type:source:location}}
+**Important Terms:**
+• **Learning Styles**: Characteristic and preferred ways of gathering information {{ref:type:source:location}}
+• **Metacognition**: Thinking about thinking and learning {{ref:type:source:location}}
 
-Summary:
-Brief summary of main points
+**Summary:**
+A concise paragraph summarizing the main points, with references {{ref:type:source:location}}
 
-Use bullet points (•) for lists. Keep points brief and focused. Highlight key terms in **bold**.
-Each point should include at least one reference in the format {{ref:type:source:location}}.
-References should be placed immediately after the relevant information.`
+Format rules:
+1. Use markdown **bold** for section headers and key terms
+2. Use bullet points (•) for lists
+3. Keep points brief and focused
+4. Include references immediately after each point using {{ref:type:source:location}} format
+5. Ensure proper spacing between sections`
         },
         {
           role: "user",
