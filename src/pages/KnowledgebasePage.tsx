@@ -707,103 +707,47 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   if (viewMode === 'chat' && selectedCollection) {
     const items = selectedCollection.items || [];
     return (
-      <div className="h-[calc(100vh-94px)] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={handleBackToList}
-              className="p-2 rounded-full hover:bg-gray-100"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
-            <div className="relative ml-4">
-              <select
-                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
-                value={selectedVideo?.id || ''}
-                onChange={(e) => {
-                  const video = selectedCollection.items.find(item => item.id === e.target.value);
-                  if (video && onVideoSelect) {
-                    onVideoSelect(video);
-                  }
-                }}
-              >
-                <option value="" disabled>Select content to view</option>
-                {selectedCollection.items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.type === 'youtube' ? '🎥 ' : '📄 '}
-                    {item.title || item.url}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <Eye className="w-4 h-4 text-gray-500" />
+      <div className="flex h-full overflow-hidden">
+        {/* Video and Transcript section - 35% width */}
+        <div className="w-[35%] flex flex-col overflow-hidden">
+          {selectedVideo && (
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="flex-shrink-0">
+                <YoutubePlayer
+                  videoId={selectedVideo.youtube_id || ''}
+                  currentTime={currentTimestamp}
+                  onTimeChange={onSeek}
+                />
               </div>
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+              <div className="flex-1 overflow-hidden">
+                <TranscriptViewer
+                  videoUrl={selectedVideo.url}
+                  transcripts={rawResponse?.transcripts || []}
+                  durationFilter={durationFilter}
+                  onDurationFilterChange={onDurationFilterChange}
+                  onSeek={onSeek}
+                  loadingTranscript={loadingTranscript}
+                  groupTranscriptsByDuration={groupTranscriptsByDuration}
+                  formatTime={formatTime}
+                  calculateTotalDuration={calculateTotalDuration}
+                  formatDurationLabel={formatDurationLabel}
+                />
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* Content viewer section - 35% width */}
-          <div className="w-[35%] border-r border-gray-200">
-            {/* Content viewer */}
-            <div className="h-full overflow-y-auto">
-              {selectedVideo && (
-                <div className="h-full">
-                  {selectedVideo.type === 'youtube' && (
-                    <div className="h-[300px] bg-black">
-                      <YoutubePlayer
-                        videoId={selectedVideo.youtube_id || ''}
-                        currentTime={currentTimestamp}
-                        onSeek={onSeek}
-                      />
-                    </div>
-                  )}
-
-                  {selectedVideo.type === 'youtube' && rawResponse && (
-                    <TranscriptViewer
-                      videoUrl={selectedVideo.url}
-                      transcripts={rawResponse.transcripts}
-                      durationFilter={durationFilter}
-                      onDurationFilterChange={onDurationFilterChange}
-                      onSeek={onSeek}
-                      loadingTranscript={loadingTranscript}
-                      groupTranscriptsByDuration={groupTranscriptsByDuration}
-                      formatTime={formatTime}
-                      calculateTotalDuration={calculateTotalDuration}
-                      formatDurationLabel={(duration) => `${duration} sec`}
-                      className="text-sm"
-                    />
-                  )}
-
-                  {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
-                    <PDFViewer
-                      type={selectedVideo.type}
-                      title={selectedVideo.title}
-                      loading={loadingTranscript}
-                      extractedText={extractedText}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* QA section - 65% width */}
-          <div className="w-[65%] overflow-hidden flex flex-col">
-            <QASection
-              messages={messages}
-              question={question}
-              askingQuestion={askingQuestion}
-              onQuestionChange={onQuestionChange}
-              onAskQuestion={onAskQuestion}
-              onReferenceClick={handleReferenceClick}
-              className="text-sm"
-            />
-          </div>
+        {/* QA section - 65% width */}
+        <div className="w-[65%] overflow-hidden flex flex-col">
+          <QASection
+            messages={messages}
+            question={question}
+            askingQuestion={askingQuestion}
+            onQuestionChange={onQuestionChange}
+            onAskQuestion={onAskQuestion}
+            onReferenceClick={handleReferenceClick}
+            className="text-sm"
+          />
         </div>
       </div>
     );
