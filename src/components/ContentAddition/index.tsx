@@ -73,13 +73,25 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   };
 
   const startRecording = async () => {
+    console.log('startRecording function called');
     try {
+      // Check if we have microphone permission
+      const permissionStatus = await checkMicrophonePermission();
+      if (!permissionStatus) {
+        console.error('Microphone permission denied');
+        onError('Microphone access denied. Please allow microphone access in your browser settings.');
+        return;
+      }
+      
+      console.log('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone access granted, creating MediaRecorder');
       const recorder = new MediaRecorder(stream);
       setMediaRecorder(recorder);
       
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
+        console.log('Data available from recorder', e.data.size);
         if (e.data.size > 0) {
           chunks.push(e.data);
           setAudioChunks([...chunks]);
@@ -87,6 +99,7 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
       };
       
       recorder.onstop = async () => {
+        console.log('Recorder stopped, processing chunks', chunks.length);
         // Only process if we have audio chunks
         if (chunks.length > 0) {
           setIsTranscribing(true);
@@ -94,13 +107,16 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
           try {
             // Create a blob from all chunks
             const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+            console.log('Created audio blob', audioBlob.size);
             
             // Create form data
             const formData = new FormData();
             formData.append('audio', audioBlob, 'recording.webm');
             
             // Send to Whisper API
+            console.log('Sending to Whisper API...');
             const response = await axios.post('/api/whisper-transcription', formData);
+            console.log('Received response from Whisper API', response.data);
             
             // Update transcription
             if (response.data && response.data.transcription) {
@@ -115,12 +131,43 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
         }
       };
       
+      console.log('Starting recorder...');
       recorder.start(5000); // Collect in 5-second chunks
       setIsRecording(true);
       setIsPaused(false);
+      console.log('Recorder started successfully');
     } catch (error) {
       console.error('Error starting recording:', error);
       onError('Failed to access microphone');
+    }
+  };
+
+  // Function to check microphone permission
+  const checkMicrophonePermission = async (): Promise<boolean> => {
+    try {
+      // Check if the browser supports the permissions API
+      if (navigator.permissions && navigator.permissions.query) {
+        console.log('Checking microphone permission using Permissions API');
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        console.log('Permission status:', permissionStatus.state);
+        
+        if (permissionStatus.state === 'granted') {
+          return true;
+        } else if (permissionStatus.state === 'prompt') {
+          // We'll get the prompt when we call getUserMedia
+          return true;
+        } else {
+          // Permission denied
+          return false;
+        }
+      } else {
+        // Fallback for browsers that don't support the permissions API
+        console.log('Permissions API not supported, will try direct access');
+        return true; // We'll handle the error in getUserMedia
+      }
+    } catch (error) {
+      console.error('Error checking microphone permission:', error);
+      return true; // Let getUserMedia handle the error
     }
   };
 
@@ -152,8 +199,10 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   };
 
   const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('Audio file input changed');
     const files = e.target.files;
     if (files && files.length > 0) {
+      console.log('Audio file selected:', files[0].name, files[0].type, files[0].size);
       setIsTranscribing(true);
       
       try {
@@ -164,20 +213,59 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
         formData.append('audio', audioFile);
         
         // Send to Whisper API
+        console.log('Sending audio file to Whisper API...');
         const response = await axios.post('/api/whisper-transcription', formData);
+        console.log('Received response from Whisper API:', response.data);
         
         // Update transcription
         if (response.data && response.data.transcription) {
           setTranscription(response.data.transcription);
+          console.log('Transcription updated successfully');
+        } else {
+          console.error('No transcription in response:', response.data);
+          onError('Failed to transcribe audio file: No transcription returned');
         }
       } catch (error) {
         console.error('Error transcribing audio file:', error);
-        onError('Failed to transcribe audio file');
+        if (axios.isAxiosError(error) && error.response) {
+          console.error('API error details:', error.response.data);
+          onError(`Failed to transcribe audio file: ${error.response.data.error || error.message}`);
+        } else {
+          onError(`Failed to transcribe audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       } finally {
         setIsTranscribing(false);
       }
+    } else {
+      console.log('No audio file selected');
     }
   };
+
+  // Check browser compatibility and permissions
+  useEffect(() => {
+    // Check if MediaRecorder is supported
+    if (typeof MediaRecorder === 'undefined') {
+      console.error('MediaRecorder is not supported in this browser');
+      onError('Speech recording is not supported in this browser');
+      return;
+    }
+
+    // Check if getUserMedia is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('getUserMedia is not supported in this browser');
+      onError('Microphone access is not supported in this browser');
+      return;
+    }
+
+    // Check if we're in a secure context (HTTPS or localhost)
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      console.error('Microphone access requires a secure context (HTTPS or localhost)');
+      onError('Microphone access requires a secure connection (HTTPS)');
+      return;
+    }
+
+    console.log('Browser supports recording capabilities');
+  }, [onError]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -340,7 +428,10 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
                     </div>
                   ) : (
                     <button
-                      onClick={startRecording}
+                      onClick={() => {
+                        console.log('Recording button clicked');
+                        startRecording();
+                      }}
                       className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors"
                     >
                       <Mic className="w-10 h-10 text-blue-500" />
@@ -357,7 +448,7 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
                   <input
                     type="file"
                     accept="audio/*"
-                    className="mt-4 text-sm"
+                    className="mt-4 text-sm hidden"
                     onChange={handleAudioFileChange}
                     ref={audioInputRef}
                   />
