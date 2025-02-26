@@ -187,12 +187,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
           Transcript
         </h2>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-gray-600">
-            <Timer className="w-4 h-4" />
-            <span className="text-sm font-geist">
-              {formatDurationLabel(calculateTotalDuration(transcripts))}
-            </span>
-          </div>
+          
           <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200">
             <select
               value={durationFilter}
