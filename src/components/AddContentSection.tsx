@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X } from 'lucide-react';
+import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 interface SpinnerProps {
   className?: string;
@@ -126,7 +127,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
   // Audio file handling
   const audioFileInputRef = useRef<HTMLInputElement>(null);
-  const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
+  const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
 
   const handleAudioFileButtonClick = () => {
     if (audioFileInputRef.current) {
@@ -135,154 +136,53 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   };
 
   const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
     
-    const audioFile = files[0];
-    if (!audioFile.type.startsWith('audio/')) {
+    if (!file.type.startsWith('audio/')) {
       onError('Please select an audio file.');
       return;
     }
-
+    
     try {
       setIsTranscribingAudio(true);
-      setDebugInfo(`Preparing to transcribe audio file: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`);
+      setDebugInfo(`Starting server-side transcription for ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
       
       // Check file size before processing
-      if (audioFile.size > 25 * 1024 * 1024) { // 25MB limit
+      if (file.size > 25 * 1024 * 1024) { // 25MB limit
         throw new Error('Audio file exceeds 25MB limit. Please select a smaller file.');
       }
-
-      // Client-side audio processing
-      setDebugInfo(`Processing audio file client-side...`);
       
-      // Create an AudioContext
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Create form data for server upload
+      const formData = new FormData();
+      formData.append('audio', file);
       
-      // Read the file as an ArrayBuffer
-      const arrayBuffer = await audioFile.arrayBuffer();
-      
-      // Decode the audio data
-      const audioData = await audioContext.decodeAudioData(arrayBuffer);
-      
-      setDebugInfo(`Audio loaded: ${audioData.duration.toFixed(2)} seconds. Converting to speech using Web Speech API...`);
-      
-      // Attempt to use the Web Speech API to transcribe the audio
-      if (!recognitionRef.current) {
-        initializeSpeechRecognition();
-        setDebugInfo('Initialized speech recognition for file playback');
-      }
-
-      if (!recognitionRef.current) {
-        throw new Error('Could not initialize speech recognition');
-      }
-
-      // Create an audio element to play the file while transcribing
-      const audioElement = new Audio();
-      
-      // Add error handling for cross-origin issues
-      audioElement.crossOrigin = "anonymous";
-      audioElement.onerror = (e) => {
-        setDebugInfo(`Audio element error: ${(e as any).message || 'Unknown error'}`);
-        throw new Error('Error loading audio file. This might be due to cross-origin restrictions.');
-      };
-      
-      const objectUrl = URL.createObjectURL(audioFile);
-      audioElement.src = objectUrl;
-
-      // Set up speech recognition
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      
-      // Start recording and playing simultaneously
-      setDebugInfo('Starting audio playback and recognition...');
-      
-      // Create a more robust promise-based approach
-      const transcriptionPromise = new Promise<string>((resolve, reject) => {
-        // Set timeout for max transcription duration (2x the audio duration to be safe)
-        const maxDuration = Math.max(audioData.duration * 2, 30) * 1000; // min 30 seconds
-        const timeout = setTimeout(() => {
-          if (recognitionRef.current) {
-            recognitionRef.current.stop();
-          }
-          audioElement.pause();
-          resolve(permanentTranscript); // Resolve with what we got so far
-          setDebugInfo(`Transcription completed (timeout after ${maxDuration/1000}s)`);
-        }, maxDuration);
-        
-        // Set up event handler for when audio finishes
-        audioElement.onended = () => {
-          setDebugInfo('Audio playback ended, finalizing transcription...');
-          // Give a short delay to capture final words
-          setTimeout(() => {
-            if (recognitionRef.current) {
-              recognitionRef.current.stop();
-            }
-            clearTimeout(timeout);
-            resolve(permanentTranscript);
-          }, 1000);
-        };
-        
-        // Add a specific error handler for when audio can't be played
-        audioElement.oncanplaythrough = () => {
-          setDebugInfo('Audio loaded successfully, starting playback...');
-        };
-        
-        // Handle recognition errors
-        if (recognitionRef.current) {
-          const originalOnError = recognitionRef.current.onerror;
-          recognitionRef.current.onerror = (event) => {
-            setDebugInfo(`Recognition error during file playback: ${event.error}`);
-            // Still call the original handler
-            if (originalOnError) originalOnError(event);
-          };
-        }
-        
-        // Start the process
-        try {
-          if (recognitionRef.current) {
-            recognitionRef.current.start();
-            audioElement.play().catch(e => {
-              setDebugInfo(`Audio playback error: ${e.message}. Try downloading the file and uploading again, or use real-time recording.`);
-              reject(new Error(`Could not play audio: ${e.message}. If you're uploading from another site, try downloading the file first.`));
-            });
-          } else {
-            reject(new Error('Speech recognition not available'));
-          }
-        } catch (e) {
-          clearTimeout(timeout);
-          audioElement.pause();
-          reject(e);
-        }
+      // Send the file to the Whisper API endpoint
+      const response = await axios.post('/api/whisper-transcription', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       
-      // Wait for transcription to complete
-      const finalTranscript = await transcriptionPromise;
-      
-      // Cleanup
-      URL.revokeObjectURL(objectUrl);
-      
-      if (!finalTranscript.trim()) {
-        throw new Error('Unable to transcribe audio. The file might not contain clear speech or the format is not supported.');
+      if (response.data && response.data.transcription) {
+        setTranscription(response.data.transcription);
+        setPermanentTranscript(response.data.transcription);
+        setInterimTranscript('');
+        setDebugInfo(`Transcription complete: ${response.data.transcription.substring(0, 30)}...`);
+      } else {
+        throw new Error('No transcription returned from server');
       }
-      
-      setDebugInfo(`Client-side transcription complete: ${finalTranscript.substring(0, 50)}...`);
-      
-      // Update the transcription area with the result
-      setPermanentTranscript(finalTranscript);
-      setInterimTranscript('');
-      setTranscription(finalTranscript);
-      
     } catch (error) {
       console.error('Error transcribing audio file:', error);
-      // Only include the original error message without adding "Error transcribing audio:" prefix
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      setDebugInfo(`Transcription failed: ${errorMessage}`);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Unknown error transcribing audio file';
+        
+      setDebugInfo(`Audio transcription error: ${errorMessage}`);
       onError(errorMessage);
     } finally {
       setIsTranscribingAudio(false);
-      
-      // Reset the file input so the same file can be selected again
+      // Reset file input
       if (audioFileInputRef.current) {
         audioFileInputRef.current.value = '';
       }
@@ -624,139 +524,129 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                   Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.
                 </p>
               </div>
-            ) : !isAudioApiSupported ? (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
-                <p className="text-yellow-700">
-                  Audio processing is not fully supported in your browser. Real-time speech works, but 
-                  processing audio files may not work properly. Please try Chrome, Edge, or Safari for full functionality.
-                </p>
-              </div>
             ) : (
-              <>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
-                  <p className="font-medium mb-1">How This Works:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Real-time speech: Your voice is transcribed as you speak</li>
-                    <li>Audio files: Files are played in your browser while being transcribed</li>
-                    <li>All processing happens locally - no server needed</li>
-                    <li>Quality may vary based on audio clarity and your browser</li>
-                  </ul>
-                </div>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-4 mb-4">
-                      <button
-                        onClick={toggleRecording}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                          isRecording
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                        disabled={isTranscribingAudio}
-                      >
-                        {isRecording ? (
-                          <>
-                            <MicOff className="w-5 h-5" />
-                            <span>Stop Recording</span>
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="w-5 h-5" />
-                            <span>Start Recording</span>
-                          </>
-                        )}
-                      </button>
-                      
-                      <button
-                        onClick={handleAudioFileButtonClick}
-                        disabled={isRecording || isTranscribingAudio}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                          isRecording || isTranscribingAudio
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        <Upload className="w-5 h-5" />
-                        <span>Upload Audio</span>
-                      </button>
-                      
-                      {/* Hidden audio file input */}
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        className="hidden"
-                        ref={audioFileInputRef}
-                        onChange={handleAudioFileChange}
-                        disabled={isRecording || isTranscribingAudio}
-                      />
-                      
-                      <button
-                        onClick={clearTranscription}
-                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Clear</span>
-                      </button>
-                    </div>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-4 mb-4">
+                    <button
+                      onClick={toggleRecording}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                        isRecording
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                      disabled={isTranscribingAudio}
+                    >
+                      {isRecording ? (
+                        <>
+                          <MicOff className="w-5 h-5" />
+                          <span>Stop Recording</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-5 h-5" />
+                          <span>Start Recording</span>
+                        </>
+                      )}
+                    </button>
                     
-                    {isRecording && (
-                      <div className="flex items-center gap-2 text-blue-600 mb-4">
-                        <Spinner className="w-4 h-4" />
-                        <span>Listening...</span>
-                      </div>
-                    )}
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleAudioFileChange}
+                      className="hidden"
+                      ref={audioFileInputRef}
+                      disabled={isRecording}
+                    />
                     
-                    {isTranscribingAudio && (
-                      <div className="flex items-center gap-2 text-blue-600 mb-4">
-                        <Spinner className="w-4 h-4" />
-                        <span>Transcribing audio file...</span>
-                      </div>
-                    )}
+                    <button
+                      onClick={handleAudioFileButtonClick}
+                      disabled={isTranscribingAudio || isRecording}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                        isTranscribingAudio || isRecording
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      {isTranscribingAudio ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Transcribing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          <span>Upload Audio</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={clearTranscription}
+                      className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Clear</span>
+                    </button>
                   </div>
-                  <div className="mt-3 text-xs text-gray-500">
-                    All audio processing happens directly in your browser - no server needed!
-                  </div>
-                </div>
-                
-                {/* Always show transcription area */}
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Transcription {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
-                  </label>
-                  <textarea
-                    value={transcription}
-                    onChange={(e) => setTranscription(e.target.value)}
-                    placeholder="Transcription will appear here. You can edit it if needed."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
-                  />
-                  <button
-                    onClick={handleSpeechSubmit}
-                    disabled={!transcription.trim() || isProcessingContent}
-                    className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
-                      !transcription.trim() || isProcessingContent
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-500 hover:bg-blue-600 text-white'
-                    }`}
-                  >
-                    {isProcessingContent ? (
-                      <Spinner className="w-5 h-5 mr-2" />
-                    ) : null}
-                    <span>Add to Knowledge Base</span>
-                  </button>
                   
-                  {/* Debug information */}
-                  {debugInfo && (
-                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700 font-mono">
-                      <strong>Debug:</strong> {debugInfo}
+                  {isRecording && (
+                    <div className="flex items-center gap-2 text-blue-600 mb-4">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Listening...</span>
+                    </div>
+                  )}
+                  
+                  {isTranscribingAudio && (
+                    <div className="flex items-center gap-2 text-green-600 mb-4">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Transcribing audio file...</span>
                     </div>
                   )}
                 </div>
-                
-                <p className="mt-4 text-sm text-gray-500">
-                  Speak clearly to convert your speech to text in real-time.
-                </p>
-              </>
+              </div>
             )}
+            
+            {/* Always show transcription area */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Transcription 
+                {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
+                {isTranscribingAudio && <span className="text-xs text-green-500 ml-2">(Transcribing audio file...)</span>}
+              </label>
+              <textarea
+                value={transcription}
+                onChange={(e) => setTranscription(e.target.value)}
+                placeholder="Transcription will appear here. You can edit it if needed."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+                disabled={isTranscribingAudio}
+              />
+              <button
+                onClick={handleSpeechSubmit}
+                disabled={!transcription.trim() || isProcessingContent || isTranscribingAudio}
+                className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
+                  !transcription.trim() || isProcessingContent || isTranscribingAudio
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                {isProcessingContent || isTranscribingAudio ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : null}
+                <span>Add to Knowledge Base</span>
+              </button>
+              
+              {/* Debug information */}
+              {debugInfo && (
+                <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700 font-mono">
+                  <strong>Debug:</strong> {debugInfo}
+                </div>
+              )}
+            </div>
+            
+            <p className="mt-2 text-sm text-gray-500">
+              Speak clearly to convert your speech to text, or upload an audio file for server-side transcription.
+            </p>
           </div>
         )}
 
