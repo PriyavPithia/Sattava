@@ -199,12 +199,13 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       setViewMode(newViewMode);
 
       if (newViewMode === 'chat') {
+        // Always load fresh chat history from the database
         const savedMessages = await loadChat(collection.id);
         console.log('Loaded messages:', savedMessages);
-        setMessages(savedMessages || []);
+        setMessages(savedMessages);
 
         // If we have a selected video (like a newly added file), keep it
-        // Otherwise select the first item
+        // Otherwise select the first item if no video is selected
         if (!selectedVideo && collection.items.length > 0) {
           const firstItem = collection.items[0];
           if (onVideoSelect) {
@@ -216,7 +217,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       console.error('Error loading collection data:', error);
       setMessages([]);
     } finally {
-      // Release the navigation lock after a longer delay to ensure state updates complete
+      // Release the navigation lock after a delay to ensure state updates complete
       setTimeout(() => {
         navigationLockRef.current = false;
       }, 300);

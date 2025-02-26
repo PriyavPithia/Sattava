@@ -340,27 +340,27 @@ function App() {
       setSelectedCollection(collection);
       
       if (collection) {
-        // Only load chat messages if we don't already have them in memory
-        if (!chatHistories[collection.id]) {
-          console.log('Loading chat messages for collection:', collection.id);
-          const savedMessages = await loadChat(collection.id);
-          console.log('Loaded messages:', savedMessages);
-          
-          // Update both the current messages and chat histories
-          setChatHistories(prev => ({
-            ...prev,
-            [collection.id]: savedMessages || []
-          }));
-        }
+        // Always load chat messages from the database
+        console.log('Loading chat messages for collection:', collection.id);
+        const savedMessages = await loadChat(collection.id);
+        console.log('Loaded messages:', savedMessages);
         
-        // Set current messages to this collection's history
-        setMessages(chatHistories[collection.id] || []);
+        // Update both the current messages and chat histories
+        setChatHistories(prev => ({
+          ...prev,
+          [collection.id]: savedMessages
+        }));
+        setMessages(savedMessages);
       } else {
         setMessages([]);
+        // Clear chat histories for the previous collection
+        setChatHistories({});
       }
     } catch (error) {
       console.error('Error loading chat messages:', error);
       setMessages([]);
+      // Clear chat histories on error
+      setChatHistories({});
     }
   };
 
