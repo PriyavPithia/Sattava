@@ -30,6 +30,7 @@ interface SpeechRecognition extends EventTarget {
   onresult: (event: SpeechRecognitionEvent) => void;
   onerror: (event: SpeechRecognitionErrorEvent) => void;
   onend: () => void;
+  onstart?: () => void;
 }
 
 interface ContentAdditionProps {
@@ -58,15 +59,15 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   isProcessingContent
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
   const [textInput, setTextInput] = useState<string>('');
   const [transcription, setTranscription] = useState<string>('');
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   
-  // For audio file upload
+  // For audio settings
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [showDeviceSettings, setShowDeviceSettings] = useState<boolean>(false);
@@ -74,12 +75,6 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
-    }
-  };
-
-  const handleAudioFileButtonClick = () => {
-    if (audioInputRef.current) {
-      audioInputRef.current.click();
     }
   };
 
@@ -105,50 +100,93 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
     }
   };
 
-  // Initialize speech recognition
+  // Check browser compatibility on component mount
   useEffect(() => {
-    // Check if browser supports SpeechRecognition
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      console.error('Speech recognition is not supported in this browser');
-      setIsSpeechSupported(false);
-      return;
-    }
-
-    // Use type assertion to handle the Speech Recognition API
-    const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognitionConstructor() as SpeechRecognition;
+    // Check if SpeechRecognition is supported
+    const isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    setIsSpeechSupported(isSupported);
     
-    if (recognitionRef.current) {
+    if (!isSupported) {
+      console.error('SpeechRecognition is not supported in this browser');
+      onError('Speech recognition is not supported in this browser. Please try Chrome, Edge, or Safari.');
+      setDebugInfo('SpeechRecognition API not supported in this browser');
+    } else {
+      setDebugInfo('SpeechRecognition API supported');
+      
+      // Initialize the recognition object on mount
+      initializeSpeechRecognition();
+    }
+  }, [onError]);
+  
+  // Initialize speech recognition
+  const initializeSpeechRecognition = () => {
+    try {
+      // Use type assertion to handle the Speech Recognition API
+      const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (!SpeechRecognitionConstructor) {
+        setDebugInfo('Could not create SpeechRecognition constructor');
+        setIsSpeechSupported(false);
+        return;
+      }
+      
+      recognitionRef.current = new SpeechRecognitionConstructor() as SpeechRecognition;
+      
+      if (!recognitionRef.current) {
+        setDebugInfo('Failed to initialize SpeechRecognition object');
+        setIsSpeechSupported(false);
+        return;
+      }
+      
+      setDebugInfo('SpeechRecognition initialized');
+      
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US'; // Set language explicitly
+      
+      recognitionRef.current.onstart = () => {
+        console.log('Speech recognition started');
+        setDebugInfo('Recognition started');
+        setIsRecording(true);
+      };
       
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         let interimTranscript = '';
         let finalTranscript = '';
-  
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
+        
+        try {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
           }
+          
+          setDebugInfo(`Got result: ${finalTranscript || interimTranscript}`);
+          
+          setTranscription(prevTranscript => {
+            const newTranscript = prevTranscript + finalTranscript;
+            return newTranscript;
+          });
+        } catch (error) {
+          console.error('Error processing speech results:', error);
+          setDebugInfo(`Error processing results: ${error instanceof Error ? error.message : String(error)}`);
         }
-  
-        setTranscription(prevTranscript => {
-          const newTranscript = prevTranscript + finalTranscript;
-          return newTranscript;
-        });
       };
-  
+      
       recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error', event.error);
+        setDebugInfo(`Recognition error: ${event.error}`);
         onError(`Speech recognition error: ${event.error}`);
         setIsRecording(false);
       };
-  
+      
       recognitionRef.current.onend = () => {
         console.log('Speech recognition ended');
+        setDebugInfo('Recognition ended');
+        
         // Only set isRecording to false if we didn't manually stop it
         // This prevents the recognition from stopping unexpectedly
         if (isRecording) {
@@ -157,27 +195,26 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
             if (recognitionRef.current) {
               recognitionRef.current.start();
               console.log('Restarted speech recognition after unexpected end');
+              setDebugInfo('Recognition restarted');
             }
           } catch (error) {
             console.error('Failed to restart speech recognition', error);
+            setDebugInfo(`Failed to restart: ${error instanceof Error ? error.message : String(error)}`);
             setIsRecording(false);
           }
         }
       };
+      
+      setDebugInfo('SpeechRecognition fully configured');
+    } catch (error) {
+      console.error('Error initializing speech recognition:', error);
+      setDebugInfo(`Init error: ${error instanceof Error ? error.message : String(error)}`);
+      setIsSpeechSupported(false);
     }
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (error) {
-          console.error('Error stopping speech recognition on cleanup', error);
-        }
-      }
-    };
-  }, [isRecording, onError]);
+  };
 
   const toggleRecording = () => {
+    setDebugInfo(`Toggle recording from ${isRecording ? 'on' : 'off'} to ${isRecording ? 'off' : 'on'}`);
     if (isRecording) {
       stopRecording();
     } else {
@@ -187,27 +224,38 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
 
   const startRecording = () => {
     if (!recognitionRef.current) {
-      onError('Speech recognition is not supported in your browser');
+      setDebugInfo('No recognition object available');
+      onError('Speech recognition is not supported or not initialized');
       return;
     }
 
     try {
+      console.log('Starting speech recognition');
+      setDebugInfo('Starting recognition...');
       recognitionRef.current.start();
-      console.log('Speech recognition started');
-      setIsRecording(true);
+      // Note: The actual setting of isRecording happens in the onstart event handler
     } catch (error) {
       console.error('Error starting speech recognition:', error);
+      setDebugInfo(`Start error: ${error instanceof Error ? error.message : String(error)}`);
       onError(`Failed to start speech recognition: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
-    if (recognitionRef.current && isRecording) {
+    if (!recognitionRef.current) {
+      setDebugInfo('No recognition object to stop');
+      return;
+    }
+    
+    if (isRecording) {
       try {
+        console.log('Stopping speech recognition');
+        setDebugInfo('Stopping recognition');
         recognitionRef.current.stop();
-        console.log('Speech recognition stopped');
       } catch (error) {
         console.error('Error stopping speech recognition:', error);
+        setDebugInfo(`Stop error: ${error instanceof Error ? error.message : String(error)}`);
       }
       setIsRecording(false);
     }
@@ -215,49 +263,7 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
 
   const clearTranscription = () => {
     setTranscription('');
-  };
-
-  const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('Audio file input changed');
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      console.log('Audio file selected:', files[0].name, files[0].type, files[0].size);
-      setIsTranscribing(true);
-      
-      try {
-        const audioFile = files[0];
-        
-        // Create form data
-        const formData = new FormData();
-        formData.append('audio', audioFile);
-        
-        // Send to Whisper API
-        console.log('Sending audio file to Whisper API...');
-        const response = await axios.post('/api/whisper-transcription', formData);
-        console.log('Received response from Whisper API:', response.data);
-        
-        // Update transcription
-        if (response.data && response.data.transcription) {
-          setTranscription(response.data.transcription);
-          console.log('Transcription updated successfully');
-        } else {
-          console.error('No transcription in response:', response.data);
-          onError('Failed to transcribe audio file: No transcription returned');
-        }
-      } catch (error) {
-        console.error('Error transcribing audio file:', error);
-        if (axios.isAxiosError(error) && error.response) {
-          console.error('API error details:', error.response.data);
-          onError(`Failed to transcribe audio file: ${error.response.data.error || error.message}`);
-        } else {
-          onError(`Failed to transcribe audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      } finally {
-        setIsTranscribing(false);
-      }
-    } else {
-      console.log('No audio file selected');
-    }
+    setDebugInfo('Transcription cleared');
   };
 
   // Load available audio input devices
@@ -280,6 +286,7 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
         }
       } catch (error) {
         console.error('Error loading audio devices:', error);
+        setDebugInfo(`Audio device error: ${error instanceof Error ? error.message : String(error)}`);
       }
     };
     
@@ -293,15 +300,19 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
     };
   }, []);
 
-  // Check browser compatibility
+  // Clean up on component unmount
   useEffect(() => {
-    // Check if SpeechRecognition is supported
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      console.error('SpeechRecognition is not supported in this browser');
-      onError('Speech recognition is not supported in this browser. Please try Chrome, Edge, or Safari.');
-      setIsSpeechSupported(false);
-    }
-  }, [onError]);
+    return () => {
+      if (recognitionRef.current && isRecording) {
+        try {
+          recognitionRef.current.stop();
+          console.log('Speech recognition stopped on unmount');
+        } catch (error) {
+          console.error('Error stopping speech recognition on cleanup', error);
+        }
+      }
+    };
+  }, [isRecording]);
 
   return (
     <div className="p-6">
@@ -462,67 +473,45 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
               </div>
             ) : (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                {isTranscribing ? (
-                  <div className="flex flex-col items-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                    <p className="mt-2 text-sm text-gray-600">Transcribing audio...</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-4 mb-4">
-                      <button
-                        onClick={toggleRecording}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                          isRecording
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        {isRecording ? (
-                          <>
-                            <MicOff className="w-5 h-5" />
-                            <span>Stop Recording</span>
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="w-5 h-5" />
-                            <span>Start Recording</span>
-                          </>
-                        )}
-                      </button>
-                      
-                      <button
-                        onClick={clearTranscription}
-                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Clear</span>
-                      </button>
-                    </div>
-                    
-                    {isRecording && (
-                      <div className="flex items-center gap-2 text-blue-600 mb-4">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Listening...</span>
-                      </div>
-                    )}
-                    
-                    <p className="mt-1 text-xs text-gray-500">or upload an audio file</p>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      className="mt-4 text-sm hidden"
-                      onChange={handleAudioFileChange}
-                      ref={audioInputRef}
-                    />
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-4 mb-4">
                     <button
-                      onClick={handleAudioFileButtonClick}
-                      className="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                      onClick={toggleRecording}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                        isRecording
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
-                      Select Audio File
+                      {isRecording ? (
+                        <>
+                          <MicOff className="w-5 h-5" />
+                          <span>Stop Recording</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-5 h-5" />
+                          <span>Start Recording</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={clearTranscription}
+                      className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Clear</span>
                     </button>
                   </div>
-                )}
+                  
+                  {isRecording && (
+                    <div className="flex items-center gap-2 text-blue-600 mb-4">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Listening...</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
@@ -552,10 +541,17 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
                 ) : null}
                 <span>Add to Knowledge Base</span>
               </button>
+              
+              {/* Debug information */}
+              {debugInfo && (
+                <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700 font-mono">
+                  <strong>Debug:</strong> {debugInfo}
+                </div>
+              )}
             </div>
             
             <p className="mt-2 text-sm text-gray-500">
-              Record speech or upload an audio file to convert to text.
+              Speak clearly to convert your speech to text in real-time.
             </p>
           </div>
         )}
