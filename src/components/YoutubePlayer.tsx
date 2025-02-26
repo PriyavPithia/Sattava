@@ -16,9 +16,10 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
 }) => {
   const playerRef = useRef<YTPlayer | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true);
   const lastTimeUpdateRef = useRef<number>(0);
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const seekingRef = useRef(false);
 
   // YouTube player options
   const opts = {
@@ -31,6 +32,7 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
       origin: window.location.origin,
       enablejsapi: 1,
       playsinline: 1,
+      controls: 1
     },
   };
 
@@ -55,7 +57,7 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
     }
 
     timeUpdateIntervalRef.current = setInterval(() => {
-      if (playerRef.current && !isPaused) {
+      if (playerRef.current && !isPaused && !seekingRef.current) {
         const currentTime = playerRef.current.getCurrentTime();
         if (Math.abs(currentTime - lastTimeUpdateRef.current) > 0.5) {
           lastTimeUpdateRef.current = currentTime;
@@ -70,12 +72,10 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
     const playerState = event.data;
     
     // Update pause state based on player state
-    setIsPaused(playerState === YouTube.PlayerState.PAUSED);
-
-    // Handle different player states
     switch (playerState) {
       case YouTube.PlayerState.PLAYING:
         setIsPaused(false);
+        seekingRef.current = false;
         break;
       case YouTube.PlayerState.PAUSED:
         setIsPaused(true);
@@ -86,6 +86,9 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
           clearInterval(timeUpdateIntervalRef.current);
         }
         break;
+      case YouTube.PlayerState.BUFFERING:
+        seekingRef.current = true;
+        break;
     }
   };
 
@@ -94,10 +97,17 @@ const YoutubePlayer: React.FC<YoutubePlayerProps> = ({
     if (isReady && playerRef.current && currentTime !== undefined) {
       const playerTime = playerRef.current.getCurrentTime();
       if (Math.abs(playerTime - currentTime) > 1) {
+        seekingRef.current = true;
         playerRef.current.seekTo(currentTime, true);
+        // Keep the current pause state
+        if (!isPaused) {
+          playerRef.current.playVideo();
+        } else {
+          playerRef.current.pauseVideo();
+        }
       }
     }
-  }, [currentTime, isReady]);
+  }, [currentTime, isReady, isPaused]);
 
   return (
     <div className="relative aspect-video">
