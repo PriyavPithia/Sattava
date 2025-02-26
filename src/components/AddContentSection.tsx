@@ -75,6 +75,8 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   
   // Add speech recognition states
   const [transcription, setTranscription] = useState<string>('');
+  const [permanentTranscript, setPermanentTranscript] = useState<string>('');
+  const [interimTranscript, setInterimTranscript] = useState<string>('');
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -167,25 +169,33 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       };
       
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-        
         try {
+          let currentInterim = '';
+          let finalText = '';
+          
+          // Process results
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+            
             if (event.results[i].isFinal) {
-              finalTranscript += transcript + ' ';
+              finalText += transcript + ' ';
             } else {
-              interimTranscript += transcript;
+              currentInterim += transcript;
             }
           }
           
-          setDebugInfo(`Got result: ${finalTranscript || interimTranscript}`);
+          // Log to debug
+          setDebugInfo(`Interim: "${currentInterim}"`);
           
-          setTranscription(prevTranscript => {
-            const newTranscript = prevTranscript + finalTranscript;
-            return newTranscript;
-          });
+          // Update states
+          if (finalText) {
+            // When we get final text, add it to the permanent transcript
+            setPermanentTranscript(prev => prev + finalText);
+            setInterimTranscript(''); // Clear interim when we get final text
+          } else {
+            // Otherwise just update the interim text
+            setInterimTranscript(currentInterim);
+          }
         } catch (error) {
           console.error('Error processing speech results:', error);
           setDebugInfo(`Error processing results: ${error instanceof Error ? error.message : String(error)}`);
@@ -228,6 +238,11 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       setIsSpeechSupported(false);
     }
   };
+
+  // Update combined transcription whenever permanent or interim transcript changes
+  useEffect(() => {
+    setTranscription(permanentTranscript + interimTranscript);
+  }, [permanentTranscript, interimTranscript]);
 
   const toggleRecording = () => {
     setDebugInfo(`Toggle recording from ${isRecording ? 'on' : 'off'} to ${isRecording ? 'off' : 'on'}`);
@@ -278,6 +293,8 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   };
 
   const clearTranscription = () => {
+    setPermanentTranscript('');
+    setInterimTranscript('');
     setTranscription('');
     setDebugInfo('Transcription cleared');
   };
