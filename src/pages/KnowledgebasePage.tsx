@@ -203,7 +203,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         console.log('Loaded messages:', savedMessages);
         setMessages(savedMessages || []);
 
-        // Only select first item if no video is currently selected
+        // If we have a selected video (like a newly added file), keep it
+        // Otherwise select the first item
         if (!selectedVideo && collection.items.length > 0) {
           const firstItem = collection.items[0];
           if (onVideoSelect) {
@@ -215,10 +216,10 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       console.error('Error loading collection data:', error);
       setMessages([]);
     } finally {
-      // Release the navigation lock after a short delay
+      // Release the navigation lock after a longer delay to ensure state updates complete
       setTimeout(() => {
         navigationLockRef.current = false;
-      }, 100);
+      }, 300);
     }
   };
 
@@ -229,25 +230,23 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     }
 
     try {
-      // Set navigation lock immediately
+      // Set lock before any state changes
       navigationLockRef.current = true;
+      
+      const targetPath = mode === 'chat' 
+        ? `/knowledgebase/${collection.id}/chat`
+        : `/knowledgebase/${collection.id}/${mode}`;
 
-      // First load data
+      // Update view mode first
+      setViewMode(mode);
+      
+      // Then navigate
+      if (location.pathname !== targetPath) {
+        navigate(targetPath, { replace: true });
+      }
+
+      // Finally load data
       await loadCollectionData(collection, mode);
-
-      // Then navigate after a short delay to ensure state is updated
-      setTimeout(() => {
-        const targetPath = mode === 'chat' 
-          ? `/knowledgebase/${collection.id}/chat`
-          : `/knowledgebase/${collection.id}/${mode}`;
-
-        if (location.pathname !== targetPath) {
-          navigate(targetPath, { replace: true });
-        }
-        
-        // Release navigation lock
-        navigationLockRef.current = false;
-      }, 100);
     } catch (error) {
       console.error('Error changing view mode:', error);
       navigationLockRef.current = false;
