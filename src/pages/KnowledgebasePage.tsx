@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Youtube, FolderOpen, Plus, ArrowLeft, BookOpen, 
-  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye, CheckCircle, XCircle, ChevronDown
+  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye, CheckCircle, XCircle, ChevronDown, Check, X
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TranscriptViewer from '../components/TranscriptViewer';
@@ -184,6 +184,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+  const [editingCollectionName, setEditingCollectionName] = useState<string | null>(null);
   
   // Add useEffect to handle URL changes
   useEffect(() => {
@@ -434,6 +435,17 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     }
   }, [isProcessingContent]);
 
+  // Add this function to handle inline name editing
+  const handleNameEdit = async (collectionId: string, newName: string) => {
+    try {
+      await onUpdateProject(collectionId, newName);
+      setEditingCollectionName(null);
+    } catch (error) {
+      console.error('Error updating knowledge base name:', error);
+      onError('Failed to update knowledge base name');
+    }
+  };
+
   // First: check if we're showing the collection list (no selection or explicitly showing list)
   if (!selectedCollection) {
     // No collection selected, show the list of all collections
@@ -506,45 +518,61 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           {collections.map((collection) => (
             <div
               key={collection.id}
-              className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all"
+              className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <FolderOpen className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold">{collection.name}</h3>
-                </div>
-                <div className="flex gap-1">
+              {/* Make the card clickable */}
+              <div 
+                onClick={() => handleCollectionSelect(collection)}
+                className="p-6 cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {collection.name}
+                    </h2>
+                  </div>
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent card click
                       setIsEditingCollection(true);
                       setNewName(collection.name);
                       setNewDescription(collection.description || '');
-                      onSelectCollection(collection);
                     }}
-                    className="p-1.5 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                    className="p-2 text-gray-400 hover:text-gray-600"
                   >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCollection(collection.id)}
-                    className="p-1.5 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
+                    <Edit className="w-4 h-4" />
                   </button>
                 </div>
+                <p className="text-gray-600 mb-4">
+                  {collection.items?.length || 0} items
+                </p>
               </div>
-              {collection.description && (
-                <p className="text-gray-600 mb-3 text-sm line-clamp-2">{collection.description}</p>
-              )}
-              <div className="flex justify-between items-center mt-4">
-                <div className="text-sm text-gray-500">
-                  {collection.items.length} items
-                </div>
+              
+              {/* Action buttons */}
+              <div className="border-t border-gray-200 p-4 bg-gray-50 rounded-b-lg flex justify-end gap-2">
                 <button
-                  onClick={() => handleCollectionSelect(collection)}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCollectionSelect(collection);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                 >
+                  <Eye className="w-4 h-4" />
                   View
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewModeChange('chat');
+                    handleCollectionSelect(collection);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  disabled={collection.items?.length === 0}
+                  title={collection.items?.length === 0 ? "Add content to start chatting" : "Start chatting"}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Chat
                 </button>
               </div>
             </div>
@@ -731,7 +759,50 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             >
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+            {editingCollectionName === selectedCollection.id ? (
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleNameEdit(selectedCollection.id, newName);
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="text-2xl font-bold border-b-2 border-blue-500 focus:outline-none bg-transparent"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="p-1 text-green-600 hover:text-green-700"
+                >
+                  <Check className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCollectionName(null);
+                    setNewName(selectedCollection.name);
+                  }}
+                  className="p-1 text-red-600 hover:text-red-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </form>
+            ) : (
+              <h1 
+                className="text-2xl font-bold cursor-pointer hover:text-blue-600 flex items-center gap-2"
+                onClick={() => {
+                  setEditingCollectionName(selectedCollection.id);
+                  setNewName(selectedCollection.name);
+                }}
+              >
+                {selectedCollection.name}
+                <Pencil className="w-4 h-4 opacity-50" />
+              </h1>
+            )}
           </div>
           <div className="flex gap-2">
             <button
