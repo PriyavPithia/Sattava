@@ -155,16 +155,50 @@ async function fetchTranscriptWithProxy(videoId: string) {
   try {
     console.log('Fetching transcript via proxy for video ID:', videoId);
     
-    // Use a CORS proxy to fetch the YouTube page
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
+    // Try multiple CORS proxies in case one fails
+    const proxyUrls = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`,
+      `https://corsproxy.io/?${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`,
+      `https://cors-anywhere.herokuapp.com/https://www.youtube.com/watch?v=${videoId}`
+    ];
     
-    console.log('Fetching via proxy:', proxyUrl);
-    const response = await axios.get(proxyUrl);
-    const html = response.data;
+    let html = '';
+    let proxySuccess = false;
     
-    // Extract captions data from the HTML
-    const captionsRegex = /"captionTracks":\[(.*?)\]/;
-    const match = html.match(captionsRegex);
+    // Try each proxy until one works
+    for (const proxyUrl of proxyUrls) {
+      try {
+        console.log('Trying proxy:', proxyUrl);
+        const response = await axios.get(proxyUrl, { timeout: 10000 });
+        html = response.data;
+        proxySuccess = true;
+        console.log('Proxy fetch successful');
+        break;
+      } catch (proxyError) {
+        console.warn(`Proxy ${proxyUrl} failed:`, proxyError.message);
+        continue;
+      }
+    }
+    
+    if (!proxySuccess) {
+      throw new Error('All proxies failed to fetch the YouTube page');
+    }
+    
+    // Try multiple regex patterns to extract captions data
+    const regexPatterns = [
+      /"captionTracks":\[(.*?)\]/,
+      /captionTracks"?:\s*?\[(.*?)\]/,
+      /\\"captionTracks\\":\[(.*?)\]/
+    ];
+    
+    let match = null;
+    for (const pattern of regexPatterns) {
+      match = html.match(pattern);
+      if (match && match[1]) {
+        console.log('Found captions data with pattern:', pattern);
+        break;
+      }
+    }
     
     if (!match || !match[1]) {
       console.error('No captions found in the video');
@@ -173,38 +207,60 @@ async function fetchTranscriptWithProxy(videoId: string) {
     
     console.log('Captions data found');
     
-    // Parse the captions data
-    const captionsData = JSON.parse(`[${match[1]}]`);
-    if (!captionsData || captionsData.length === 0) {
-      throw new Error('No captions available for this video');
-    }
+    // Clean up the JSON string before parsing
+    let captionDataStr = match[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     
-    // Get the first available caption track (usually English)
-    const firstCaption = captionsData[0];
-    const captionUrl = firstCaption.baseUrl;
-    
-    console.log('Fetching captions from URL via proxy');
-    
-    // Fetch the actual transcript through the proxy
-    const captionResponse = await axios.get(`https://api.allorigins.win/raw?url=${encodeURIComponent(captionUrl)}`);
-    const transcript = captionResponse.data;
-    
-    // Check if we're in a browser environment
-    if (typeof DOMParser === 'undefined') {
-      console.log('DOMParser not available, using regex-based parsing');
-      // Use regex-based parsing as fallback
+    try {
+      // Try to parse the captions data
+      const captionsData = JSON.parse(`[${captionDataStr}]`);
+      
+      if (!captionsData || captionsData.length === 0) {
+        throw new Error('No captions available for this video');
+      }
+      
+      // Get the first available caption track (usually English)
+      const firstCaption = captionsData[0];
+      const captionUrl = firstCaption.baseUrl;
+      
+      console.log('Fetching captions from URL via proxy');
+      
+      // Try multiple proxies for the caption URL too
+      let transcript = '';
+      let captionProxySuccess = false;
+      
+      for (const proxyBase of ['https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?']) {
+        try {
+          const captionProxyUrl = `${proxyBase}${encodeURIComponent(captionUrl)}`;
+          console.log('Trying caption proxy:', captionProxyUrl);
+          const captionResponse = await axios.get(captionProxyUrl, { timeout: 8000 });
+          transcript = captionResponse.data;
+          captionProxySuccess = true;
+          console.log('Caption proxy fetch successful');
+          break;
+        } catch (captionProxyError) {
+          console.warn('Caption proxy failed:', captionProxyError.message);
+          continue;
+        }
+      }
+      
+      if (!captionProxySuccess) {
+        throw new Error('Failed to fetch captions from all proxies');
+      }
+      
+      // Use regex-based parsing which works in both browser and Node.js
+      console.log('Using regex-based parsing');
       const result = [];
       const regex = /<text start="([\d\.]+)" dur="([\d\.]+)"[^>]*>(.*?)<\/text>/g;
-      let match;
+      let textMatch;
       
-      while ((match = regex.exec(transcript)) !== null) {
-        const start = parseFloat(match[1]);
-        const duration = parseFloat(match[2]);
-        const text = match[3].replace(/&amp;/g, '&')
-                             .replace(/&lt;/g, '<')
-                             .replace(/&gt;/g, '>')
-                             .replace(/&quot;/g, '"')
-                             .replace(/&#39;/g, "'");
+      while ((textMatch = regex.exec(transcript)) !== null) {
+        const start = parseFloat(textMatch[1]);
+        const duration = parseFloat(textMatch[2]);
+        const text = textMatch[3].replace(/&amp;/g, '&')
+                               .replace(/&lt;/g, '<')
+                               .replace(/&gt;/g, '>')
+                               .replace(/&quot;/g, '"')
+                               .replace(/&#39;/g, "'");
         
         result.push({
           text,
@@ -214,32 +270,18 @@ async function fetchTranscriptWithProxy(videoId: string) {
         });
       }
       
+      if (result.length === 0) {
+        throw new Error('Failed to parse transcript data');
+      }
+      
       console.log('Regex parsing successful, found', result.length, 'segments');
       return result;
-    }
-    
-    // Parse the XML transcript using DOMParser (browser environment)
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(transcript, 'text/xml');
-    const textElements = xmlDoc.getElementsByTagName('text');
-    
-    // Convert to our transcript format
-    const result = [];
-    for (let i = 0; i < textElements.length; i++) {
-      const text = textElements[i].textContent || '';
-      const start = parseFloat(textElements[i].getAttribute('start') || '0');
-      const duration = parseFloat(textElements[i].getAttribute('dur') || '0');
       
-      result.push({
-        text,
-        start,
-        duration,
-        offset: start * 1000,
-      });
+    } catch (parseError) {
+      console.error('Error parsing caption data:', parseError);
+      throw new Error('Failed to parse caption data from YouTube');
     }
     
-    console.log('DOM parsing successful, found', result.length, 'segments');
-    return result;
   } catch (error) {
     console.error('Error in fetchTranscriptWithProxy:', error);
     throw error;
