@@ -62,8 +62,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'pdf' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
+  addVideoMethod: 'youtube' | 'youtube-client' | 'pdf' | 'file';
+  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'pdf' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;

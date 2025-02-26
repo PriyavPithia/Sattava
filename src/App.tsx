@@ -95,7 +95,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'pdf' | 'file'>('youtube');
+  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'youtube-client' | 'pdf' | 'file'>('youtube');
   const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
@@ -462,6 +462,13 @@ function App() {
       
       // Update messages immediately for UI feedback
       setMessages(updatedMessages);
+      
+      // Update chat histories
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedCollection.id]: updatedMessages
+      }));
+      
       setQuestion('');
 
       // Process the question and get AI response
@@ -559,6 +566,7 @@ function App() {
         timestamp: new Date().toISOString()
       };
 
+      const currentHistory = chatHistories[selectedCollection.id] || [];
       const errorMessages = [...currentHistory, newUserMessage, errorMessage];
       
       // Update both states with single update

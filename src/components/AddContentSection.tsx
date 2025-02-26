@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Upload, Youtube, FileText, Paperclip } from 'lucide-react';
+import YoutubeClient from './YoutubeClient';
 
 interface SpinnerProps {
   className?: string;
@@ -15,8 +16,8 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'pdf' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
+  addVideoMethod: 'youtube' | 'youtube-client' | 'pdf' | 'file';
+  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'pdf' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -66,6 +67,17 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         >
           <Youtube className="w-5 h-5" />
           <span>YouTube</span>
+        </button>
+        <button
+          onClick={() => setAddVideoMethod('youtube-client')}
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'youtube-client' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Youtube className="w-5 h-5" />
+          <span>YouTube Client</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('pdf')}
@@ -126,6 +138,22 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             </div>
             <p className="mt-2 text-sm text-gray-500">
               Paste a YouTube URL to transcribe the video and add it to your knowledgebase.
+            </p>
+          </div>
+        )}
+
+        {/* YouTube Client Mode */}
+        {addVideoMethod === 'youtube-client' && (
+          <div>
+            <YoutubeClient
+              url={url}
+              setUrl={setUrl}
+              onTranscriptGenerated={onTranscriptGenerated}
+              onError={onError}
+              isProcessingContent={isProcessingContent}
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              This uses the youtube-transcript package to fetch transcripts directly from YouTube.
             </p>
           </div>
         )}
