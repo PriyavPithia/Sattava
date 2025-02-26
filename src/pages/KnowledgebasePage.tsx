@@ -191,33 +191,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     const path = location.pathname;
     console.log('URL path changed:', path);
     
-    const loadCollectionData = async (collection: Collection, newViewMode: ViewMode) => {
-      // Always update the selected collection
-      console.log('Setting selected collection from URL:', collection.name);
-      onSelectCollection(collection);
-      setViewMode(newViewMode);
-
-      // Load chat history and select file when entering chat mode
-      if (newViewMode === 'chat') {
-        try {
-          const savedMessages = await loadChat(collection.id);
-          console.log('Loaded messages:', savedMessages);
-          setMessages(savedMessages || []);
-
-          // Always ensure a file is selected in chat mode
-          if (!selectedVideo && collection.items.length > 0) {
-            const firstItem = collection.items[0];
-            if (onVideoSelect) {
-              onVideoSelect(firstItem);
-            }
-          }
-        } catch (error) {
-          console.error('Error loading chat history:', error);
-          setMessages([]);
-        }
-      }
-    };
-
     // If we're at the base knowledgebase path, reset state
     if (path === '/knowledgebase') {
       console.log('At base knowledgebase path, resetting state');
@@ -636,6 +609,16 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               
               {/* Action buttons */}
               <div className="border-t border-gray-200 p-4 bg-gray-50 rounded-b-lg flex justify-end gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCollectionSelect(collection);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Files
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

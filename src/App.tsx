@@ -1194,12 +1194,10 @@ function App() {
                   />
                   <button 
                     onClick={() => {
-                      setViewMode('list');
+                      // Reset states
+                      setSelectedCollection(null);
+                      setSelectedVideo(null);
                       setMessages([]);
-                      if (selectedVideo && onVideoSelect) {
-                        onVideoSelect(null);
-                      }
-                      onSelectCollection(null);
                       navigate('/knowledgebase');
                     }}
                     className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
