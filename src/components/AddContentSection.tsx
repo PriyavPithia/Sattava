@@ -148,18 +148,29 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       formData.append('audio', audioFile);
       
       // Send to Whisper API endpoint
-      setDebugInfo(`Sending audio file to Whisper API...`);
+      const apiEndpoint = '/api/whisper-transcription';
+      setDebugInfo(`Sending audio file to Whisper API at ${apiEndpoint}...`);
       
       try {
-        const response = await fetch('/api/whisper-transcription', {
+        console.log(`Sending POST request to ${apiEndpoint} with file: ${audioFile.name}`);
+        
+        // Try with explicit Content-Type header
+        const response = await fetch(apiEndpoint, {
           method: 'POST',
           body: formData,
+          // Don't set Content-Type for multipart/form-data, browser will set it with boundary
         });
+        
+        console.log(`Received response: Status ${response.status} ${response.statusText}`);
+        setDebugInfo(`API Response: ${response.status} ${response.statusText}`);
         
         // Check if response is OK first
         if (!response.ok) {
           const errorText = await response.text();
           let errorMessage;
+          
+          console.log(`Error response text: ${errorText}`);
+          setDebugInfo(`Error response: ${errorText}`);
           
           // Try to parse error as JSON if possible
           try {
@@ -176,7 +187,16 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         // Now try to parse the JSON response
         let data;
         try {
-          data = await response.json();
+          const responseText = await response.text();
+          console.log('Raw response text:', responseText);
+          setDebugInfo(`Response text: ${responseText.substring(0, 100)}...`);
+          
+          // Only try to parse as JSON if there is content
+          if (responseText.trim()) {
+            data = JSON.parse(responseText);
+          } else {
+            throw new Error('Empty response from server');
+          }
         } catch (jsonError) {
           console.error('JSON parsing error:', jsonError);
           throw new Error('Failed to parse server response. The server might be experiencing issues.');
@@ -193,6 +213,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         setDebugInfo(`Transcription complete: ${data.transcription.substring(0, 50)}...`);
       } catch (fetchError) {
         console.error('Fetch error:', fetchError);
+        setDebugInfo(`Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
         throw fetchError;
       }
       

@@ -12,10 +12,20 @@ export const config = {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Handle OPTIONS requests for CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(200).end();
+  }
+  
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    console.error(`Method ${req.method} not allowed - only POST is supported`);
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(405).json({ error: `Method ${req.method} not allowed - use POST instead` });
   }
 
+  console.log(`Processing ${req.method} request to /api/whisper-transcription`);
+  
   try {
     console.log('Starting whisper transcription request');
     
@@ -73,19 +83,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Check if we have an API key
-    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error('OpenAI API key is missing');
-      return res.status(500).json({ error: 'OpenAI API key is missing' });
+      // Try alternative environment variable name
+      const altApiKey = process.env.VITE_OPENAI_API_KEY;
+      if (!altApiKey) {
+        console.error('OpenAI API key is missing from both OPENAI_API_KEY and VITE_OPENAI_API_KEY');
+        return res.status(500).json({ error: 'OpenAI API key is missing from server configuration' });
+      }
+      console.log('Using alternative API key from VITE_OPENAI_API_KEY');
     }
 
+    // Use whichever key is available
+    const finalApiKey = apiKey || process.env.VITE_OPENAI_API_KEY;
+    
     // Log a masked version of the key to help with debugging
-    console.log('OpenAI API key available:', apiKey ? `${apiKey.substring(0, 3)}...${apiKey.substring(apiKey.length - 4)}` : 'MISSING');
+    console.log('OpenAI API key available:', finalApiKey ? `${finalApiKey.substring(0, 3)}...${finalApiKey.substring(finalApiKey.length - 4)}` : 'MISSING');
     
     console.log('Initializing OpenAI API');
     // Initialize OpenAI API
     const openai = new OpenAI({
-      apiKey: apiKey,
+      apiKey: finalApiKey,
     });
 
     try {
