@@ -438,7 +438,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           }`}
         >
           <Type className="w-5 h-5" />
-          <span>Input Text</span>
+          <span>Notes</span>
         </button>
       </div>
 
@@ -645,28 +645,30 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             </div>
             
             <p className="mt-2 text-sm text-gray-500">
-              Speak clearly to convert your speech to text, or upload an audio file for server-side transcription.
+              Record your speech or upload an audio file for transcription.
             </p>
           </div>
         )}
 
-        {/* Input Text Mode */}
+        {/* Input Text Mode - renamed to Notes */}
         {addVideoMethod === 'text' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Enter Text
+              Add Notes
             </label>
-            <textarea
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Enter or paste your text here..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
-              disabled={isProcessingContent}
-            />
+            <div className="mb-4">
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Enter or paste your notes here..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+                disabled={isProcessingContent}
+              />
+            </div>
             <button
               onClick={handleTextSubmit}
               disabled={!textInput.trim() || isProcessingContent}
-              className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
+              className={`mt-2 px-4 py-2 rounded flex items-center justify-center ${
                 !textInput.trim() || isProcessingContent
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
@@ -678,7 +680,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               <span>Add to Knowledge Base</span>
             </button>
             <p className="mt-2 text-sm text-gray-500">
-              Directly enter or paste text to add to your knowledge base.
+              Add text notes directly to your knowledge base for quick reference.
             </p>
           </div>
         )}
