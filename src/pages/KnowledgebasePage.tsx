@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Youtube, FolderOpen, Plus, ArrowLeft, BookOpen, 
-  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye, CheckCircle, XCircle
+  Loader2, Edit, MessageSquare, Trash2, Pencil, Eye, CheckCircle, XCircle, ChevronDown
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TranscriptViewer from '../components/TranscriptViewer';
@@ -217,9 +217,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         onSelectCollection(collection);
         
         // Set view mode based on URL or default to list
-        const newViewMode = (viewModeFromUrl === 'chat') 
-          ? 'chat' 
-          : 'list';
+        const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
         console.log('Setting view mode:', newViewMode);
         setViewMode(newViewMode);
 
@@ -232,6 +230,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
           }).catch(error => {
             console.error('Error loading chat history:', error);
           });
+          
+          // Automatically select first file if none is selected
+          if (!selectedVideo && collection.items.length > 0) {
+            const firstItem = collection.items[0];
+            if (onVideoSelect) {
+              onVideoSelect(firstItem);
+            }
+          }
         }
       }
     }
@@ -373,6 +379,15 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Update the view mode handlers
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode);
+    
+    // When entering chat mode, automatically select the first file if none is selected
+    if (mode === 'chat' && selectedCollection && !selectedVideo && selectedCollection.items.length > 0) {
+      const firstItem = selectedCollection.items[0];
+      if (onVideoSelect) {
+        onVideoSelect(firstItem);
+      }
+    }
+    
     if (selectedCollection) {
       navigate(`/knowledgebase/${selectedCollection.id}/${mode}`);
     }
@@ -591,24 +606,32 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
-            {/* Add file selector dropdown */}
-            <select
-              className="ml-4 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedVideo?.id || ''}
-              onChange={(e) => {
-                const video = selectedCollection.items.find(item => item.id === e.target.value);
-                if (video && onVideoSelect) {
-                  onVideoSelect(video);
-                }
-              }}
-            >
-              <option value="">Select a file to view</option>
-              {selectedCollection.items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title || item.url}
-                </option>
-              ))}
-            </select>
+            <div className="relative ml-4">
+              <select
+                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+                value={selectedVideo?.id || ''}
+                onChange={(e) => {
+                  const video = selectedCollection.items.find(item => item.id === e.target.value);
+                  if (video && onVideoSelect) {
+                    onVideoSelect(video);
+                  }
+                }}
+              >
+                <option value="" disabled>Select content to view</option>
+                {selectedCollection.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.type === 'youtube' ? '🎥 ' : '📄 '}
+                    {item.title || item.url}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <Eye className="w-4 h-4 text-gray-500" />
+              </div>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -701,6 +724,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             <button
               onClick={() => handleViewModeChange('chat')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+              disabled={selectedCollection.items.length === 0}
+              title={selectedCollection.items.length === 0 ? "Add content to start chatting" : "Start chatting"}
             >
               <MessageSquare className="w-4 h-4" />
               Chat
