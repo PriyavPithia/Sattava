@@ -64,17 +64,47 @@ export const formatDurationLabel = (duration: number): string => {
 export async function getTranscript(videoId: string) {
   try {
     console.log('Fetching transcript for video ID:', videoId);
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
     
-    if (!transcript || transcript.length === 0) {
-      throw new Error('No transcript data found');
+    // Add more detailed logging
+    console.log('Using youtube-transcript package version:', require('youtube-transcript/package.json').version);
+    console.log('Node environment:', process.env.NODE_ENV);
+    
+    try {
+      const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+      
+      if (!transcript || transcript.length === 0) {
+        console.error('Empty transcript array returned for video ID:', videoId);
+        throw new Error('No transcript data found');
+      }
+      
+      console.log('Successfully fetched transcript with', transcript.length, 'segments');
+      console.log('First segment sample:', JSON.stringify(transcript[0]));
+      return transcript;
+    } catch (ytError) {
+      // Log detailed error from youtube-transcript
+      console.error('YouTube Transcript API error details:', {
+        name: ytError.name,
+        message: ytError.message,
+        stack: ytError.stack,
+        videoId: videoId
+      });
+      
+      // Try to determine if this is a network issue or a YouTube-specific issue
+      if (ytError.message.includes('network') || ytError.message.includes('ECONNREFUSED') || ytError.message.includes('timeout')) {
+        throw new Error(`Network error while fetching transcript: ${ytError.message}`);
+      } else if (ytError.message.includes('403') || ytError.message.includes('Forbidden')) {
+        throw new Error('Access to YouTube API was denied. This may be due to rate limiting.');
+      } else {
+        throw new Error(`Failed to fetch transcript: ${ytError.message}`);
+      }
     }
-    
-    console.log('Successfully fetched transcript with', transcript.length, 'segments');
-    return transcript;
   } catch (error) {
-    console.error('Error fetching transcript:', error);
-    throw new Error('Failed to fetch transcript. Make sure the video exists and has captions available.');
+    console.error('Error fetching transcript:', {
+      error: error instanceof Error ? error.message : String(error),
+      videoId,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
   }
 }
 

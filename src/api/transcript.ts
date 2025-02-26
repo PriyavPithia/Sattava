@@ -3,6 +3,13 @@ import { getTranscript } from '../utils/transcript';
 export async function fetchYoutubeTranscript(videoId: string) {
   try {
     console.log('Attempting to fetch transcript for video ID:', videoId);
+    
+    if (!videoId) {
+      console.error('Invalid video ID provided:', videoId);
+      throw new Error('Invalid YouTube video ID');
+    }
+    
+    console.log('Calling getTranscript function...');
     const transcript = await getTranscript(videoId);
     
     if (!transcript || transcript.length === 0) {
@@ -13,7 +20,15 @@ export async function fetchYoutubeTranscript(videoId: string) {
     console.log('Successfully fetched transcript with', transcript.length, 'segments');
     return transcript;
   } catch (error) {
-    console.error('Error fetching transcript:', error);
+    console.error('Error fetching transcript:', {
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      } : String(error),
+      videoId,
+      timestamp: new Date().toISOString()
+    });
     
     // Try to provide more specific error messages
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -28,7 +43,11 @@ export async function fetchYoutubeTranscript(videoId: string) {
       throw new Error('This video does not exist or is unavailable.');
     }
     
-    // Generic fallback error
-    throw new Error('Failed to fetch transcript. Please try again or use a different video.');
+    if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+      throw new Error('Network error while fetching transcript. Please check your internet connection and try again.');
+    }
+    
+    // Generic fallback error with more details
+    throw new Error(`Failed to fetch transcript: ${errorMessage}. Please try again or use a different video.`);
   }
 } 
