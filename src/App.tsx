@@ -13,6 +13,7 @@ import { TranscriptSegment, TranscriptGroup } from './utils/types';
 
 import { generateStudyNotes, askQuestion, findMostRelevantChunks, generateEmbeddings } from './utils/ai';
 import { extractPowerPointContent } from './utils/powerpoint';
+import { extractReferences } from './utils/reference';
 
 import { HighlightProvider } from './contexts/HighlightContext';
 import { 
@@ -1236,11 +1237,15 @@ function App() {
         allContent.map(content => content.text).join('\n\n'),
         allContent
       );
+
+      // Extract references from the generated notes
+      const { text, references } = extractReferences(notes);
       
       // Create a new message for the study notes
       const studyNotesMessage: Message = {
         role: 'assistant',
-        content: notes,
+        content: text,
+        references: references,
         timestamp: new Date().toISOString(),
         isStudyNotes: true
       };

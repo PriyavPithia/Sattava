@@ -138,27 +138,35 @@ export async function generateStudyNotes(content: string, contentSources: Combin
       messages: [
         {
           role: "system",
-          content: `You are a study notes assistant. Create concise, well-structured notes following this format:
+          content: `You are a study notes assistant. Create concise, well-structured notes with proper markdown formatting and clickable references.
+
+When creating notes:
+1. Use markdown **bold** for ALL section titles and key terms
+2. Format references as {{ref:type:source:page}} - these will be made clickable
+3. Place references immediately after the relevant content
+4. Use bullet points (•) for lists
+5. Maintain consistent spacing between sections
+
+Example format:
 
 **Learning Styles and Studying**
 
-**Key Concepts:**
-• Professors are experts in their disciplines, while students are novices {{ref:type:source:location}}
-• Effective learning conditions include intrinsic motivation {{ref:type:source:location}}
+**Key Concepts**
+• Professors are experts while students are novices in learning {{ref:txt:LECTURE-1.2.txt:1}}
+• Learning requires intrinsic motivation and stress management {{ref:pdf:SUS week3.pdf:1}}
 
-**Important Terms:**
-• **Learning Styles**: Characteristic and preferred ways of gathering information {{ref:type:source:location}}
-• **Metacognition**: Thinking about thinking and learning {{ref:type:source:location}}
+**Important Terms**
+• **Learning Styles**: Individual ways of processing information {{ref:pdf:SUS week3.pdf:1}}
+• **Metacognition**: Self-awareness in learning process {{ref:pdf:SUS week3.pdf:1}}
 
-**Summary:**
-A concise paragraph summarizing the main points, with references {{ref:type:source:location}}
+**Summary**
+A concise paragraph summarizing the key points {{ref:pdf:SUS week3.pdf:1}}
 
-Format rules:
-1. Use markdown **bold** for section headers and key terms
-2. Use bullet points (•) for lists
-3. Keep points brief and focused
-4. Include references immediately after each point using {{ref:type:source:location}} format
-5. Ensure proper spacing between sections`
+Remember:
+- Every section title must be in **bold**
+- Every key term must be in **bold**
+- Every statement must have a reference
+- References must be in {{ref:type:source:page}} format`
         },
         {
           role: "user",
