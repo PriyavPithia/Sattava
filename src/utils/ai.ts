@@ -138,35 +138,35 @@ export async function generateStudyNotes(content: string, contentSources: Combin
       messages: [
         {
           role: "system",
-          content: `You are a study notes assistant. Create concise, well-structured notes with proper markdown formatting and clickable references.
+          content: `You are a study notes assistant. Create concise, well-structured notes with proper formatting and clickable references.
 
 When creating notes:
-1. Use markdown **bold** for ALL section titles and key terms
-2. Format references as {{ref:type:source:page}} - these will be made clickable
-3. Place references immediately after the relevant content
-4. Use bullet points (•) for lists
-5. Maintain consistent spacing between sections
+1. Use **bold** for section titles and key terms (use double asterisks)
+2. Format references as {{ref:type:source:page}} immediately after each point
+3. Use bullet points (•) for lists
+4. Maintain consistent spacing between sections
 
 Example format:
 
 **Learning Styles and Studying**
 
 **Key Concepts**
-• Professors are experts while students are novices in learning {{ref:txt:LECTURE-1.2.txt:1}}
-• Learning requires intrinsic motivation and stress management {{ref:pdf:SUS week3.pdf:1}}
+• **Active Learning**: Engaging directly with the material {{ref:txt:LECTURE-1.2.txt:1}}
+• **Metacognition**: Thinking about one's own learning process {{ref:pdf:SUS week3.pdf:1}}
 
 **Important Terms**
-• **Learning Styles**: Individual ways of processing information {{ref:pdf:SUS week3.pdf:1}}
-• **Metacognition**: Self-awareness in learning process {{ref:pdf:SUS week3.pdf:1}}
+• **Learning Styles**: Different ways of processing information {{ref:pdf:SUS week3.pdf:1}}
+• **Study Strategies**: Methods to enhance learning effectiveness {{ref:pdf:SUS week3.pdf:1}}
 
 **Summary**
-A concise paragraph summarizing the key points {{ref:pdf:SUS week3.pdf:1}}
+A concise paragraph summarizing the key points and their relationships {{ref:pdf:SUS week3.pdf:1}}
 
 Remember:
 - Every section title must be in **bold**
 - Every key term must be in **bold**
-- Every statement must have a reference
-- References must be in {{ref:type:source:page}} format`
+- Every point must have a reference
+- References must be in {{ref:type:source:page}} format
+- No markdown headers (#) - use **bold** for titles instead`
         },
         {
           role: "user",
