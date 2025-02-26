@@ -1,18 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, Heading, Link } from 'lucide-react';
+import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle } from 'lucide-react';
 import axios from 'axios';
-import dynamic from 'next/dynamic';
-
-// Dynamically import React Quill with proper typing
-const ReactQuill = dynamic(
-  async () => {
-    const { default: RQ } = await import('react-quill');
-    return function comp({ forwardedRef, ...props }: any) {
-      return <RQ ref={forwardedRef} {...props} />;
-    };
-  },
-  { ssr: false, loading: () => <p>Loading Editor...</p> }
-);
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
 
 // Note: You'll need to add the CSS import where applicable
 // Import styles in a CSS/SCSS file or global styles
@@ -75,6 +67,28 @@ interface SpeechRecognition extends EventTarget {
   onstart?: () => void;
 }
 
+// Add MenuButton component for the editor toolbar
+interface MenuButtonProps {
+  onClick: () => void;
+  isActive?: boolean;
+  title: string;
+  children: React.ReactNode;
+}
+
+const MenuButton: React.FC<MenuButtonProps> = ({ onClick, isActive, title, children }) => {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`p-1 rounded ${
+        isActive ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
+};
+
 const AddContentSection: React.FC<AddContentSectionProps> = ({
   addVideoMethod,
   setAddVideoMethod,
@@ -100,8 +114,24 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
-  // Add rich text editor state
-  const [richTextValue, setRichTextValue] = useState<string>('');
+  // Replace richTextValue state with TipTap editor
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link.configure({
+        openOnClick: false,
+      }),
+      Placeholder.configure({
+        placeholder: 'Enter or format your notes here...',
+      }),
+    ],
+    content: '',
+    onUpdate: ({ editor }) => {
+      // Get HTML content when editor changes
+      const html = editor.getHTML();
+      // We don't need to set a separate state as the editor maintains its own state
+    },
+  });
 
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
@@ -118,10 +148,11 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
   const handleTextSubmit = () => {
     if (onTextSubmit) {
-      // For Notes tab, use rich text value 
-      if (addVideoMethod === 'text') {
-        if (richTextValue.trim()) {
-          onTextSubmit(richTextValue);
+      // For Notes tab, use rich text value from the editor
+      if (addVideoMethod === 'text' && editor) {
+        const html = editor.getHTML();
+        if (html && html !== '<p></p>') {
+          onTextSubmit(html);
         }
       } else if (textInput.trim()) {
         // For other tabs, use regular text input
@@ -419,33 +450,21 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     };
   }, [isRecording]);
 
-  // Quill editor modules and formats configuration
-  const modules = {
-    toolbar: [
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'header': 1 }, { 'header': 2 }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      ['link'],
-      ['clean']
-    ],
-  };
-  
-  const formats = [
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'list', 'bullet',
-    'link'
-  ];
-
-  // After the existing useEffect blocks, add a new one for the rich text editor
-  useEffect(() => {
-    // Clear rich text editor when content is successfully processed
-    if (!isProcessingContent && richTextValue.trim()) {
-      // When processing is finished and we had content, clear the editor
-      // This assumes isProcessingContent changes from true to false when submission completes
-      setRichTextValue('');
+  // Function to add a new paragraph
+  const addNewParagraph = () => {
+    if (editor) {
+      editor.chain().focus().setHardBreak().run();
+      editor.chain().focus().setHardBreak().run();
     }
-  }, [isProcessingContent]);
+  };
+
+  // Clear editor content when processing is complete
+  useEffect(() => {
+    if (!isProcessingContent && editor && editor.getHTML() !== '<p></p>') {
+      // When processing is finished and we had content, clear the editor
+      editor.commands.clearContent();
+    }
+  }, [isProcessingContent, editor]);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
@@ -712,35 +731,114 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               Add Notes
             </label>
             <div className="mb-4">
-              {/* Rich Text Editor */}
-              <div className="border border-gray-300 rounded-lg">
-                <ReactQuill
-                  value={richTextValue}
-                  onChange={setRichTextValue}
-                  placeholder="Enter or format your notes here..."
-                  modules={modules}
-                  formats={formats}
-                  className="h-40 overflow-y-auto"
-                  readOnly={isProcessingContent}
-                  theme="snow"
-                />
-              </div>
-              <div className="flex items-center mt-1">
-                <div className="text-xs text-gray-500 flex items-center gap-1">
-                  <span>Formatting:</span>
-                  <Bold className="w-3 h-3" />
-                  <Italic className="w-3 h-3" />
-                  <List className="w-3 h-3" />
-                  <Heading className="w-3 h-3" />
-                  <Link className="w-3 h-3" />
+              {/* TipTap Rich Text Editor */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
+                  <div className="flex items-center gap-1">
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleBold().run()}
+                      isActive={editor?.isActive('bold')}
+                      title="Bold"
+                    >
+                      <Bold className="w-4 h-4" />
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleItalic().run()}
+                      isActive={editor?.isActive('italic')}
+                      title="Italic"
+                    >
+                      <Italic className="w-4 h-4" />
+                    </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <div className="flex items-center gap-1">
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                      isActive={editor?.isActive('heading', { level: 1 })}
+                      title="Heading 1"
+                    >
+                      <Heading1 className="w-4 h-4" />
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                      isActive={editor?.isActive('heading', { level: 2 })}
+                      title="Heading 2"
+                    >
+                      <Heading2 className="w-4 h-4" />
+                    </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <div className="flex items-center gap-1">
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                      isActive={editor?.isActive('bulletList')}
+                      title="Bullet List"
+                    >
+                      <List className="w-4 h-4" />
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                      isActive={editor?.isActive('orderedList')}
+                      title="Numbered List"
+                    >
+                      <ListOrdered className="w-4 h-4" />
+                    </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <div className="flex items-center gap-1">
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                      isActive={editor?.isActive('blockquote')}
+                      title="Quote"
+                    >
+                      <Quote className="w-4 h-4" />
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => {
+                        const url = window.prompt('Enter the URL');
+                        if (url && editor) {
+                          editor.chain().focus().setLink({ href: url }).run();
+                        }
+                      }}
+                      isActive={editor?.isActive('link')}
+                      title="Add Link"
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                    </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <MenuButton
+                    onClick={addNewParagraph}
+                    title="Add New Paragraph"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                  </MenuButton>
+                </div>
+
+                <div className="p-4">
+                  <EditorContent editor={editor} className="min-h-[120px] prose prose-sm max-w-none" />
+                </div>
+
+                <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                  <p className="text-xs text-gray-500">
+                    Tip: Press Enter twice to create a new paragraph, or use the + button in the toolbar
+                  </p>
                 </div>
               </div>
             </div>
             <button
               onClick={handleTextSubmit}
-              disabled={!richTextValue.trim() || isProcessingContent}
+              disabled={!editor || editor.isEmpty || isProcessingContent}
               className={`mt-2 px-4 py-2 rounded flex items-center justify-center ${
-                !richTextValue.trim() || isProcessingContent
+                !editor || editor.isEmpty || isProcessingContent
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
               }`}
