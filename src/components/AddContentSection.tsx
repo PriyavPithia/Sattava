@@ -16,8 +16,8 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'youtube-client' | 'pdf' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'pdf' | 'file') => void;
+  addVideoMethod: 'youtube' | 'youtube-client' | 'file-upload';
+  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'file-upload') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -80,26 +80,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           <span>YouTube Client</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('pdf')}
+          onClick={() => setAddVideoMethod('file-upload')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'pdf' 
+            addVideoMethod === 'file-upload' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           <FileText className="w-5 h-5" />
-          <span>PDF</span>
-        </button>
-        <button
-          onClick={() => setAddVideoMethod('file')}
-          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'file' 
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
-              : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <Paperclip className="w-5 h-5" />
-          <span>Other File</span>
+          <span>File Upload</span>
         </button>
       </div>
 
@@ -158,49 +147,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* PDF Mode */}
-        {addVideoMethod === 'pdf' && (
+        {/* File Upload Mode (Combined PDF and Other Files) */}
+        {addVideoMethod === 'file-upload' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".pdf"
-                className="hidden"
-                disabled={isProcessingContent}
-              />
-              {isProcessingContent ? (
-                <div className="flex flex-col items-center">
-                  <Spinner className="w-8 h-8 text-blue-500" />
-                  <p className="mt-2 text-sm text-gray-600">Processing PDF...</p>
-                </div>
-              ) : (
-                <div 
-                  className="flex flex-col items-center cursor-pointer"
-                  onClick={handleFileButtonClick}
-                >
-                  <Upload className="w-12 h-12 text-gray-400" />
-                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload PDF</p>
-                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
-                </div>
-              )}
-            </div>
-            <p className="mt-4 text-sm text-gray-500">
-              Upload a PDF file to extract and process its text content.
-            </p>
-          </div>
-        )}
-
-        {/* Other File Mode */}
-        {addVideoMethod === 'file' && (
-          <div>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".txt,.md,.doc,.docx"
+                accept=".pdf,.txt,.md,.doc,.docx,.ppt,.pptx"
                 className="hidden"
                 disabled={isProcessingContent}
               />
@@ -221,7 +176,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               )}
             </div>
             <p className="mt-4 text-sm text-gray-500">
-              Upload text files (.txt), markdown (.md), or Word documents (.doc, .docx).
+              Upload PDF files (.pdf), text files (.txt), markdown (.md), Word documents (.doc, .docx), or PowerPoint presentations (.ppt, .pptx).
             </p>
           </div>
         )}

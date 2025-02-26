@@ -62,8 +62,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'youtube-client' | 'pdf' | 'file';
-  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'pdf' | 'file') => void;
+  addVideoMethod: 'youtube' | 'youtube-client' | 'file-upload';
+  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'file-upload') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -292,8 +292,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     onSelectCollection(null);
     // Reset any other relevant state here
     if (selectedVideo && onVideoSelect) {
-      // @ts-ignore - Intentionally passing null to reset the video selection
-      onVideoSelect(null);
+      // Create an empty VideoItem object instead of passing null
+      const emptyVideo: VideoItem = {
+        id: '',
+        url: '',
+        title: '',
+        type: 'youtube'
+      };
+      onVideoSelect(emptyVideo);
     }
     // Navigate to home page
     navigate('/');
@@ -307,8 +313,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     onSelectCollection(null);
     // Reset other relevant state
     if (selectedVideo && onVideoSelect) {
-      // @ts-ignore - Intentionally passing null to reset the video selection
-      onVideoSelect(null);
+      // Create an empty VideoItem object instead of passing null
+      const emptyVideo: VideoItem = {
+        id: '',
+        url: '',
+        title: '',
+        type: 'youtube'
+      };
+      onVideoSelect(emptyVideo);
     }
     // Navigate to the main knowledgebase page
     navigate('/knowledgebase');
@@ -465,7 +477,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     setViewMode('list');
     setMessages([]);
     if (selectedVideo && onVideoSelect) {
-      onVideoSelect(null);
+      // Create an empty VideoItem object instead of passing null
+      const emptyVideo: VideoItem = {
+        id: '',
+        url: '',
+        title: '',
+        type: 'youtube'
+      };
+      onVideoSelect(emptyVideo);
     }
     onSelectCollection(null);
     navigate('/knowledgebase');
@@ -775,7 +794,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                       formatTime={formatTime}
                       calculateTotalDuration={calculateTotalDuration}
                       formatDurationLabel={(duration) => `${duration} sec`}
-                      className="text-sm"
                     />
                   )}
 
@@ -801,7 +819,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
               onReferenceClick={handleReferenceClick}
-              className="text-sm"
             />
           </div>
         </div>

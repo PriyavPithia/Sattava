@@ -95,8 +95,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'youtube-client' | 'pdf' | 'file'>('youtube');
-  const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
+  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'youtube-client' | 'file-upload'>('youtube');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -1341,8 +1340,8 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod}
-                    setAddVideoMethod={setAddVideoMethod}
+                    addVideoMethod={addVideoMethod as 'youtube' | 'youtube-client' | 'file-upload'}
+                    setAddVideoMethod={setAddVideoMethod as unknown as (method: 'youtube' | 'youtube-client' | 'file-upload') => void}
                     url={url}
                     setUrl={setUrl}
                     onAddVideo={handleAddVideo}
@@ -1387,8 +1386,8 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod}
-                    setAddVideoMethod={setAddVideoMethod}
+                    addVideoMethod={addVideoMethod as 'youtube' | 'youtube-client' | 'file-upload'}
+                    setAddVideoMethod={setAddVideoMethod as unknown as (method: 'youtube' | 'youtube-client' | 'file-upload') => void}
                     url={url}
                     setUrl={setUrl}
                     onAddVideo={handleAddVideo}
@@ -1433,8 +1432,8 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod}
-                    setAddVideoMethod={setAddVideoMethod}
+                    addVideoMethod={addVideoMethod as 'youtube' | 'youtube-client' | 'file-upload'}
+                    setAddVideoMethod={setAddVideoMethod as unknown as (method: 'youtube' | 'youtube-client' | 'file-upload') => void}
                     url={url}
                     setUrl={setUrl}
                     onAddVideo={handleAddVideo}
