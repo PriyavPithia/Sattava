@@ -843,6 +843,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
               onReferenceClick={handleReferenceClick}
+              onGenerateNotes={onGenerateNotes}
+              generatingNotes={generatingNotes}
             />
           </div>
         </div>
