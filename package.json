@@ -35,6 +35,7 @@
     "pptx-parser": "^1.1.7-beta.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-quill": "^2.0.0",
     "react-router-dom": "^7.2.0",
     "react-youtube": "^10.1.0",
     "tailwind-merge": "^3.0.1",
