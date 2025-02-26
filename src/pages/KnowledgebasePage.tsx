@@ -208,7 +208,9 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             // Force reload of content by calling onVideoSelect
             onVideoSelect(firstItem);
           }
-        } else if (selectedVideo && onVideoSelect) {
+        } else if (selectedVideo && selectedVideo.id && onVideoSelect && 
+                  // Only reload if the video belongs to this collection
+                  collection.items.some(item => item.id === selectedVideo.id)) {
           // Force reload of the currently selected video to ensure content is displayed
           console.log('Reloading current video:', selectedVideo);
           onVideoSelect(selectedVideo);
@@ -222,17 +224,30 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
 
   // Update the handleViewModeChange function
   const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
+    // Don't do anything if we're already in this mode for this collection
+    if (mode === viewMode && selectedCollection && selectedCollection.id === collection.id) {
+      console.log('Already in this mode for this collection, skipping');
+      return;
+    }
+    
     if (mode === 'chat') {
       try {
         await loadCollectionData(collection, mode);
-        navigate(`/knowledgebase/${collection.id}/chat`);
+        // Only navigate if we're not already on this path
+        const chatPath = `/knowledgebase/${collection.id}/chat`;
+        if (location.pathname !== chatPath) {
+          navigate(chatPath, { replace: true });
+        }
       } catch (error) {
         console.error('Error switching to chat mode:', error);
       }
     } else {
       setViewMode(mode);
       if (collection) {
-        navigate(`/knowledgebase/${collection.id}/${mode}`);
+        const listPath = `/knowledgebase/${collection.id}`;
+        if (location.pathname !== listPath) {
+          navigate(listPath, { replace: true });
+        }
       }
     }
   };
@@ -265,12 +280,15 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       const collection = collections.find(c => c.id === collectionId);
       console.log('Found collection:', collection);
       
-      if (collection) {
+      // Only load collection data if the collection exists and either:
+      // 1. We don't have a selected collection yet
+      // 2. The selected collection is different from the one in the URL
+      if (collection && (!selectedCollection || selectedCollection.id !== collection.id)) {
         const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
         loadCollectionData(collection, newViewMode);
       }
     }
-  }, [location.pathname, collections]);
+  }, [location.pathname, collections, selectedCollection, onSelectCollection, onVideoSelect, selectedVideo, setMessages, loadChat]);
   
   // Maintain URL when selection changes
   useEffect(() => {
@@ -285,11 +303,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         : `/knowledgebase/${selectedCollection.id}/${viewMode}`;
       
       console.log('Updating URL to:', newPath);
+      // Only navigate if the path is different to prevent loops
       if (location.pathname !== newPath) {
-        navigate(newPath);
+        navigate(newPath, { replace: true }); // Use replace to avoid adding to history stack
       }
     }
-  }, [selectedCollection, viewMode]);
+  }, [selectedCollection, viewMode, location.pathname, navigate]);
   
   // Add this function near the top of the component
   const handleHomeClick = () => {
@@ -397,10 +416,18 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Handle selecting a video/content item
   const handleItemSelect = (item: VideoItem) => {
     if (onVideoSelect) {
-      onVideoSelect(item);
+      // Only call onVideoSelect if we're selecting a different video
+      if (!selectedVideo || selectedVideo.id !== item.id) {
+        console.log('Selecting new video:', item.title);
+        onVideoSelect(item);
+      }
+      
       // After selecting a video, navigate to chat mode directly
       if (selectedCollection) {
-        handleViewModeChange('chat', selectedCollection);
+        // Only change view mode if we're not already in chat mode
+        if (viewMode !== 'chat') {
+          handleViewModeChange('chat', selectedCollection);
+        }
       }
     }
   };
@@ -453,11 +480,11 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         // Ensure we stay on the chat page by updating the URL if needed
         const chatPath = `/knowledgebase/${selectedCollection.id}/chat`;
         if (location.pathname !== chatPath) {
-          navigate(chatPath);
+          navigate(chatPath, { replace: true }); // Use replace to avoid adding to history stack
         }
       }
     }
-  }, [isProcessingContent, viewMode, selectedCollection, navigate, location.pathname]);
+  }, [isProcessingContent]);
 
   // Add this function to handle inline name editing
   const handleNameEdit = async (collectionId: string, newName: string) => {
