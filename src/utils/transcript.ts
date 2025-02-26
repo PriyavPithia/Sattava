@@ -1,5 +1,4 @@
 import { TranscriptSegment, TranscriptGroup, CurrentGroup } from './types';
-import { YoutubeTranscript } from 'youtube-transcript';
 
 export const groupTranscriptsByDuration = (transcripts: TranscriptSegment[], duration: number = 30): TranscriptGroup[] => {
   if (!transcripts || transcripts.length === 0) return [];
@@ -57,13 +56,4 @@ export const formatTime = (seconds: number): string => {
 export const formatDurationLabel = (duration: number): string => {
   const minutes = Math.floor(duration / 60);
   return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
-};
-
-export async function getTranscript(videoId: string) {
-  try {
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    return transcript;
-  } catch (error) {
-    throw new Error('Failed to fetch transcript. Make sure the video exists and has captions available.');
-  }
-} 
+}; 

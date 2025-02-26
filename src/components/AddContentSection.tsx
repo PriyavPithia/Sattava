@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { Upload, Youtube, FileText, Paperclip } from 'lucide-react';
-import YoutubeClient from './YoutubeClient';
 
 interface SpinnerProps {
   className?: string;
@@ -16,8 +15,8 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'youtube-client' | 'file-upload';
-  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'file-upload') => void;
+  addVideoMethod: 'youtube' | 'pdf' | 'file';
+  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -69,26 +68,26 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           <span>YouTube</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('youtube-client')}
+          onClick={() => setAddVideoMethod('pdf')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'youtube-client' 
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
-              : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <Youtube className="w-5 h-5" />
-          <span>YouTube Client</span>
-        </button>
-        <button
-          onClick={() => setAddVideoMethod('file-upload')}
-          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'file-upload' 
+            addVideoMethod === 'pdf' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           <FileText className="w-5 h-5" />
-          <span>File Upload</span>
+          <span>PDF</span>
+        </button>
+        <button
+          onClick={() => setAddVideoMethod('file')}
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'file' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Paperclip className="w-5 h-5" />
+          <span>Other File</span>
         </button>
       </div>
 
@@ -131,31 +130,49 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* YouTube Client Mode */}
-        {addVideoMethod === 'youtube-client' && (
-          <div>
-            <YoutubeClient
-              url={url}
-              setUrl={setUrl}
-              onTranscriptGenerated={onTranscriptGenerated}
-              onError={onError}
-              isProcessingContent={isProcessingContent}
-            />
-            <p className="mt-2 text-sm text-gray-500">
-              This uses the youtube-transcript package to fetch transcripts directly from YouTube.
-            </p>
-          </div>
-        )}
-
-        {/* File Upload Mode (Combined PDF and Other Files) */}
-        {addVideoMethod === 'file-upload' && (
+        {/* PDF Mode */}
+        {addVideoMethod === 'pdf' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".pdf,.txt,.md,.doc,.docx,.ppt,.pptx"
+                accept=".pdf"
+                className="hidden"
+                disabled={isProcessingContent}
+              />
+              {isProcessingContent ? (
+                <div className="flex flex-col items-center">
+                  <Spinner className="w-8 h-8 text-blue-500" />
+                  <p className="mt-2 text-sm text-gray-600">Processing PDF...</p>
+                </div>
+              ) : (
+                <div 
+                  className="flex flex-col items-center cursor-pointer"
+                  onClick={handleFileButtonClick}
+                >
+                  <Upload className="w-12 h-12 text-gray-400" />
+                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload PDF</p>
+                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
+                </div>
+              )}
+            </div>
+            <p className="mt-4 text-sm text-gray-500">
+              Upload a PDF file to extract and process its text content.
+            </p>
+          </div>
+        )}
+
+        {/* Other File Mode */}
+        {addVideoMethod === 'file' && (
+          <div>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".txt,.md,.doc,.docx"
                 className="hidden"
                 disabled={isProcessingContent}
               />
@@ -176,7 +193,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               )}
             </div>
             <p className="mt-4 text-sm text-gray-500">
-              Upload PDF files (.pdf), text files (.txt), markdown (.md), Word documents (.doc, .docx), or PowerPoint presentations (.ppt, .pptx).
+              Upload text files (.txt), markdown (.md), or Word documents (.doc, .docx).
             </p>
           </div>
         )}

@@ -62,8 +62,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'youtube-client' | 'file-upload';
-  setAddVideoMethod: (method: 'youtube' | 'youtube-client' | 'file-upload') => void;
+  addVideoMethod: 'youtube' | 'pdf' | 'file';
+  setAddVideoMethod: (method: 'youtube' | 'pdf' | 'file') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -200,20 +200,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
         console.log('Loaded messages:', savedMessages);
         setMessages(savedMessages || []);
 
-        // If no video is selected or we're selecting a new one, ensure it's properly loaded
-        if ((!selectedVideo || selectedVideo.id === '') && collection.items.length > 0) {
+        // Always ensure a file is selected in chat mode
+        if (!selectedVideo && collection.items.length > 0) {
           const firstItem = collection.items[0];
           if (onVideoSelect) {
-            console.log('Auto-selecting first item:', firstItem);
-            // Force reload of content by calling onVideoSelect
             onVideoSelect(firstItem);
           }
-        } else if (selectedVideo && selectedVideo.id && onVideoSelect && 
-                  // Only reload if the video belongs to this collection
-                  collection.items.some(item => item.id === selectedVideo.id)) {
-          // Force reload of the currently selected video to ensure content is displayed
-          console.log('Reloading current video:', selectedVideo);
-          onVideoSelect(selectedVideo);
         }
       } catch (error) {
         console.error('Error loading chat history:', error);
@@ -224,30 +216,17 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
 
   // Update the handleViewModeChange function
   const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
-    // Don't do anything if we're already in this mode for this collection
-    if (mode === viewMode && selectedCollection && selectedCollection.id === collection.id) {
-      console.log('Already in this mode for this collection, skipping');
-      return;
-    }
-    
     if (mode === 'chat') {
       try {
         await loadCollectionData(collection, mode);
-        // Only navigate if we're not already on this path
-        const chatPath = `/knowledgebase/${collection.id}/chat`;
-        if (location.pathname !== chatPath) {
-          navigate(chatPath, { replace: true });
-        }
+        navigate(`/knowledgebase/${collection.id}/chat`);
       } catch (error) {
         console.error('Error switching to chat mode:', error);
       }
     } else {
       setViewMode(mode);
       if (collection) {
-        const listPath = `/knowledgebase/${collection.id}`;
-        if (location.pathname !== listPath) {
-          navigate(listPath, { replace: true });
-        }
+        navigate(`/knowledgebase/${collection.id}/${mode}`);
       }
     }
   };
@@ -260,15 +239,12 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     // If we're at the base knowledgebase path, reset state
     if (path === '/knowledgebase') {
       console.log('At base knowledgebase path, resetting state');
-      // Only reset if we actually have a selected collection to avoid unnecessary rerenders
-      if (selectedCollection !== null) {
-        setViewMode('list');
-        setMessages([]);
-        if (selectedVideo) {
-          onVideoSelect?.(null as any); // Type assertion to handle null
-        }
-        onSelectCollection(null);
+      setViewMode('list');
+      setMessages([]);
+      if (selectedVideo) {
+        onVideoSelect?.(null as any); // Type assertion to handle null
       }
+      onSelectCollection(null);
       return;
     }
     
@@ -283,48 +259,31 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       const collection = collections.find(c => c.id === collectionId);
       console.log('Found collection:', collection);
       
-      // Only load collection data if the collection exists and either:
-      // 1. We don't have a selected collection yet
-      // 2. The selected collection is different from the one in the URL
-      if (collection && (!selectedCollection || selectedCollection.id !== collection.id)) {
+      if (collection) {
         const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
         loadCollectionData(collection, newViewMode);
-      } 
-      // If we have the same collection but different view mode, just update the view mode
-      else if (collection && selectedCollection && selectedCollection.id === collection.id) {
-        const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
-        if (viewMode !== newViewMode) {
-          setViewMode(newViewMode);
-        }
       }
     }
-  }, [location.pathname, collections, selectedCollection, viewMode, onSelectCollection, setMessages, selectedVideo, onVideoSelect, loadCollectionData]);
+  }, [location.pathname, collections]);
   
-  // Maintain URL when selection changes - but only when necessary
+  // Maintain URL when selection changes
   useEffect(() => {
-    // Skip this effect during initial render or when location is already correct
-    if (!selectedCollection) return;
-    
     console.log('Selection or view mode changed:', { 
       selectedCollection: selectedCollection?.name, 
       viewMode 
     });
     
-    const newPath = viewMode === 'list' 
-      ? `/knowledgebase/${selectedCollection.id}`
-      : `/knowledgebase/${selectedCollection.id}/${viewMode}`;
-    
-    console.log('Checking if URL update needed:', { 
-      currentPath: location.pathname,
-      newPath
-    });
-    
-    // Only navigate if the path is different to prevent loops
-    if (location.pathname !== newPath) {
+    if (selectedCollection) {
+      const newPath = viewMode === 'list' 
+        ? `/knowledgebase/${selectedCollection.id}`
+        : `/knowledgebase/${selectedCollection.id}/${viewMode}`;
+      
       console.log('Updating URL to:', newPath);
-      navigate(newPath, { replace: true }); // Use replace to avoid adding to history stack
+      if (location.pathname !== newPath) {
+        navigate(newPath);
+      }
     }
-  }, [selectedCollection?.id, viewMode]); // Only depend on the ID and viewMode, not the entire object
+  }, [selectedCollection, viewMode]);
   
   // Add this function near the top of the component
   const handleHomeClick = () => {
@@ -333,14 +292,8 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     onSelectCollection(null);
     // Reset any other relevant state here
     if (selectedVideo && onVideoSelect) {
-      // Create an empty VideoItem object instead of passing null
-      const emptyVideo: VideoItem = {
-        id: '',
-        url: '',
-        title: '',
-        type: 'youtube'
-      };
-      onVideoSelect(emptyVideo);
+      // @ts-ignore - Intentionally passing null to reset the video selection
+      onVideoSelect(null);
     }
     // Navigate to home page
     navigate('/');
@@ -348,27 +301,17 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Handle navigating back to the list view
   const handleBackToList = () => {
-    // Navigate to the main knowledgebase page first to avoid state update loops
-    navigate('/knowledgebase', { replace: true });
-    
-    // Then reset states after navigation
-    setTimeout(() => {
-      // Reset view mode
-      setViewMode('list');
-      // Reset collection selection
-      onSelectCollection(null);
-      // Reset other relevant state
-      if (selectedVideo && onVideoSelect) {
-        // Create an empty VideoItem object instead of passing null
-        const emptyVideo: VideoItem = {
-          id: '',
-          url: '',
-          title: '',
-          type: 'youtube'
-        };
-        onVideoSelect(emptyVideo);
-      }
-    }, 0);
+    // Reset view mode
+    setViewMode('list');
+    // Reset collection selection
+    onSelectCollection(null);
+    // Reset other relevant state
+    if (selectedVideo && onVideoSelect) {
+      // @ts-ignore - Intentionally passing null to reset the video selection
+      onVideoSelect(null);
+    }
+    // Navigate to the main knowledgebase page
+    navigate('/knowledgebase');
   };
   
   // Handle selecting a collection and showing the mode selection UI
@@ -377,8 +320,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     onSelectCollection(collection);
     // Then update view mode and navigate
     setViewMode('list');
-    // Use replace: true to avoid adding to history stack and prevent loops
-    navigate(`/knowledgebase/${collection.id}`, { replace: true });
+    navigate(`/knowledgebase/${collection.id}`);
   };
   
   // Handle creating a new collection
@@ -437,19 +379,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Handle selecting a video/content item
   const handleItemSelect = (item: VideoItem) => {
     if (onVideoSelect) {
-      // Only call onVideoSelect if we're selecting a different video
-      if (!selectedVideo || selectedVideo.id !== item.id) {
-        console.log('Selecting new video:', item.title);
-        onVideoSelect(item);
-      }
-      
-      // After selecting a video, navigate to chat mode directly
-      if (selectedCollection) {
-        // Only change view mode if we're not already in chat mode
-        if (viewMode !== 'chat') {
-          handleViewModeChange('chat', selectedCollection);
-        }
-      }
+      onVideoSelect(item);
     }
   };
   
@@ -487,26 +417,15 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     }
   };
 
-  // Handle content processing completion
+  // Remove the chat loading effect since it's handled by the parent
   useEffect(() => {
     if (isProcessingContent === false) {
-      // Only show toast, don't navigate away
       setToast({
         message: 'Content added successfully',
         type: 'success'
       });
-      
-      // If we're in chat mode and have a selected collection, make sure we stay there
-      if (viewMode === 'chat' && selectedCollection) {
-        // Ensure we stay on the chat page by updating the URL if needed
-        const chatPath = `/knowledgebase/${selectedCollection.id}/chat`;
-        if (location.pathname !== chatPath) {
-          console.log('Redirecting back to chat after content processing');
-          navigate(chatPath, { replace: true }); // Use replace to avoid adding to history stack
-        }
-      }
     }
-  }, [isProcessingContent]); // Only depend on isProcessingContent to prevent loops
+  }, [isProcessingContent]);
 
   // Add this function to handle inline name editing
   const handleNameEdit = async (collectionId: string, newName: string) => {
@@ -542,26 +461,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
 
   // Add this function to handle navbar knowledgebase click
   const handleKnowledgebaseNavClick = () => {
-    // Navigate to the main knowledgebase page first to avoid state update loops
-    navigate('/knowledgebase', { replace: true });
-    
-    // Then reset states after navigation
-    setTimeout(() => {
-      // Reset all states
-      setViewMode('list');
-      setMessages([]);
-      if (selectedVideo && onVideoSelect) {
-        // Create an empty VideoItem object instead of passing null
-        const emptyVideo: VideoItem = {
-          id: '',
-          url: '',
-          title: '',
-          type: 'youtube'
-        };
-        onVideoSelect(emptyVideo);
-      }
-      onSelectCollection(null);
-    }, 0);
+    // Reset all states
+    setViewMode('list');
+    setMessages([]);
+    if (selectedVideo && onVideoSelect) {
+      onVideoSelect(null);
+    }
+    onSelectCollection(null);
+    navigate('/knowledgebase');
   };
 
   // First: check if we're showing the collection list (no selection or explicitly showing list)
@@ -868,6 +775,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
                       formatTime={formatTime}
                       calculateTotalDuration={calculateTotalDuration}
                       formatDurationLabel={(duration) => `${duration} sec`}
+                      className="text-sm"
                     />
                   )}
 
@@ -893,6 +801,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               onQuestionChange={onQuestionChange}
               onAskQuestion={onAskQuestion}
               onReferenceClick={handleReferenceClick}
+              className="text-sm"
             />
           </div>
         </div>
@@ -1074,10 +983,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               </div>
 
               {/* Card Content */}
-              <div 
-                className="p-4 cursor-pointer" 
-                onClick={() => handleItemSelect(item)}
-              >
+              <div className="p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                   {item.title}
                 </h3>

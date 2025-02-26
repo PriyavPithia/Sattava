@@ -95,7 +95,8 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'youtube-client' | 'file-upload'>('youtube');
+  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'pdf' | 'file'>('youtube');
+  const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -294,114 +295,35 @@ function App() {
     }
   };
 
-  const handleTranscriptGenerated = async (transcript: any) => {
+  const handleTranscriptGenerated = async (transcript: TranscriptResponse) => {
     try {
-      // For YouTube client, the transcript comes directly from the youtube-transcript package
-      if (Array.isArray(transcript)) {
-        setIsProcessingContent(true);
-        setLoading(true);
-        setError('');
-        
-        const videoId = extractVideoId(url);
-        
-        // Create a new collection if none is selected
-        let targetCollection = selectedCollection;
-        if (!targetCollection) {
-          const newProject = await createProject('My Collection');
-          const newCollection: Collection = {
-            id: newProject.id,
-            name: newProject.name,
-            items: [],
-            createdAt: new Date(newProject.created_at)
-          };
-          targetCollection = newCollection;
-          setSelectedCollection(newCollection);
-          setCollections(prev => [...prev, newCollection]);
-        }
+    const newVideo: VideoItem = {
+      id: `local-${Date.now()}`,
+      url: 'local',
+      title: `Uploaded Video ${videoList.length + 1}`,
+      type: 'local'
+    };
 
-        // Format transcript for storage
-        const formattedTranscript = transcript.map((item: any) => ({
-          text: item.text,
-          start: item.offset / 1000,
-          duration: item.duration / 1000
-        }));
-
-        // Add to database with transcript
-        const content = await addContent(targetCollection.id, {
-          title: url,
-          type: 'youtube',
-          url: url,
-          youtube_id: videoId,
-          transcript: JSON.stringify(formattedTranscript)
-        });
-
-        // Create the new video item
-        const newVideo: VideoItem = {
-          id: content.id,
-          url,
-          title: url,
-          type: 'youtube',
-          transcript: formattedTranscript
+      // Generate embeddings for the transcript
+      const embeddingsPromises = transcript.transcripts.map(async (segment: TranscriptSegment) => {
+        const embedding = await generateEmbeddings(segment.text);
+        return {
+          text: segment.text,
+          embedding: embedding || []
         };
+      });
 
-        // Update collections
-        setCollections(prev => prev.map(col => 
-          col.id === targetCollection!.id
-            ? { ...col, items: [...col.items, newVideo] }
-            : col
-        ));
+      const chunkEmbeddings = await Promise.all(embeddingsPromises);
 
-        setUrl('');
-        setError('');
-        
-        // Select the new video
-        setSelectedVideo(newVideo);
-        setRawResponse({ transcripts: formattedTranscript });
-        
-        // Generate embeddings for the transcript
-        const chunks = groupTranscriptsByDuration(formattedTranscript);
-        const embeddingsPromises = chunks.map(async (chunk) => {
-          const embedding = await generateEmbeddings(chunk.text);
-          return {
-            text: chunk.text,
-            embedding: embedding || []
-          };
-        });
-
-        const chunkEmbeddings = await Promise.all(embeddingsPromises);
-        setEmbeddings(chunkEmbeddings);
-      } else {
-        // Original functionality for local video uploads
-        const newVideo: VideoItem = {
-          id: `local-${Date.now()}`,
-          url: 'local',
-          title: `Uploaded Video ${videoList.length + 1}`,
-          type: 'local'
-        };
-
-        // Generate embeddings for the transcript
-        const embeddingsPromises = transcript.transcripts.map(async (segment: TranscriptSegment) => {
-          const embedding = await generateEmbeddings(segment.text);
-          return {
-            text: segment.text,
-            embedding: embedding || []
-          };
-        });
-
-        const chunkEmbeddings = await Promise.all(embeddingsPromises);
-
-        // Update state
-        setVideoList(prevList => [newVideo, ...prevList]);
-        setSelectedVideo(newVideo);
-        setRawResponse(transcript);
-        setEmbeddings(chunkEmbeddings);
-      }
+      // Update state
+    setVideoList(prevList => [newVideo, ...prevList]);
+    setSelectedVideo(newVideo);
+      setRawResponse(transcript);
+      setEmbeddings(chunkEmbeddings);
+      
     } catch (error) {
       console.error('Error processing transcript:', error);
       setError('Failed to process transcript. Please try again.');
-    } finally {
-      setIsProcessingContent(false);
-      setLoading(false);
     }
   };
 
@@ -461,13 +383,6 @@ function App() {
       
       // Update messages immediately for UI feedback
       setMessages(updatedMessages);
-      
-      // Update chat histories
-      setChatHistories(prev => ({
-        ...prev,
-        [selectedCollection.id]: updatedMessages
-      }));
-      
       setQuestion('');
 
       // Process the question and get AI response
@@ -565,7 +480,6 @@ function App() {
         timestamp: new Date().toISOString()
       };
 
-      const currentHistory = chatHistories[selectedCollection.id] || [];
       const errorMessages = [...currentHistory, newUserMessage, errorMessage];
       
       // Update both states with single update
@@ -1340,8 +1254,8 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod as 'youtube' | 'youtube-client' | 'file-upload'}
-                    setAddVideoMethod={setAddVideoMethod as unknown as (method: 'youtube' | 'youtube-client' | 'file-upload') => void}
+                    addVideoMethod={addVideoMethod}
+                    setAddVideoMethod={setAddVideoMethod}
                     url={url}
                     setUrl={setUrl}
                     onAddVideo={handleAddVideo}
@@ -1386,8 +1300,8 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod as 'youtube' | 'youtube-client' | 'file-upload'}
-                    setAddVideoMethod={setAddVideoMethod as unknown as (method: 'youtube' | 'youtube-client' | 'file-upload') => void}
+                    addVideoMethod={addVideoMethod}
+                    setAddVideoMethod={setAddVideoMethod}
                     url={url}
                     setUrl={setUrl}
                     onAddVideo={handleAddVideo}
@@ -1432,8 +1346,8 @@ function App() {
                     onReferenceClick={handleReferenceClick}
                     onGenerateNotes={handleGenerateNotes}
                     generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod as 'youtube' | 'youtube-client' | 'file-upload'}
-                    setAddVideoMethod={setAddVideoMethod as unknown as (method: 'youtube' | 'youtube-client' | 'file-upload') => void}
+                    addVideoMethod={addVideoMethod}
+                    setAddVideoMethod={setAddVideoMethod}
                     url={url}
                     setUrl={setUrl}
                     onAddVideo={handleAddVideo}
