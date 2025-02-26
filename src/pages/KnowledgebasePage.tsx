@@ -442,12 +442,22 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Remove the chat loading effect since it's handled by the parent
   useEffect(() => {
     if (isProcessingContent === false) {
+      // Only show toast, don't navigate away
       setToast({
         message: 'Content added successfully',
         type: 'success'
       });
+      
+      // If we're in chat mode and have a selected collection, make sure we stay there
+      if (viewMode === 'chat' && selectedCollection) {
+        // Ensure we stay on the chat page by updating the URL if needed
+        const chatPath = `/knowledgebase/${selectedCollection.id}/chat`;
+        if (location.pathname !== chatPath) {
+          navigate(chatPath);
+        }
+      }
     }
-  }, [isProcessingContent]);
+  }, [isProcessingContent, viewMode, selectedCollection, navigate, location.pathname]);
 
   // Add this function to handle inline name editing
   const handleNameEdit = async (collectionId: string, newName: string) => {
