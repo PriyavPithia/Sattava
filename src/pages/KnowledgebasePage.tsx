@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, Youtube, FolderOpen, Plus, ArrowLeft, BookOpen, 
   Loader2, Edit, MessageSquare, Trash2, Pencil, Eye, CheckCircle, XCircle, ChevronDown, Check, X
@@ -185,17 +185,20 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     type: 'success' | 'error';
   } | null>(null);
   const [editingCollectionName, setEditingCollectionName] = useState<string | null>(null);
+  // Add a navigation lock ref to prevent double navigation
+  const navigationLockRef = useRef(false);
   
-  // Keep loadCollectionData function inside the component but outside useEffect
   const loadCollectionData = async (collection: Collection, newViewMode: ViewMode) => {
-    // Always update the selected collection
-    console.log('Setting selected collection from URL:', collection.name);
-    onSelectCollection(collection);
-    setViewMode(newViewMode);
+    try {
+      console.log('Loading collection data:', collection.name, newViewMode);
+      // Set the navigation lock
+      navigationLockRef.current = true;
+      
+      // Update states
+      onSelectCollection(collection);
+      setViewMode(newViewMode);
 
-    // Load chat history and select file when entering chat mode
-    if (newViewMode === 'chat') {
-      try {
+      if (newViewMode === 'chat') {
         const savedMessages = await loadChat(collection.id);
         console.log('Loaded messages:', savedMessages);
         setMessages(savedMessages || []);
@@ -207,45 +210,51 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
             onVideoSelect(firstItem);
           }
         }
-      } catch (error) {
-        console.error('Error loading chat history:', error);
-        setMessages([]);
       }
+    } catch (error) {
+      console.error('Error loading collection data:', error);
+      setMessages([]);
+    } finally {
+      // Release the navigation lock after a short delay
+      setTimeout(() => {
+        navigationLockRef.current = false;
+      }, 100);
     }
   };
 
-  // Update the handleViewModeChange function
   const handleViewModeChange = async (mode: ViewMode, collection: Collection) => {
-    if (mode === 'chat') {
-      try {
-        // First update the view mode and load data
-        await loadCollectionData(collection, mode);
-        
-        // Then update the URL only if it's different
-        const targetPath = `/knowledgebase/${collection.id}/chat`;
-        if (location.pathname !== targetPath) {
-          navigate(targetPath, { replace: true });
-        }
-      } catch (error) {
-        console.error('Error switching to chat mode:', error);
+    if (navigationLockRef.current) {
+      console.log('Navigation locked, skipping view mode change');
+      return;
+    }
+
+    try {
+      const targetPath = mode === 'chat' 
+        ? `/knowledgebase/${collection.id}/chat`
+        : `/knowledgebase/${collection.id}/${mode}`;
+
+      // First navigate
+      if (location.pathname !== targetPath) {
+        navigate(targetPath, { replace: true });
       }
-    } else {
-      setViewMode(mode);
-      if (collection) {
-        const targetPath = `/knowledgebase/${collection.id}/${mode}`;
-        if (location.pathname !== targetPath) {
-          navigate(targetPath, { replace: true });
-        }
-      }
+
+      // Then load data
+      await loadCollectionData(collection, mode);
+    } catch (error) {
+      console.error('Error changing view mode:', error);
     }
   };
 
-  // Update the URL change effect to use the defined loadCollectionData
+  // Single effect to handle URL changes and state synchronization
   useEffect(() => {
+    if (navigationLockRef.current) {
+      console.log('Navigation locked, skipping URL effect');
+      return;
+    }
+
     const path = location.pathname;
     console.log('URL path changed:', path);
     
-    // If we're at the base knowledgebase path, reset state
     if (path === '/knowledgebase') {
       console.log('At base knowledgebase path, resetting state');
       setViewMode('list');
@@ -257,21 +266,17 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       return;
     }
     
-    // Check if we have a collection ID in the URL
     const match = path.match(/\/knowledgebase\/([^\/]+)(?:\/([^\/]+))?/);
     if (match) {
       const collectionId = match[1];
       const viewModeFromUrl = match[2];
-      console.log('URL params:', { collectionId, viewModeFromUrl });
-      
-      // Find the collection with this ID
       const collection = collections.find(c => c.id === collectionId);
-      console.log('Found collection:', collection);
       
       if (collection) {
         const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
-        // Only load collection data if the collection or view mode has changed
-        if (collection.id !== selectedCollection?.id || viewMode !== newViewMode) {
+        const shouldLoadData = collection.id !== selectedCollection?.id || viewMode !== newViewMode;
+        
+        if (shouldLoadData && !navigationLockRef.current) {
           loadCollectionData(collection, newViewMode);
         }
       }
