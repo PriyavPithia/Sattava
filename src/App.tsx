@@ -32,7 +32,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
-import YoutubeTranscriptDemo from './pages/YoutubeTranscriptDemo';
 import NavLink from './components/NavLink';
 
 
@@ -297,22 +296,18 @@ function App() {
   };
 
   const handleTranscriptGenerated = async (transcript: any) => {
-    console.log('handleTranscriptGenerated called with transcript:', transcript);
     try {
       // For YouTube client, the transcript comes directly from the youtube-transcript package
       if (Array.isArray(transcript)) {
-        console.log('Transcript is an array, processing as YouTube client transcript');
         setIsProcessingContent(true);
         setLoading(true);
         setError('');
         
         const videoId = extractVideoId(url);
-        console.log('Extracted video ID:', videoId);
         
         // Create a new collection if none is selected
         let targetCollection = selectedCollection;
         if (!targetCollection) {
-          console.log('No collection selected, creating a new one');
           const newProject = await createProject('My Collection');
           const newCollection: Collection = {
             id: newProject.id,
@@ -326,7 +321,6 @@ function App() {
         }
 
         // Format transcript for storage
-        console.log('Formatting transcript for storage');
         const formattedTranscript = transcript.map((item: any) => ({
           text: item.text,
           start: item.offset / 1000,
@@ -334,7 +328,6 @@ function App() {
         }));
 
         // Add to database with transcript
-        console.log('Adding content to database');
         const content = await addContent(targetCollection.id, {
           title: url,
           type: 'youtube',
@@ -342,7 +335,6 @@ function App() {
           youtube_id: videoId,
           transcript: JSON.stringify(formattedTranscript)
         });
-        console.log('Content added to database:', content);
 
         // Create the new video item
         const newVideo: VideoItem = {
@@ -352,7 +344,6 @@ function App() {
           type: 'youtube',
           transcript: formattedTranscript
         };
-        console.log('Created new video item:', newVideo);
 
         // Update collections
         setCollections(prev => prev.map(col => 
@@ -369,7 +360,6 @@ function App() {
         setRawResponse({ transcripts: formattedTranscript });
         
         // Generate embeddings for the transcript
-        console.log('Generating embeddings for transcript chunks');
         const chunks = groupTranscriptsByDuration(formattedTranscript);
         const embeddingsPromises = chunks.map(async (chunk) => {
           const embedding = await generateEmbeddings(chunk.text);
@@ -381,10 +371,8 @@ function App() {
 
         const chunkEmbeddings = await Promise.all(embeddingsPromises);
         setEmbeddings(chunkEmbeddings);
-        console.log('Embeddings generated and set');
       } else {
         // Original functionality for local video uploads
-        console.log('Transcript is not an array, processing as local video upload');
         const newVideo: VideoItem = {
           id: `local-${Date.now()}`,
           url: 'local',
@@ -410,7 +398,7 @@ function App() {
         setEmbeddings(chunkEmbeddings);
       }
     } catch (error) {
-      console.error('Error in handleTranscriptGenerated:', error);
+      console.error('Error processing transcript:', error);
       setError('Failed to process transcript. Please try again.');
     } finally {
       setIsProcessingContent(false);
@@ -1303,13 +1291,6 @@ function App() {
                     <FileText className="w-5 h-5 mr-2" />
                     Knowledgebase
                   </Link>
-                  <Link 
-                    to="/youtube-transcript"
-                    className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
-                  >
-                    <FileText className="w-5 h-5 mr-2" />
-                    YouTube Transcript
-                  </Link>
                 </div>
                 <div className="flex items-center">
                   <UserCircle className="w-6 h-6 text-gray-600" />
@@ -1328,7 +1309,6 @@ function App() {
           <main className="max-w-7xl mx-auto px-4 py-6">
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/youtube-transcript" element={<YoutubeTranscriptDemo />} />
               <Route 
                 path="/knowledgebase" 
                 element={
