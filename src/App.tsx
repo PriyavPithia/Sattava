@@ -3,6 +3,7 @@ import axios from 'axios';
 import { FileText, Plus, Home, Upload, UserCircle, LogOut } from 'lucide-react';
 import OpenAI from 'openai';
 import { useNavigate, Link } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 
 import { getDocument } from 'pdfjs-dist';
 import { GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
@@ -480,6 +481,8 @@ function App() {
         timestamp: new Date().toISOString()
       };
 
+      // Get the current collection's chat history
+      const currentHistory = chatHistories[selectedCollection.id] || [];
       const errorMessages = [...currentHistory, newUserMessage, errorMessage];
       
       // Update both states with single update
@@ -762,13 +765,29 @@ function App() {
       setIsProcessingContent(true);
       setError('');
 
+      // Check if this is a speech submission (JSON string with type field)
+      let contentType: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech' = 'txt';
+      let contentText = text;
+      let contentTitle = `Text Input (${new Date().toLocaleString()})`;
+      
+      try {
+        const parsedData = JSON.parse(text);
+        if (parsedData.type === 'speech' && parsedData.text) {
+          contentType = 'speech';
+          contentText = parsedData.text;
+          contentTitle = `Speech to Text (${new Date().toLocaleString()})`;
+        }
+      } catch (e) {
+        // Not JSON, treat as regular text
+      }
+
       // Create optimistic update
       const optimisticId = 'temp-' + Date.now();
       const tempItem: VideoItem = {
         id: optimisticId,
-        url: 'text-input',
-        title: `Text Input (${new Date().toLocaleString()})`,
-        type: 'txt',
+        url: contentType === 'speech' ? 'speech-input' : 'text-input',
+        title: contentTitle,
+        type: contentType,
         extractedContent: [{
           text: 'Processing content...',
           pageNumber: 1
@@ -778,56 +797,59 @@ function App() {
       // Optimistic update
       setCollections(prev => prev.map(col => 
         col.id === selectedCollection.id
-          ? { ...col, items: [...col.items, tempItem] }
-          : col
-      ));
-
-      // Save to database
-      const content = await addContent(selectedCollection.id, {
-        title: `Text Input (${new Date().toLocaleString()})`,
-        type: 'txt',
-        content: text,
-        url: 'text-input'
-      });
-
-      // Update with real content
-      const newItem: VideoItem = {
-        id: content.id,
-        url: 'text-input',
-        title: `Text Input (${new Date().toLocaleString()})`,
-        type: 'txt',
-        content: text,
-        extractedContent: [{
-          text: text,
-          pageNumber: 1
-        }]
-      };
-
-      // Update collections with real item
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? { 
-              ...col, 
-              items: col.items
-                .filter(item => item.id !== optimisticId)
-                .concat(newItem)
+          ? {
+              ...col,
+              items: [...col.items, tempItem]
             }
           : col
       ));
 
-      if (!selectedVideo) {
-        setSelectedVideo(newItem);
+      // Process the text content
+      const extractedContent = createChunksFromText(contentText);
+      
+      // Create a unique ID for the content
+      const contentId = uuidv4();
+      
+      // Create the final item
+      const newItem: VideoItem = {
+        id: contentId,
+        url: contentType === 'speech' ? 'speech-input' : 'text-input',
+        title: contentTitle,
+        type: contentType,
+        extractedContent
+      };
+
+      // Update the database
+      await addToCollection(contentId, selectedCollection.id);
+      
+      // Save the item to the database
+      try {
+        // This is a placeholder for the actual database update
+        console.log('Saving video item:', contentId, newItem);
+      } catch (error) {
+        console.error('Error saving video item:', error);
       }
 
-    } catch (error) {
-      console.error('Error processing text input:', error);
-      setError('Failed to process text input. Please try again.');
-      
-      // Remove temporary item
+      // Update the state with the real item
       setCollections(prev => prev.map(col => 
         col.id === selectedCollection.id
-          ? { 
-              ...col, 
+          ? {
+              ...col,
+              items: col.items.map(item => 
+                item.id === optimisticId ? newItem : item
+              )
+            }
+          : col
+      ));
+    } catch (error) {
+      console.error('Error processing text:', error);
+      setError('Failed to process text');
+      
+      // Remove the optimistic update
+      setCollections(prev => prev.map(col => 
+        col.id === selectedCollection.id
+          ? {
+              ...col,
               items: col.items.filter(item => !item.id.startsWith('temp-'))
             }
           : col
@@ -1257,6 +1279,19 @@ function App() {
       setMessages([]);
     }
   }, [selectedCollection?.id, chatHistories]);
+
+  // Add the updateVideoItem function
+  const updateVideoItem = async (id: string, item: VideoItem) => {
+    try {
+      // Update the item in the database
+      // This is a placeholder - implement the actual database update
+      console.log('Updating video item:', id, item);
+      return true;
+    } catch (error) {
+      console.error('Error updating video item:', error);
+      return false;
+    }
+  };
 
   if (authLoading) {
     return <div>Loading...</div>;

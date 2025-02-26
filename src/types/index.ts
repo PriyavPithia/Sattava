@@ -1,4 +1,4 @@
-export type ContentSourceType = 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+export type ContentSourceType = 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech';
 
 export type ContentLocation = {
   type: 'timestamp' | 'page' | 'section' | 'slide';
@@ -21,7 +21,7 @@ export interface VideoItem {
   url: string;
   title: string;
   isEditing?: boolean;
-  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech';
   content?: string;
   extractedContent?: ExtractedContent[];
   transcript?: any[];

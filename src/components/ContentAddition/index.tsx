@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
-import { Loader2, Upload, Youtube, FileText, Mic, Type } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Loader2, Upload, Youtube, FileText, Mic, Type, Square, Pause, Play } from 'lucide-react';
+import axios from 'axios';
 
 interface ContentAdditionProps {
   addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
@@ -27,11 +28,24 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
   isProcessingContent
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const [textInput, setTextInput] = useState<string>('');
+  const [transcription, setTranscription] = useState<string>('');
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
 
   const handleFileButtonClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
+    }
+  };
+
+  const handleAudioFileButtonClick = () => {
+    if (audioInputRef.current) {
+      audioInputRef.current.click();
     }
   };
 
@@ -40,6 +54,143 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
       onTextSubmit(textInput);
     }
   };
+
+  const handleSpeechSubmit = () => {
+    if (onTextSubmit && transcription.trim()) {
+      // Create a custom event with the speech type
+      const speechData = {
+        text: transcription,
+        type: 'speech'
+      };
+      
+      // Pass the speech data to the parent component
+      onTextSubmit(JSON.stringify(speechData));
+      
+      // Reset the transcription
+      setTranscription('');
+      setAudioChunks([]);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      setMediaRecorder(recorder);
+      
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+          setAudioChunks([...chunks]);
+        }
+      };
+      
+      recorder.onstop = async () => {
+        // Only process if we have audio chunks
+        if (chunks.length > 0) {
+          setIsTranscribing(true);
+          
+          try {
+            // Create a blob from all chunks
+            const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+            
+            // Send to Whisper API
+            const response = await axios.post('/api/whisper-transcription', formData);
+            
+            // Update transcription
+            if (response.data && response.data.transcription) {
+              setTranscription(prev => prev + ' ' + response.data.transcription);
+            }
+          } catch (error) {
+            console.error('Error transcribing audio:', error);
+            onError('Failed to transcribe audio');
+          } finally {
+            setIsTranscribing(false);
+          }
+        }
+      };
+      
+      recorder.start(5000); // Collect in 5-second chunks
+      setIsRecording(true);
+      setIsPaused(false);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      onError('Failed to access microphone');
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorder && isRecording && isPaused) {
+      mediaRecorder.resume();
+      setIsPaused(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setIsPaused(false);
+      
+      // Stop all tracks on the stream
+      if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+    }
+  };
+
+  const handleAudioFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setIsTranscribing(true);
+      
+      try {
+        const audioFile = files[0];
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('audio', audioFile);
+        
+        // Send to Whisper API
+        const response = await axios.post('/api/whisper-transcription', formData);
+        
+        // Update transcription
+        if (response.data && response.data.transcription) {
+          setTranscription(response.data.transcription);
+        }
+      } catch (error) {
+        console.error('Error transcribing audio file:', error);
+        onError('Failed to transcribe audio file');
+      } finally {
+        setIsTranscribing(false);
+      }
+    }
+  };
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        
+        if (mediaRecorder.stream) {
+          mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+      }
+    };
+  }, [mediaRecorder]);
 
   return (
     <div className="p-6">
@@ -156,30 +307,100 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
           <div>
             <h2 className="text-sm font-medium mb-2">Speech to Text</h2>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              {isProcessingContent ? (
+              {isTranscribing ? (
                 <div className="flex flex-col items-center">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                  <p className="mt-2 text-sm text-gray-600">Processing audio...</p>
+                  <p className="mt-2 text-sm text-gray-600">Transcribing audio...</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <button
-                    className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors"
-                  >
-                    <Mic className="w-10 h-10 text-blue-500" />
-                  </button>
-                  <p className="mt-4 text-sm font-medium text-gray-900">Click to start recording</p>
+                  {isRecording ? (
+                    <div className="flex items-center gap-4">
+                      {isPaused ? (
+                        <button
+                          onClick={resumeRecording}
+                          className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center hover:bg-green-100 transition-colors"
+                        >
+                          <Play className="w-6 h-6 text-green-600" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={pauseRecording}
+                          className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center hover:bg-yellow-100 transition-colors"
+                        >
+                          <Pause className="w-6 h-6 text-yellow-600" />
+                        </button>
+                      )}
+                      <button
+                        onClick={stopRecording}
+                        className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors"
+                      >
+                        <Square className="w-6 h-6 text-red-600" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={startRecording}
+                      className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                    >
+                      <Mic className="w-10 h-10 text-blue-500" />
+                    </button>
+                  )}
+                  <p className="mt-4 text-sm font-medium text-gray-900">
+                    {isRecording 
+                      ? isPaused 
+                        ? "Recording paused - click to resume" 
+                        : "Recording in progress - click to pause" 
+                      : "Click to start recording"}
+                  </p>
                   <p className="mt-1 text-xs text-gray-500">or upload an audio file</p>
                   <input
                     type="file"
                     accept="audio/*"
                     className="mt-4 text-sm"
+                    onChange={handleAudioFileChange}
+                    ref={audioInputRef}
                   />
+                  <button
+                    onClick={handleAudioFileButtonClick}
+                    className="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                  >
+                    Select Audio File
+                  </button>
                 </div>
               )}
             </div>
+            
+            {/* Real-time transcription display */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Transcription
+              </label>
+              <textarea
+                value={transcription}
+                onChange={(e) => setTranscription(e.target.value)}
+                placeholder="Transcription will appear here. You can edit it if needed."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+                disabled={isTranscribing}
+              />
+              <button
+                onClick={handleSpeechSubmit}
+                disabled={!transcription.trim() || isTranscribing || isProcessingContent}
+                className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
+                  !transcription.trim() || isTranscribing || isProcessingContent
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                {isProcessingContent ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : null}
+                <span>Add to Knowledge Base</span>
+              </button>
+            </div>
+            
             <p className="mt-2 text-sm text-gray-500">
-              Record speech or upload an audio file to convert to text.
+              Record speech or upload an audio file to convert to text using OpenAI Whisper.
             </p>
           </div>
         )}
