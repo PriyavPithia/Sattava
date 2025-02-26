@@ -136,23 +136,26 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
     try {
       setIsTranscribingAudio(true);
-      setDebugInfo(`Transcribing audio file: ${audioFile.name}`);
+      setDebugInfo(`Preparing to transcribe audio file: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`);
       
       // Create a FormData object to send the file
       const formData = new FormData();
       formData.append('audio', audioFile);
       
       // Send to Whisper API endpoint
+      setDebugInfo(`Sending audio file to Whisper API...`);
       const response = await fetch('/api/whisper-transcription', {
         method: 'POST',
         body: formData,
       });
       
-      if (!response.ok) {
-        throw new Error(`Error transcribing audio: ${response.statusText}`);
-      }
-      
       const data = await response.json();
+      
+      if (!response.ok) {
+        // Extract error message from response
+        const errorMessage = data.error || response.statusText || 'Unknown error';
+        throw new Error(errorMessage);
+      }
       
       if (data.error) {
         throw new Error(data.error);
@@ -161,12 +164,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       // Update the transcription area with the result
       setPermanentTranscript(data.transcription);
       setInterimTranscript('');
+      setTranscription(data.transcription);
       setDebugInfo(`Transcription complete: ${data.transcription.substring(0, 50)}...`);
       
     } catch (error) {
       console.error('Error transcribing audio file:', error);
-      setDebugInfo(`Error transcribing audio: ${error instanceof Error ? error.message : String(error)}`);
-      onError(`Failed to transcribe audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Only include the original error message without adding "Error transcribing audio:" prefix
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setDebugInfo(`Transcription failed: ${errorMessage}`);
+      onError(`${errorMessage}`);
     } finally {
       setIsTranscribingAudio(false);
       
