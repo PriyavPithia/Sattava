@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { CombinedContent } from '../components/types';
+import { CombinedContent, ContentSource } from '../types';
 
 interface HighlightContextType {
   highlightedReference: CombinedContent | null;

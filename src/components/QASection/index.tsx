@@ -1,9 +1,9 @@
 import React from 'react';
-import { MessageSquare, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, Loader2, FileText } from 'lucide-react';
 import { useHighlight } from '../../contexts/HighlightContext';
 import ReferencedAnswer from '../ReferencedAnswer';
-import { Reference, ContentLocation } from '../../types/reference';
-import { Message } from '../../types';
+import { Reference } from '../../types/reference';
+import { Message, CombinedContent } from '../../types';
 
 interface QASectionProps {
   messages: Message[];
@@ -12,6 +12,8 @@ interface QASectionProps {
   onQuestionChange: (question: string) => void;
   onAskQuestion: () => void;
   onReferenceClick: (reference: Reference) => void;
+  onGenerateNotes: () => void;
+  generatingNotes: boolean;
 }
 
 const QASection: React.FC<QASectionProps> = ({
@@ -21,20 +23,17 @@ const QASection: React.FC<QASectionProps> = ({
   onQuestionChange,
   onAskQuestion,
   onReferenceClick,
+  onGenerateNotes,
+  generatingNotes,
 }) => {
   const { setHighlightedReference } = useHighlight();
 
   const handleReferenceClick = (reference: Reference) => {
-    setHighlightedReference({
+    const combinedContent: CombinedContent = {
       text: reference.text,
-      source: {
-        type: reference.sourceType,
-        title: reference.sourceTitle,
-        location: typeof reference.location.value === 'string' 
-          ? reference.location.value 
-          : reference.location.value.toString()
-      }
-    });
+      source: reference.source
+    };
+    setHighlightedReference(combinedContent);
     onReferenceClick(reference);
   };
 
@@ -45,6 +44,18 @@ const QASection: React.FC<QASectionProps> = ({
           <MessageSquare className="w-5 h-5 text-red-600" />
           Ask Questions
         </h2>
+        <button
+          onClick={onGenerateNotes}
+          disabled={generatingNotes}
+          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {generatingNotes ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileText className="w-4 h-4" />
+          )}
+          Generate Notes
+        </button>
       </div>
       
       {/* Messages area */}
@@ -69,16 +80,7 @@ const QASection: React.FC<QASectionProps> = ({
               {message.role === 'assistant' && message.references ? (
                 <ReferencedAnswer
                   answer={message.content}
-                  references={message.references.map(ref => ({
-                    sourceId: ref.source.title,
-                    sourceType: ref.source.type,
-                    sourceTitle: ref.source.title,
-                    location: {
-                      type: ref.source.type === 'youtube' ? 'timestamp' : 'page',
-                      value: ref.source.location?.value || '1'
-                    },
-                    text: ref.text
-                  }))}
+                  references={message.references}
                   onReferenceClick={handleReferenceClick}
                 />
               ) : (
