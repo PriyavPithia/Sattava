@@ -180,7 +180,7 @@ const TranscriptViewer: React.FC<TranscriptViewerProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 h-full flex flex-col font-geist overflow-hidden">
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 flex flex-col font-geist overflow-hidden">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
           <FileText className="w-5 h-5 text-red-600" />
