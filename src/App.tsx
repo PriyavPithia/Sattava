@@ -1092,14 +1092,21 @@ function App() {
 
       if (error) throw error;
 
-      // Update UI after successful database deletion
-      setCollections(prev => prev.map(col => 
-        col.id === collectionId
-          ? { ...col, items: col.items.filter(item => item.id !== contentId) }
-          : col
-      ));
+      // Update UI state
+      setCollections(prevCollections => {
+        const newCollections = prevCollections.map(collection => {
+          if (collection.id === collectionId) {
+            return {
+              ...collection,
+              items: collection.items.filter(item => item.id !== contentId)
+            };
+          }
+          return collection;
+        });
+        return newCollections;
+      });
 
-      // Clear selection if needed
+      // Clear selection if the deleted item was selected
       if (selectedVideo?.id === contentId) {
         setSelectedVideo(null);
         setExtractedText([]);
