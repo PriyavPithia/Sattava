@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle } from 'lucide-react';
+import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle, Check, ChevronDown, Video } from 'lucide-react';
 import axios from 'axios';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -504,20 +504,9 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-      {/* Content Type Selector */}
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Method Selection Tabs */}
       <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setAddVideoMethod('youtube')}
-          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'youtube' 
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
-              : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <Youtube className="w-5 h-5" />
-          <span>YouTube</span>
-        </button>
         <button
           onClick={() => setAddVideoMethod('youtube_transcript')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
@@ -526,8 +515,19 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <FileText className="w-5 h-5" />
+          <Youtube className="w-5 h-5" />
           <span>YouTube Transcript</span>
+        </button>
+        <button
+          onClick={() => setAddVideoMethod('video_upload')}
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'video_upload' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Video className="w-5 h-5" />
+          <span>Video Upload</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('files')}
@@ -560,49 +560,12 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           }`}
         >
           <Type className="w-5 h-5" />
-          <span>Notes</span>
+          <span>Input Text</span>
         </button>
       </div>
 
-      {/* Input Area */}
+      {/* Content Area */}
       <div className="p-6">
-        {/* YouTube Mode */}
-        {addVideoMethod === 'youtube' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Enter YouTube URL
-            </label>
-            <div className="flex">
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
-                className="flex-1 border border-gray-300 rounded-l px-4 py-2"
-                disabled={isProcessingContent}
-              />
-              <button
-                onClick={onAddVideo}
-                disabled={!url || isProcessingContent}
-                className={`px-4 py-2 rounded-r flex items-center justify-center ${
-                  !url || isProcessingContent
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isProcessingContent ? (
-                  <Spinner className="w-5 h-5" />
-                ) : (
-                  <span>Process</span>
-                )}
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Paste a YouTube URL to add the video to your knowledgebase.
-            </p>
-          </div>
-        )}
-
         {/* YouTube Transcript Mode */}
         {addVideoMethod === 'youtube_transcript' && (
           <div>
@@ -640,7 +603,32 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Consolidated Files Mode */}
+        {/* Video Upload Mode */}
+        {addVideoMethod === 'video_upload' && (
+          <div>
+            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                 onClick={() => document.getElementById('video-upload')?.click()}>
+              <Video className="w-12 h-12 text-gray-400 mb-4" />
+              <p className="text-gray-600 mb-2">Click to upload video or drag and drop</p>
+              <p className="text-sm text-gray-500">MP4, AVI, MOV up to 500MB</p>
+              <input
+                type="file"
+                id="video-upload"
+                className="hidden"
+                accept="video/*"
+                onChange={onFileSelect}
+              />
+            </div>
+            {isProcessingContent && (
+              <div className="mt-4 flex items-center justify-center text-blue-600">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                <span>Processing video...</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Files Mode */}
         {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -674,7 +662,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Speech to Text Mode */}
+        {/* Speech Mode */}
         {addVideoMethod === 'speech' && (
           <div>
             {!isSpeechSupported ? (
@@ -776,7 +764,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Input Text Mode - renamed to Notes */}
+        {/* Text Mode */}
         {addVideoMethod === 'text' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

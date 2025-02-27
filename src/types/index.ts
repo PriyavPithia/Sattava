@@ -16,7 +16,7 @@ export type CombinedContent = {
   source: ContentSource;
 };
 
-export type AddVideoMethod = 'youtube' | 'youtube_transcript' | 'files' | 'speech' | 'text';
+export type AddVideoMethod = 'youtube' | 'youtube_transcript' | 'files' | 'speech' | 'text' | 'video_upload';
 
 export interface VideoItem {
   id: string;
