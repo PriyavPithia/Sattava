@@ -28,7 +28,7 @@ const AudioUploader: React.FC = () => {
         formData,
         {
           headers: {
-            'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+            'Authorization': `Bearer ${process.env.VITE_OPENAI_API_KEY}`,
             'Content-Type': 'multipart/form-data',
           },
         }

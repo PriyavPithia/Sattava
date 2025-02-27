@@ -37,31 +37,8 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     console.log('Rendering content with text:', text);
     console.log('Available references:', references);
 
-    // First, replace the reference tags with markers
-    const processedText = text.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
-      console.log('Processing reference tag:', match);
-      const parts = match.slice(6, -2).split(':'); // Remove {{ref: and }} and split
-      if (parts.length >= 3) {
-        const [type, title, location] = parts;
-        // Find matching reference in the references array
-        const index = references.findIndex(ref => 
-          ref.source.type === type &&
-          ref.source.title === title &&
-          ref.source.location?.value.toString() === location
-        );
-        console.log('Found reference index:', index);
-        if (index !== -1) {
-          return `__REF_MARKER_${index}__`;
-        }
-      }
-      console.log('No matching reference found for tag:', match);
-      return match;
-    });
-
-    console.log('Processed text with markers:', processedText);
-
-    // Then split and render the content with reference links
-    const parts = processedText.split(/(__REF_MARKER_\d+__)/);
+    // Split by reference markers and render
+    const parts = text.split(/(__REF_MARKER_\d+__)/);
     
     return parts.map((part, index) => {
       const markerMatch = part.match(/^__REF_MARKER_(\d+)__$/);
