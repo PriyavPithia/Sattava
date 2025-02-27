@@ -6,7 +6,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import AudioUploader from './AudioUploader';
-import { YoutubeTranscript } from 'youtube-transcript';
 
 // Import our custom editor styles
 import '../styles/editor.css';
@@ -510,7 +509,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     }
 
     try {
-      // First try to get the transcript directly from YouTube
       const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})/)?.[1];
       
       if (!videoId) {
@@ -519,14 +517,10 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       }
 
       try {
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-        onTranscriptGenerated({
-          transcripts: transcript.map((item: any) => ({
-            text: item.text,
-            start: item.offset / 1000, // Convert milliseconds to seconds
-            duration: item.duration / 1000 // Convert milliseconds to seconds
-          }))
-        });
+        const response = await axios.post('/api/youtube-transcript', { videoId });
+        if (response.data.transcript) {
+          onTranscriptGenerated(response.data);
+        }
       } catch (transcriptError) {
         console.log('YouTube transcript not available, proceeding with video addition');
       }
