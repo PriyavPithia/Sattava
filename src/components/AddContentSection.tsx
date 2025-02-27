@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import AudioUploader from './AudioUploader';
 
 // Import our custom editor styles
 import '../styles/editor.css';
@@ -482,6 +483,10 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     }
   }, [isProcessingContent, editor]);
 
+  const handleTranscriptionComplete = (newTranscription: string) => {
+    setTranscription(newTranscription);
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Content Type Selector */}
@@ -615,124 +620,88 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-4 mb-4">
-                    <button
-                      onClick={toggleRecording}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                        isRecording
-                          ? 'bg-red-600 text-white hover:bg-red-700'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                      disabled={isTranscribingAudio}
-                    >
-                      {isRecording ? (
-                        <>
-                          <MicOff className="w-5 h-5" />
-                          <span>Stop Recording</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-5 h-5" />
-                          <span>Start Recording</span>
-                        </>
-                      )}
-                    </button>
+              <div className="space-y-6">
+                {/* Live Recording Section */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Live Recording</h3>
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-4 mb-4">
+                      <button
+                        onClick={toggleRecording}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                          isRecording
+                            ? 'bg-red-600 text-white hover:bg-red-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                        disabled={isTranscribingAudio}
+                      >
+                        {isRecording ? (
+                          <>
+                            <MicOff className="w-5 h-5" />
+                            <span>Stop Recording</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-5 h-5" />
+                            <span>Start Recording</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={clearTranscription}
+                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Clear</span>
+                      </button>
+                    </div>
                     
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleAudioFileChange}
-                      className="hidden"
-                      ref={audioFileInputRef}
-                      disabled={isRecording}
-                    />
-                    
-                    <button
-                      onClick={handleAudioFileButtonClick}
-                      disabled={isTranscribingAudio || isRecording}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                        isTranscribingAudio || isRecording
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {isTranscribingAudio ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Transcribing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-5 h-5" />
-                          <span>Upload Audio</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    <button
-                      onClick={clearTranscription}
-                      className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      <span>Clear</span>
-                    </button>
+                    {isRecording && (
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Listening...</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  {isRecording && (
-                    <div className="flex items-center gap-2 text-blue-600 mb-4">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Listening...</span>
-                    </div>
-                  )}
-                  
-                  {isTranscribingAudio && (
-                    <div className="flex items-center gap-2 text-green-600 mb-4">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Transcribing audio file...</span>
-                    </div>
-                  )}
+                </div>
+
+                {/* Audio File Upload Section */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Audio File</h3>
+                  <AudioUploader onTranscriptionComplete={handleTranscriptionComplete} />
+                </div>
+
+                {/* Transcription Display */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Transcription 
+                    {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
+                  </label>
+                  <textarea
+                    value={transcription}
+                    onChange={(e) => setTranscription(e.target.value)}
+                    placeholder="Transcription will appear here. You can edit it if needed."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+                    disabled={isTranscribingAudio}
+                  />
+                  <button
+                    onClick={handleSpeechSubmit}
+                    disabled={!transcription.trim() || isProcessingContent || isTranscribingAudio}
+                    className={`mt-4 px-4 py-2 rounded flex items-center justify-center w-full ${
+                      !transcription.trim() || isProcessingContent || isTranscribingAudio
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
+                  >
+                    {isProcessingContent || isTranscribingAudio ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : null}
+                    <span>Add to Knowledge Base</span>
+                  </button>
                 </div>
               </div>
             )}
-            
-            {/* Always show transcription area */}
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Transcription 
-                {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
-                {isTranscribingAudio && <span className="text-xs text-green-500 ml-2">(Transcribing audio file...)</span>}
-              </label>
-              <textarea
-                value={transcription}
-                onChange={(e) => setTranscription(e.target.value)}
-                placeholder="Transcription will appear here. You can edit it if needed."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
-                disabled={isTranscribingAudio}
-              />
-              <button
-                onClick={handleSpeechSubmit}
-                disabled={!transcription.trim() || isProcessingContent || isTranscribingAudio}
-                className={`mt-4 px-4 py-2 rounded flex items-center justify-center ${
-                  !transcription.trim() || isProcessingContent || isTranscribingAudio
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isProcessingContent || isTranscribingAudio ? (
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                ) : null}
-                <span>Add to Knowledge Base</span>
-              </button>
-              
-              {/* Debug information */}
-              {debugInfo && (
-                <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700 font-mono">
-                  <strong>Debug:</strong> {debugInfo}
-                </div>
-              )}
-            </div>
             
             <p className="mt-2 text-sm text-gray-500">
               Record your speech or upload an audio file for transcription.

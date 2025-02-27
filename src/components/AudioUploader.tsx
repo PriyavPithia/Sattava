@@ -1,58 +1,114 @@
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, ChangeEvent, FormEvent, useRef } from 'react';
+import { Upload, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
-const AudioUploader: React.FC = () => {
+interface AudioUploaderProps {
+  onTranscriptionComplete?: (transcription: string) => void;
+}
+
+const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }) => {
   const [file, setFile] = useState<File | null>(null);
   const [transcription, setTranscription] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const handleFileClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!file) return;
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setError('');
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      // Check file size (25MB limit)
+      if (selectedFile.size > 25 * 1024 * 1024) {
+        setError('File size must be less than 25MB');
+        return;
+      }
+      setFile(selectedFile);
+      handleSubmit(selectedFile);
+    }
+  };
 
+  const handleSubmit = async (audioFile: File) => {
     setIsLoading(true);
+    setError('');
 
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('model', 'whisper-1');
+    formData.append('audio', audioFile);
 
     try {
-      const response = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.VITE_OPENAI_API_KEY}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
-      setTranscription(response.data.text);
+      const response = await axios.post('/api/whisper-transcription', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const newTranscription = response.data.transcription;
+      setTranscription(newTranscription);
+      
+      if (onTranscriptionComplete) {
+        onTranscriptionComplete(newTranscription);
+      }
     } catch (error) {
       console.error('Error transcribing audio:', error);
+      setError('Failed to transcribe audio. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
-        <input type="file" accept="audio/*" onChange={handleFileChange} />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Transcribing...' : 'Transcribe'}
-        </button>
-      </form>
-      {transcription && (
-        <div>
-          <h3>Transcription:</h3>
-          <p>{transcription}</p>
+    <div className="flex flex-col items-center">
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="audio/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      
+      <div 
+        onClick={handleFileClick}
+        className={`w-full flex flex-col items-center justify-center cursor-pointer ${
+          isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+        }`}
+      >
+        {isLoading ? (
+          <div className="flex flex-col items-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            <p className="mt-2 text-sm text-gray-600">Transcribing audio...</p>
+          </div>
+        ) : (
+          <>
+            <Upload className="w-12 h-12 text-gray-400" />
+            <p className="mt-2 text-sm font-medium text-gray-900">
+              {file ? file.name : 'Click to upload audio file'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              MP3, WAV, M4A, or other audio files (max 25MB)
+            </p>
+          </>
+        )}
+      </div>
+
+      {error && (
+        <div className="mt-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      {transcription && !isLoading && (
+        <div className="mt-4 w-full">
+          <h4 className="text-sm font-medium text-gray-700 mb-1">Preview:</h4>
+          <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+            {transcription.length > 150 
+              ? transcription.substring(0, 150) + '...' 
+              : transcription}
+          </p>
         </div>
       )}
     </div>
