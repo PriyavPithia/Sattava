@@ -46,11 +46,11 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
     console.log('Starting audio transcription...');
 
     const formData = new FormData();
-    formData.append('audio', audioFile); // Using 'audio' as the key to match API expectation
+    formData.append('audio', audioFile);
 
     try {
       console.log('Sending request to transcription API...');
-      const response = await axios.post('/api/whisper-transcription', formData, {
+      const response = await axios.post('http://localhost:3000/api/whisper-transcription', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
