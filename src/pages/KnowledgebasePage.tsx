@@ -234,26 +234,23 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       // Set lock before any state changes
       navigationLockRef.current = true;
       
+      const targetPath = mode === 'chat' 
+        ? `/knowledgebase/${collection.id}/chat`
+        : `/knowledgebase/${collection.id}/${mode}`;
+
       // Update view mode first
       setViewMode(mode);
       
-      // Construct the target path
-      const targetPath = `/knowledgebase/${collection.id}${mode === 'chat' ? '/chat' : ''}`;
-      
-      // Only navigate if we're actually changing paths
+      // Then navigate
       if (location.pathname !== targetPath) {
         navigate(targetPath, { replace: true });
       }
 
-      // Load data
+      // Finally load data
       await loadCollectionData(collection, mode);
     } catch (error) {
       console.error('Error changing view mode:', error);
-    } finally {
-      // Release the navigation lock after a short delay
-      setTimeout(() => {
-        navigationLockRef.current = false;
-      }, 300);
+      navigationLockRef.current = false;
     }
   };
 
@@ -278,18 +275,17 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
       return;
     }
     
-    const match = path.match(/\/knowledgebase\/([^\/]+)(?:\/chat)?/);
+    const match = path.match(/\/knowledgebase\/([^\/]+)(?:\/([^\/]+))?/);
     if (match) {
-      const [, collectionId] = match;
-      const isChat = path.endsWith('/chat');
+      const collectionId = match[1];
+      const viewModeFromUrl = match[2];
       const collection = collections.find(c => c.id === collectionId);
       
       if (collection) {
-        const newViewMode = isChat ? 'chat' : 'list';
+        const newViewMode = (viewModeFromUrl === 'chat') ? 'chat' : 'list';
         const shouldLoadData = collection.id !== selectedCollection?.id || viewMode !== newViewMode;
         
         if (shouldLoadData && !navigationLockRef.current) {
-          console.log('Loading data for collection:', collection.name, 'view mode:', newViewMode);
           loadCollectionData(collection, newViewMode);
         }
       }
