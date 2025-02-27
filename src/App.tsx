@@ -1065,8 +1065,16 @@ function App() {
       const itemToDelete = collections
         .find(col => col.id === collectionId)
         ?.items.find(item => item.id === contentId);
-      
-      // Optimistic update
+
+      // Delete from database first
+      const { error } = await supabase
+        .from('content')
+        .delete()
+        .eq('id', contentId);
+
+      if (error) throw error;
+
+      // Only update UI after successful database deletion
       setCollections(prev => prev.map(col => 
         col.id === collectionId
           ? { ...col, items: col.items.filter(item => item.id !== contentId) }
@@ -1077,24 +1085,6 @@ function App() {
       if (selectedVideo?.id === contentId) {
         setSelectedVideo(null);
         setExtractedText([]);
-      }
-
-      // Delete in background
-      const { error } = await supabase
-        .from('content')
-        .delete()
-        .eq('id', contentId);
-
-      if (error) {
-        // Rollback on error
-        if (itemToDelete) {
-      setCollections(prev => prev.map(col => 
-        col.id === collectionId
-              ? { ...col, items: [...col.items, itemToDelete] }
-          : col
-      ));
-        }
-        throw error;
       }
 
     } catch (error) {
