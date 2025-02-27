@@ -1,20 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { FileText, Link, Presentation, Youtube as YoutubeIcon } from 'lucide-react';
-import { CombinedContent, ContentReference } from '../types';
+import { CombinedContent, ContentSource, ContentLocation } from '../../types';
 import { useHighlight } from '../../contexts/HighlightContext';
 import ReferenceLink from '../ReferenceLink';
 import { Reference } from '../../types/reference';
-import { parseReferenceTag } from '../../utils/reference';
-
-// Add ContentSource type definition locally since it's not in types
-type ContentSource = {
-  type: 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
-  title: string;
-  location?: {
-    type: string;
-    value: string | number;
-  };
-};
 
 interface ReferencedAnswerProps {
   answer: string;
@@ -29,6 +18,21 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
 }) => {
   const { setHighlightedReference } = useHighlight();
 
+  const handleReferenceClick = (reference: Reference) => {
+    if (!reference.source.location) return;
+    
+    const combinedContent: CombinedContent = {
+      text: reference.text,
+      source: {
+        type: reference.source.type,
+        title: reference.source.title,
+        location: reference.source.location
+      }
+    };
+    setHighlightedReference(combinedContent);
+    onReferenceClick(reference);
+  };
+
   const renderContent = (text: string) => {
     console.log('Rendering content with text:', text);
     console.log('Available references:', references);
@@ -36,14 +40,14 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     // First, replace the reference tags with markers
     const processedText = text.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
       console.log('Processing reference tag:', match);
-      const reference = parseReferenceTag(match);
-      if (reference) {
-        console.log('Parsed reference:', reference);
+      const parts = match.slice(6, -2).split(':'); // Remove {{ref: and }} and split
+      if (parts.length >= 3) {
+        const [type, title, location] = parts;
         // Find matching reference in the references array
         const index = references.findIndex(ref => 
-          ref.sourceId === reference.sourceId && 
-          ref.sourceType === reference.sourceType &&
-          ref.location.value.toString() === reference.location.value.toString()
+          ref.source.type === type &&
+          ref.source.title === title &&
+          ref.source.location?.value.toString() === location
         );
         console.log('Found reference index:', index);
         if (index !== -1) {
@@ -129,28 +133,8 @@ const ReferencedAnswer: React.FC<ReferencedAnswerProps> = ({
     }
   };
 
-  const handleReferenceClick = (ref: Reference) => {
-    console.log('Reference clicked:', ref);
-    
-    const reference: CombinedContent = {
-      text: ref.text,
-      source: {
-        type: ref.sourceType,
-        title: ref.sourceTitle,
-        location: {
-          type: ref.location.type,
-          value: ref.location.value
-        }
-      }
-    };
-
-    console.log('Created reference object:', reference);
-    setHighlightedReference(reference);
-    onReferenceClick(ref);
-  };
-
   return (
-    <div className="prose max-w-none">
+    <div className="whitespace-pre-wrap">
       {renderContent(answer)}
     </div>
   );

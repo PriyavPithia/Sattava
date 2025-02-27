@@ -441,17 +441,13 @@ function App() {
 
       const answer = await askQuestion(question, relevantContent);
       
+      // Extract references from the AI response
+      const { text, references } = extractReferences(answer);
+      
       const newAssistantMessage: Message = {
         role: 'assistant',
-        content: answer,
-        references: relevantContent.map(content => ({
-          text: content.text,
-          source: {
-            type: content.source.type,
-            title: content.source.title,
-            location: content.source.location
-          }
-        })),
+        content: text,
+        references: references,
         timestamp: new Date().toISOString()
       };
 
