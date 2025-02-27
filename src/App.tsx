@@ -144,7 +144,11 @@ function App() {
       let transcriptData;
       if (addVideoMethod === 'youtube_transcript') {
         // Get transcript using our new endpoint
-        const response = await axios.post('/api/youtube-transcript', { videoId });
+        const apiUrl = process.env.NODE_ENV === 'production' 
+          ? '/api/youtube-transcript'  // Production URL
+          : 'http://localhost:3000/api/youtube-transcript'; // Development URL
+        
+        const response = await axios.post(apiUrl, { videoId });
         transcriptData = response.data.transcript;
         
         if (!transcriptData) {
