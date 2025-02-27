@@ -640,10 +640,9 @@ function App() {
     try {
       setIsProcessingContent(true);
       setError('');
-      let extractedContent = '';
       let fileType = file.name.split('.').pop()?.toLowerCase() as Content['type'];
 
-      // Create optimistic update
+      // Create optimistic update with a temporary ID
       const optimisticId = 'temp-' + Date.now();
       const tempItem: VideoItem = {
         id: optimisticId,
@@ -656,15 +655,18 @@ function App() {
         }]
       };
 
-      // Optimistic update
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? { ...col, items: [...col.items, tempItem] }
-          : col
-      ));
+      // Add temporary item to collections
+      setCollections(prev => {
+        const updatedCollections = prev.map(col => 
+          col.id === selectedCollection.id
+            ? { ...col, items: [...col.items, tempItem] }
+            : col
+        );
+        return updatedCollections;
+      });
 
-      // Process content in background
-      const processContent = async () => {
+      // Process the content
+      const processedContent = await (async () => {
         if (fileType === 'pdf') {
           const pdfData = await file.arrayBuffer();
           const pdf = await getDocument(pdfData).promise;
@@ -684,17 +686,12 @@ function App() {
           const slides = await extractPowerPointContent(file);
           return slides.map(slide => slide.text).join('\n\n');
         } else if (['doc', 'docx'].includes(fileType)) {
-          // For Word documents, we'd need a specific library
-          // This is a placeholder - in a real app, you'd use a library like mammoth.js
-          return await file.text(); // Simplified approach
+          return await file.text();
         }
         return '';
-      };
+      })();
 
-      // Process content first
-      const processedContent = await processContent();
-
-      // Then save to database with the processed content
+      // Save to database
       const content = await addContent(selectedCollection.id, {
         title: file.name,
         type: fileType,
@@ -702,7 +699,7 @@ function App() {
         url: file.name
       });
 
-      // Update with real content
+      // Create the final item
       const newItem: VideoItem = {
         id: content.id,
         url: file.name,
@@ -715,7 +712,7 @@ function App() {
         }]
       };
 
-      // Update collections with real item
+      // Update collections state with the real item
       setCollections(prev => {
         const updatedCollections = prev.map(col => 
           col.id === selectedCollection.id
@@ -723,13 +720,14 @@ function App() {
                 ...col, 
                 items: col.items
                   .filter(item => item.id !== optimisticId)
-                  .concat(newItem)
+                  .concat([newItem])
               }
             : col
         );
         return updatedCollections;
       });
 
+      // Set as selected video if none is selected
       if (!selectedVideo) {
         setSelectedVideo(newItem);
       }
@@ -740,20 +738,14 @@ function App() {
         type: 'success'
       });
 
-      // Clear input
-      if (event.target.value) {
-        event.target.value = '';
-      }
+      // Clear the file input
+      event.target.value = '';
 
     } catch (error) {
       console.error('Error processing file:', error);
       setError('Failed to process file. Please try again.');
-      setToast({
-        message: 'Failed to add content',
-        type: 'error'
-      });
       
-      // Remove temporary item
+      // Remove temporary item on error
       setCollections(prev => prev.map(col => 
         col.id === selectedCollection.id
           ? { 
@@ -762,6 +754,11 @@ function App() {
             }
           : col
       ));
+
+      setToast({
+        message: 'Failed to add content',
+        type: 'error'
+      });
     } finally {
       setIsProcessingContent(false);
     }
@@ -774,15 +771,15 @@ function App() {
       setIsProcessingContent(true);
       setError('');
 
-      // Check if this is a speech submission (JSON string with type field)
-      let contentType: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech' = 'txt';
+      // Check if this is a speech submission
+      let contentType: Content['type'] = 'txt';
       let contentText = text;
       let contentTitle = `Text Input (${new Date().toLocaleString()})`;
       
       try {
         const parsedData = JSON.parse(text);
         if (parsedData.type === 'speech' && parsedData.text) {
-          contentType = 'speech';
+          contentType = 'txt'; // Store speech as text content
           contentText = parsedData.text;
           contentTitle = `Speech to Text (${new Date().toLocaleString()})`;
         }
@@ -790,7 +787,7 @@ function App() {
         // Not JSON, treat as regular text
       }
 
-      // Create optimistic update
+      // Create optimistic update with temporary ID
       const optimisticId = 'temp-' + Date.now();
       const tempItem: VideoItem = {
         id: optimisticId,
@@ -803,61 +800,71 @@ function App() {
         }]
       };
 
-      // Optimistic update
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? {
-              ...col,
-              items: [...col.items, tempItem]
-            }
-          : col
-      ));
-
-      // Process the text content
-      const extractedContent = createChunksFromText(contentText);
-      
-      // Create a unique ID for the content
-      const contentId = uuidv4();
-      
-      // Create the final item
-      const newItem: VideoItem = {
-        id: contentId,
-        url: contentType === 'speech' ? 'speech-input' : 'text-input',
-        title: contentTitle,
-        type: contentType,
-        extractedContent
-      };
-
-      // Update the database
-      await addToCollection(contentId, selectedCollection.id);
-      
-      // Save the item to the database
-      try {
-        // This is a placeholder for the actual database update
-        console.log('Saving video item:', contentId, newItem);
-      } catch (error) {
-        console.error('Error saving video item:', error);
-      }
-
-      // Update the state with the real item
+      // Add temporary item to collections
       setCollections(prev => {
         const updatedCollections = prev.map(col => 
           col.id === selectedCollection.id
             ? {
                 ...col,
-                items: col.items.map(item => 
-                  item.id === optimisticId ? newItem : item
-                )
+                items: [...col.items, tempItem]
               }
             : col
         );
         return updatedCollections;
       });
+
+      // Process the text content
+      const extractedContent = createChunksFromText(contentText);
+      
+      // Save to database
+      const content = await addContent(selectedCollection.id, {
+        title: contentTitle,
+        type: contentType,
+        content: contentText,
+        url: contentType === 'speech' ? 'speech-input' : 'text-input'
+      });
+
+      // Create the final item
+      const newItem: VideoItem = {
+        id: content.id,
+        url: contentType === 'speech' ? 'speech-input' : 'text-input',
+        title: contentTitle,
+        type: contentType,
+        content: contentText,
+        extractedContent
+      };
+
+      // Update collections state with the real item
+      setCollections(prev => {
+        const updatedCollections = prev.map(col => 
+          col.id === selectedCollection.id
+            ? {
+                ...col,
+                items: col.items
+                  .filter(item => item.id !== optimisticId)
+                  .concat([newItem])
+              }
+            : col
+        );
+        return updatedCollections;
+      });
+
+      // Set as selected video if none is selected
+      if (!selectedVideo) {
+        setSelectedVideo(newItem);
+      }
+
+      // Show success toast
+      setToast({
+        message: 'Content added successfully',
+        type: 'success'
+      });
+
     } catch (error) {
       console.error('Error processing text:', error);
       setError('Failed to process text');
       
-      // Remove the optimistic update
+      // Remove temporary item on error
       setCollections(prev => prev.map(col => 
         col.id === selectedCollection.id
           ? {
@@ -866,6 +873,11 @@ function App() {
             }
           : col
       ));
+
+      setToast({
+        message: 'Failed to add content',
+        type: 'error'
+      });
     } finally {
       setIsProcessingContent(false);
     }
