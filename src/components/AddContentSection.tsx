@@ -621,55 +621,58 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Live Recording Section */}
-                <div className=" rounded-lg p-8">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Live Recording</h3>
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-4 mb-4">
-                      <button
-                        onClick={toggleRecording}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
-                          isRecording
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                        disabled={isTranscribingAudio}
-                      >
-                        {isRecording ? (
-                          <>
-                            <MicOff className="w-5 h-5" />
-                            <span>Stop Recording</span>
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="w-5 h-5" />
-                            <span>Start Recording</span>
-                          </>
-                        )}
-                      </button>
-                      
-                      <button
-                        onClick={clearTranscription}
-                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>Clear</span>
-                      </button>
-                    </div>
-                    
-                    {isRecording && (
-                      <div className="flex items-center gap-2 text-blue-600">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Listening...</span>
+                {/* Change to flex row layout */}
+                <div className="flex gap-6">
+                  {/* Live Recording Section */}
+                  <div className="flex-1 rounded-lg p-8">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Live Recording</h3>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-4 mb-4">
+                        <button
+                          onClick={toggleRecording}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                            isRecording
+                              ? 'bg-red-600 text-white hover:bg-red-700'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                          disabled={isTranscribingAudio}
+                        >
+                          {isRecording ? (
+                            <>
+                              <MicOff className="w-5 h-5" />
+                              <span>Stop Recording</span>
+                            </>
+                          ) : (
+                            <>
+                              <Mic className="w-5 h-5" />
+                              <span>Start Recording</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          onClick={clearTranscription}
+                          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Clear</span>
+                        </button>
                       </div>
-                    )}
+                      
+                      {isRecording && (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Listening...</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Audio File Upload Section */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Audio File</h3>
-                  <AudioUploader onTranscriptionComplete={handleTranscriptionComplete} />
+                  {/* Audio File Upload Section */}
+                  <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg p-8">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Audio File</h3>
+                    <AudioUploader onTranscriptionComplete={handleTranscriptionComplete} />
+                  </div>
                 </div>
 
                 {/* Transcription Display */}
