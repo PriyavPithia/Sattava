@@ -50,7 +50,7 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
 
     try {
       console.log('Sending request to transcription API...');
-      const response = await axios.post('http://localhost:3000/api/whisper-transcription', formData, {
+      const response = await axios.post('/api/whisper-transcription', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -79,8 +79,12 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
       let errorMessage = 'Failed to transcribe audio. Please try again.';
       
       if (axios.isAxiosError(error)) {
-        if (error.response?.status === 405) {
+        if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+          errorMessage = 'Could not connect to the server. Please check your internet connection.';
+        } else if (error.response?.status === 405) {
           errorMessage = 'Invalid request method. Please contact support.';
+        } else if (error.response?.status === 413) {
+          errorMessage = 'File is too large. Maximum size is 25MB.';
         } else if (error.response?.data?.error) {
           errorMessage = error.response.data.error;
         } else if (error.message) {
