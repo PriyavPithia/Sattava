@@ -625,7 +625,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                 <div className="flex gap-6">
                   {/* Live Recording Section */}
                   <div className="flex-1 rounded-lg p-8">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Live Recording</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Live Recording</h3>
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-4 mb-4">
                         <button
@@ -670,7 +670,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
                   {/* Audio File Upload Section */}
                   <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg p-8">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Audio File</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Upload Audio File</h3>
                     <AudioUploader onTranscriptionComplete={handleTranscriptionComplete} />
                   </div>
                 </div>
