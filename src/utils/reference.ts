@@ -9,10 +9,24 @@ export const extractReferences = (content: string): { text: string; references: 
     console.log('Found reference tag:', match);
     const parts = match.slice(6, -2).split(':');
     
-    // Check if the reference format is valid (type:title:location)
+    // Create a default reference for invalid formats
     if (parts.length < 3) {
-      console.warn('Invalid reference format:', match);
-      return match; // Return the original text for invalid references
+      const type = parts[0];
+      const reference: Reference = {
+        text: `Reference to ${type}`,
+        source: {
+          type: 'txt',
+          title: type,
+          location: {
+            type: 'page',
+            value: 1
+          }
+        }
+      };
+      references.push(reference);
+      const marker = `__REF_MARKER_${references.length - 1}__`;
+      console.log('Created marker for invalid reference:', marker, reference);
+      return marker;
     }
     
     const [type, title, location] = parts;
