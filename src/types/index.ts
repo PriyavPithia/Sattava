@@ -16,18 +16,16 @@ export type CombinedContent = {
   source: ContentSource;
 };
 
-export type AddVideoMethod = 'youtube' | 'youtube_transcript' | 'files' | 'speech' | 'text';
-
 export interface VideoItem {
   id: string;
   url: string;
   title: string;
   isEditing?: boolean;
-  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech';
   content?: string;
   extractedContent?: ExtractedContent[];
+  transcript?: any[];
   youtube_id?: string;
-  transcript?: any;
 }
 
 export interface ExtractedContent {
@@ -70,20 +68,4 @@ export interface ContentReference {
   source: ContentSource;
   startIndex: number;
   endIndex: number;
-}
-
-export interface ChunkEmbedding {
-  text: string;
-  embedding: number[];
-}
-
-export interface TranscriptResponse {
-  transcripts: TranscriptSegment[];
-}
-
-export interface TranscriptSegment {
-  text: string;
-  offset: number;
-  duration: number;
-  start?: number;
 } 
