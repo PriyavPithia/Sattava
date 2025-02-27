@@ -6,7 +6,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import AudioUploader from './AudioUploader';
-import VideoProcessor from './VideoProcessor';
 import { AddVideoMethod } from '../types';
 
 // Import our custom editor styles
@@ -607,19 +606,34 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         {/* Video Upload Mode */}
         {addVideoMethod === 'video' && (
           <div>
-            <VideoProcessor
-              onTranscriptionComplete={(transcription) => {
-                if (onTextSubmit) {
-                  const videoData = {
-                    text: transcription,
-                    type: 'video',
-                    source: 'whisper_transcription'
-                  };
-                  onTextSubmit(JSON.stringify(videoData));
-                }
-              }}
-              onError={onError}
-            />
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="video/*"
+                className="hidden"
+                disabled={isProcessingContent}
+              />
+              {isProcessingContent ? (
+                <div className="flex flex-col items-center">
+                  <Spinner className="w-8 h-8 text-blue-500" />
+                  <p className="mt-2 text-sm text-gray-600">Processing video...</p>
+                </div>
+              ) : (
+                <div 
+                  className="flex flex-col items-center cursor-pointer"
+                  onClick={handleFileButtonClick}
+                >
+                  <Upload className="w-12 h-12 text-gray-400" />
+                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload video</p>
+                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
+                </div>
+              )}
+            </div>
+            <p className="mt-4 text-sm text-gray-500">
+              Upload video files (MP4, WebM, etc.) to add to your knowledgebase.
+            </p>
           </div>
         )}
 
