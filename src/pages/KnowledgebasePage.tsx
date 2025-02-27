@@ -18,7 +18,6 @@ import { extractReferences } from '../utils/reference';
 import YoutubePlayer from '../components/YoutubePlayer';
 import ContentAddition from '../components/ContentAddition';
 import AddContentSection from '../components/AddContentSection';
-import YoutubeTranscriptTab from '../components/YoutubeTranscriptTab';
 
 // Import the component-specific CombinedContent type
 import { CombinedContent as ComponentCombinedContent } from '../components/types';
@@ -76,9 +75,6 @@ interface KnowledgebasePageProps {
   // Chat history
   loadChat: (collectionId: string) => Promise<Message[]>;
   setMessages: (messages: Message[]) => void;
-  
-  // New props
-  setRawResponse: (response: { transcripts: TranscriptSegment[] } | null) => void;
 }
 
 // Types
@@ -175,9 +171,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Chat history props
   loadChat,
   setMessages,
-  
-  // New props
-  setRawResponse,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -194,7 +187,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const [editingCollectionName, setEditingCollectionName] = useState<string | null>(null);
   // Add a navigation lock ref to prevent double navigation
   const navigationLockRef = useRef(false);
-  const [activeTab, setActiveTab] = useState<'searchapi' | 'youtube'>('searchapi');
   
   const loadCollectionData = async (collection: Collection, newViewMode: ViewMode) => {
     try {
@@ -420,7 +412,16 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   // Handle reference clicks (for YouTube timestamps, PDF pages, etc.)
   const handleReferenceClick = (reference: Reference) => {
     // Convert Reference to ContentSource format
-    const contentSource: ContentSource = reference.source;
+    const contentSource: ContentSource = {
+      type: reference.sourceType,
+      title: reference.sourceTitle,
+      location: {
+        type: reference.location.type,
+        value: typeof reference.location.value === 'string' 
+          ? parseFloat(reference.location.value) 
+          : reference.location.value
+      }
+    };
     onReferenceClick(contentSource);
   };
 
@@ -796,74 +797,28 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               {selectedVideo && (
                 <div className="h-full">
                   {selectedVideo.type === 'youtube' && (
-                    <>
-                      <div className="h-[300px] bg-black">
-                        <YoutubePlayer
-                          videoId={selectedVideo.youtube_id || ''}
-                          currentTime={currentTimestamp}
-                          onSeek={onSeek}
-                        />
-                      </div>
+                    <div className="h-[300px] bg-black">
+                      <YoutubePlayer
+                        videoId={selectedVideo.youtube_id || ''}
+                        currentTime={currentTimestamp}
+                        onSeek={onSeek}
+                      />
+                    </div>
+                  )}
 
-                      {/* Add tabs for transcript views */}
-                      <div className="border-b border-gray-200">
-                        <nav className="-mb-px flex">
-                          <button
-                            onClick={() => setActiveTab('searchapi')}
-                            className={`${
-                              activeTab === 'searchapi'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
-                          >
-                            SearchAPI Transcript
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('youtube')}
-                            className={`${
-                              activeTab === 'youtube'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
-                          >
-                            YouTube Transcript
-                          </button>
-                        </nav>
-                      </div>
-
-                      {activeTab === 'searchapi' && rawResponse && (
-                        <TranscriptViewer
-                          videoUrl={selectedVideo.url}
-                          transcripts={rawResponse.transcripts}
-                          durationFilter={durationFilter}
-                          onDurationFilterChange={onDurationFilterChange}
-                          onSeek={onSeek}
-                          loadingTranscript={loadingTranscript}
-                          groupTranscriptsByDuration={groupTranscriptsByDuration}
-                          formatTime={formatTime}
-                          calculateTotalDuration={calculateTotalDuration}
-                          formatDurationLabel={(duration) => `${duration} sec`}
-                        />
-                      )}
-
-                      {activeTab === 'youtube' && (
-                        <YoutubeTranscriptTab
-                          videoId={selectedVideo.youtube_id || ''}
-                          onTranscriptFetched={(transcript) => {
-                            // Convert YouTube transcript format to match SearchAPI format
-                            const convertedTranscript = {
-                              transcripts: transcript.map((item: any) => ({
-                                text: item.text,
-                                start: item.offset / 1000, // Convert ms to seconds
-                                duration: item.duration / 1000
-                              }))
-                            };
-                            setRawResponse(convertedTranscript);
-                            setActiveTab('searchapi'); // Switch to SearchAPI view to show transcript
-                          }}
-                        />
-                      )}
-                    </>
+                  {selectedVideo.type === 'youtube' && rawResponse && (
+                    <TranscriptViewer
+                      videoUrl={selectedVideo.url}
+                      transcripts={rawResponse.transcripts}
+                      durationFilter={durationFilter}
+                      onDurationFilterChange={onDurationFilterChange}
+                      onSeek={onSeek}
+                      loadingTranscript={loadingTranscript}
+                      groupTranscriptsByDuration={groupTranscriptsByDuration}
+                      formatTime={formatTime}
+                      calculateTotalDuration={calculateTotalDuration}
+                      formatDurationLabel={(duration) => `${duration} sec`}
+                    />
                   )}
 
                   {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (

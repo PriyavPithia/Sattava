@@ -1429,7 +1429,6 @@ function App() {
                     isProcessingContent={isProcessingContent}
                     loadChat={loadChat}
                     setMessages={setMessages}
-                    setRawResponse={setRawResponse}
                   />
                 } 
               />
@@ -1476,7 +1475,6 @@ function App() {
                     isProcessingContent={isProcessingContent}
                     loadChat={loadChat}
                     setMessages={setMessages}
-                    setRawResponse={setRawResponse}
                   />
                 } 
               />
@@ -1523,7 +1521,6 @@ function App() {
                     isProcessingContent={isProcessingContent}
                     loadChat={loadChat}
                     setMessages={setMessages}
-                    setRawResponse={setRawResponse}
                   />
                 } 
               />
