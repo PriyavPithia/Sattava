@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle, Check, ChevronDown, Video } from 'lucide-react';
+import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle } from 'lucide-react';
 import axios from 'axios';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -504,30 +504,30 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      {/* Method Selection Tabs */}
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      {/* Content Type Selector */}
       <div className="flex border-b border-gray-200">
         <button
-          onClick={() => setAddVideoMethod('youtube_transcript')}
+          onClick={() => setAddVideoMethod('youtube')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'youtube_transcript' 
+            addVideoMethod === 'youtube' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           <Youtube className="w-5 h-5" />
-          <span>YouTube Transcript</span>
+          <span>YouTube</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('video_upload')}
+          onClick={() => setAddVideoMethod('video')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'video_upload' 
+            addVideoMethod === 'video' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Video className="w-5 h-5" />
-          <span>Video Upload</span>
+          <Upload className="w-5 h-5" />
+          <span>Upload Video</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('files')}
@@ -560,17 +560,17 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           }`}
         >
           <Type className="w-5 h-5" />
-          <span>Input Text</span>
+          <span>Notes</span>
         </button>
       </div>
 
-      {/* Content Area */}
+      {/* Input Area */}
       <div className="p-6">
-        {/* YouTube Transcript Mode */}
-        {addVideoMethod === 'youtube_transcript' && (
+        {/* YouTube Mode */}
+        {addVideoMethod === 'youtube' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Enter YouTube URL for Transcript
+              Enter YouTube URL
             </label>
             <div className="flex">
               <input
@@ -593,42 +593,51 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                 {isProcessingContent ? (
                   <Spinner className="w-5 h-5" />
                 ) : (
-                  <span>Get Transcript</span>
+                  <span>Process</span>
                 )}
               </button>
             </div>
             <p className="mt-2 text-sm text-gray-500">
-              Paste a YouTube URL to extract and add only its transcript to your knowledgebase.
+              Paste a YouTube URL to add the video to your knowledgebase.
             </p>
           </div>
         )}
 
         {/* Video Upload Mode */}
-        {addVideoMethod === 'video_upload' && (
+        {addVideoMethod === 'video' && (
           <div>
-            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-                 onClick={() => document.getElementById('video-upload')?.click()}>
-              <Video className="w-12 h-12 text-gray-400 mb-4" />
-              <p className="text-gray-600 mb-2">Click to upload video or drag and drop</p>
-              <p className="text-sm text-gray-500">MP4, AVI, MOV up to 500MB</p>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <input
                 type="file"
-                id="video-upload"
-                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
                 accept="video/*"
-                onChange={onFileSelect}
+                className="hidden"
+                disabled={isProcessingContent}
               />
+              {isProcessingContent ? (
+                <div className="flex flex-col items-center">
+                  <Spinner className="w-8 h-8 text-blue-500" />
+                  <p className="mt-2 text-sm text-gray-600">Processing video...</p>
+                </div>
+              ) : (
+                <div 
+                  className="flex flex-col items-center cursor-pointer"
+                  onClick={handleFileButtonClick}
+                >
+                  <Upload className="w-12 h-12 text-gray-400" />
+                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload video</p>
+                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
+                </div>
+              )}
             </div>
-            {isProcessingContent && (
-              <div className="mt-4 flex items-center justify-center text-blue-600">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                <span>Processing video...</span>
-              </div>
-            )}
+            <p className="mt-4 text-sm text-gray-500">
+              Upload video files (MP4, WebM, etc.) to add to your knowledgebase.
+            </p>
           </div>
         )}
 
-        {/* Files Mode */}
+        {/* Consolidated Files Mode */}
         {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -662,7 +671,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Speech Mode */}
+        {/* Speech to Text Mode */}
         {addVideoMethod === 'speech' && (
           <div>
             {!isSpeechSupported ? (
@@ -764,7 +773,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Text Mode */}
+        {/* Input Text Mode - renamed to Notes */}
         {addVideoMethod === 'text' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
