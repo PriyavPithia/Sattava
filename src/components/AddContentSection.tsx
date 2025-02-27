@@ -622,7 +622,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             ) : (
               <div className="space-y-6">
                 {/* Live Recording Section */}
-                <div className="border border-gray-300 rounded-lg p-8">
+                <div className=" rounded-lg p-8">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Live Recording</h3>
                   <div className="flex flex-col items-center">
                     <div className="flex items-center gap-4 mb-4">
