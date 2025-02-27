@@ -12,7 +12,8 @@
     "start": "cross-env NODE_ENV=production tsx src/server/index.ts"
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.1",
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-toast": "^1.2.6",

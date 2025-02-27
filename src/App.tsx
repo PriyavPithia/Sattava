@@ -667,7 +667,11 @@ function App() {
         id: optimisticId,
         url: file.name,
         title: file.name,
-        type: fileType
+        type: fileType,
+        duration: 0,
+        size: file.size,
+        format: file.type,
+        lastModified: file.lastModified
       };
 
       // Add temporary item to collections
@@ -681,12 +685,16 @@ function App() {
 
       // Process file based on type
       if (fileType === 'local') {
-        // For video files, we'll just store the file metadata
-        processedContent = JSON.stringify({
+        // For video files, we'll store the file metadata and transcription
+        const metadata = {
           name: file.name,
           type: file.type,
           size: file.size,
           lastModified: file.lastModified
+        };
+        processedContent = JSON.stringify({
+          metadata,
+          transcription: null // Will be updated when transcription is complete
         });
       } else if (fileType === 'pdf') {
         // Process PDF file
@@ -717,7 +725,11 @@ function App() {
         extractedContent: fileType !== 'local' ? [{
           text: processedContent,
           pageNumber: 1
-        }] : undefined
+        }] : undefined,
+        duration: 0,
+        size: file.size,
+        format: file.type,
+        lastModified: file.lastModified
       };
 
       // Update collections state with the real item
@@ -778,12 +790,75 @@ function App() {
     try {
       setIsProcessingContent(true);
       
-      // Parse the text content
+      // Try to parse the text as JSON in case it's a structured content (like video transcription)
+      let parsedContent;
+      try {
+        parsedContent = JSON.parse(text);
+      } catch {
+        parsedContent = { text, type: 'text' };
+      }
+
+      // Determine content type and text
       let contentType: VideoItem['type'] = 'txt';
-      let contentText = text;
+      let contentText = parsedContent.text || text;
       let contentTitle = 'Text Note';
+
+      // Handle video transcriptions
+      if (parsedContent.type === 'video' && parsedContent.source === 'whisper_transcription') {
+        contentType = 'local';
+        contentTitle = 'Video Transcription';
+        
+        // Find the video item that this transcription belongs to
+        const videoItem = selectedCollection.items.find(item => 
+          item.type === 'local' && 
+          item.content && 
+          JSON.parse(item.content).transcription === null
+        );
+
+        if (videoItem) {
+          // Update the video item with the transcription
+          const content = JSON.parse(videoItem.content!);
+          content.transcription = contentText;
+
+          // Update in database
+          await addContent(selectedCollection.id, {
+            title: videoItem.title,
+            type: 'local',
+            content: JSON.stringify(content),
+            url: videoItem.url
+          });
+
+          // Update in state
+          setCollections(prev => prev.map(col => 
+            col.id === selectedCollection.id
+              ? {
+                  ...col,
+                  items: col.items.map(item => 
+                    item.id === videoItem.id
+                      ? {
+                          ...item,
+                          content: JSON.stringify(content),
+                          extractedContent: [{
+                            text: contentText,
+                            pageNumber: 1
+                          }]
+                        }
+                      : item
+                  )
+                }
+              : col
+          ));
+
+          // Show success toast
+          setToast({
+            message: 'Video transcription added successfully',
+            type: 'success'
+          });
+          return;
+        }
+      }
       
-      // Create optimistic ID
+      // Handle regular text content
       const optimisticId = `temp-${Date.now()}`;
       
       // Create temporary item for optimistic update
