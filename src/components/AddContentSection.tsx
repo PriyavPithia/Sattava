@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import AudioUploader from './AudioUploader';
+import { YoutubeTranscript } from 'youtube-transcript';
 
 // Import our custom editor styles
 import '../styles/editor.css';
@@ -502,6 +503,42 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     }
   };
 
+  const handleYoutubeSubmit = async () => {
+    if (!url.trim()) {
+      onError('Please enter a YouTube URL');
+      return;
+    }
+
+    try {
+      // First try to get the transcript directly from YouTube
+      const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})/)?.[1];
+      
+      if (!videoId) {
+        onError('Invalid YouTube URL');
+        return;
+      }
+
+      try {
+        const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+        onTranscriptGenerated({
+          transcripts: transcript.map((item: any) => ({
+            text: item.text,
+            start: item.offset / 1000, // Convert milliseconds to seconds
+            duration: item.duration / 1000 // Convert milliseconds to seconds
+          }))
+        });
+      } catch (transcriptError) {
+        console.log('YouTube transcript not available, proceeding with video addition');
+      }
+
+      // Proceed with adding the video regardless of transcript availability
+      onAddVideo();
+    } catch (error) {
+      console.error('Error processing YouTube video:', error);
+      onError('Failed to process YouTube video');
+    }
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Content Type Selector */}
@@ -556,38 +593,43 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       <div className="p-6">
         {/* YouTube Mode */}
         {addVideoMethod === 'youtube' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Enter YouTube URL
-            </label>
-            <div className="flex">
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
-                className="flex-1 border border-gray-300 rounded-l px-4 py-2"
-                disabled={isProcessingContent}
-              />
-              <button
-                onClick={onAddVideo}
-                disabled={!url || isProcessingContent}
-                className={`px-4 py-2 rounded-r flex items-center justify-center ${
-                  !url || isProcessingContent
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isProcessingContent ? (
-                  <Spinner className="w-5 h-5" />
-                ) : (
-                  <span>Process</span>
-                )}
-              </button>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-1">
+                YouTube URL
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  id="youtube-url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="Enter YouTube URL"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button
+                  onClick={handleYoutubeSubmit}
+                  disabled={isProcessingContent || !url.trim()}
+                  className={`px-4 py-2 rounded-lg font-medium flex items-center ${
+                    isProcessingContent || !url.trim()
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isProcessingContent ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Add Video'
+                  )}
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                The video will be added to your knowledge base and its transcript will be processed automatically
+              </p>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Paste a YouTube URL to transcribe the video and add it to your knowledgebase.
-            </p>
           </div>
         )}
 
