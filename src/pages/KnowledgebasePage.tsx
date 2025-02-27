@@ -18,6 +18,7 @@ import { extractReferences } from '../utils/reference';
 import YoutubePlayer from '../components/YoutubePlayer';
 import ContentAddition from '../components/ContentAddition';
 import AddContentSection from '../components/AddContentSection';
+import YoutubeTranscriptComponent from '../components/YoutubeTranscript';
 
 // Import the component-specific CombinedContent type
 import { CombinedContent as ComponentCombinedContent } from '../components/types';
@@ -187,6 +188,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const [editingCollectionName, setEditingCollectionName] = useState<string | null>(null);
   // Add a navigation lock ref to prevent double navigation
   const navigationLockRef = useRef(false);
+  const [activeTab, setActiveTab] = useState<'api' | 'youtube'>('api');
   
   const loadCollectionData = async (collection: Collection, newViewMode: ViewMode) => {
     try {
@@ -411,18 +413,7 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Handle reference clicks (for YouTube timestamps, PDF pages, etc.)
   const handleReferenceClick = (reference: Reference) => {
-    // Convert Reference to ContentSource format
-    const contentSource: ContentSource = {
-      type: reference.sourceType,
-      title: reference.sourceTitle,
-      location: {
-        type: reference.location.type,
-        value: typeof reference.location.value === 'string' 
-          ? parseFloat(reference.location.value) 
-          : reference.location.value
-      }
-    };
-    onReferenceClick(contentSource);
+    onReferenceClick(reference.source);
   };
 
   // Update the content deletion handler
@@ -797,28 +788,64 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               {selectedVideo && (
                 <div className="h-full">
                   {selectedVideo.type === 'youtube' && (
-                    <div className="h-[300px] bg-black">
-                      <YoutubePlayer
-                        videoId={selectedVideo.youtube_id || ''}
-                        currentTime={currentTimestamp}
-                        onSeek={onSeek}
-                      />
-                    </div>
-                  )}
+                    <>
+                      <div className="h-[300px] bg-black">
+                        <YoutubePlayer
+                          videoId={selectedVideo.youtube_id || ''}
+                          currentTime={currentTimestamp}
+                          onSeek={onSeek}
+                        />
+                      </div>
+                      
+                      {/* Add tabs for transcript sources */}
+                      <div className="border-b border-gray-200">
+                        <nav className="-mb-px flex">
+                          <button
+                            onClick={() => setActiveTab('api')}
+                            className={`${
+                              activeTab === 'api'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium mr-8`}
+                          >
+                            API Transcript
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('youtube')}
+                            className={`${
+                              activeTab === 'youtube'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium`}
+                          >
+                            YouTube Transcript
+                          </button>
+                        </nav>
+                      </div>
 
-                  {selectedVideo.type === 'youtube' && rawResponse && (
-                    <TranscriptViewer
-                      videoUrl={selectedVideo.url}
-                      transcripts={rawResponse.transcripts}
-                      durationFilter={durationFilter}
-                      onDurationFilterChange={onDurationFilterChange}
-                      onSeek={onSeek}
-                      loadingTranscript={loadingTranscript}
-                      groupTranscriptsByDuration={groupTranscriptsByDuration}
-                      formatTime={formatTime}
-                      calculateTotalDuration={calculateTotalDuration}
-                      formatDurationLabel={(duration) => `${duration} sec`}
-                    />
+                      {/* Show content based on active tab */}
+                      {activeTab === 'api' && rawResponse && (
+                        <TranscriptViewer
+                          videoUrl={selectedVideo.url}
+                          transcripts={rawResponse.transcripts}
+                          durationFilter={durationFilter}
+                          onDurationFilterChange={onDurationFilterChange}
+                          onSeek={onSeek}
+                          loadingTranscript={loadingTranscript}
+                          groupTranscriptsByDuration={groupTranscriptsByDuration}
+                          formatTime={formatTime}
+                          calculateTotalDuration={calculateTotalDuration}
+                          formatDurationLabel={(duration) => `${duration} sec`}
+                        />
+                      )}
+                      {activeTab === 'youtube' && (
+                        <YoutubeTranscriptComponent
+                          videoId={selectedVideo.youtube_id || ''}
+                          onTranscriptGenerated={onTranscriptGenerated}
+                          onError={onError}
+                        />
+                      )}
+                    </>
                   )}
 
                   {['pdf', 'txt', 'ppt', 'pptx'].includes(selectedVideo.type) && (
