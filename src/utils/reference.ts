@@ -1,35 +1,32 @@
 import { Reference, ContentLocation } from '../types/reference';
+import { ContentSource } from '../types';
 
 export const createReference = (
-  sourceId: string,
-  sourceType: 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx',
+  sourceType: ContentSource['type'],
   sourceTitle: string,
   location: ContentLocation,
-  text: string,
-  context?: string
+  text: string
 ): Reference => {
   return {
-    sourceId,
-    sourceType,
-    sourceTitle,
-    location,
     text,
-    context
+    source: {
+      type: sourceType,
+      title: sourceTitle,
+      location
+    }
   };
 };
 
 export const formatReference = (reference: Reference): string => {
-  if (reference.sourceType === 'youtube') {
-    const seconds = typeof reference.location.value === 'string' 
-      ? parseInt(reference.location.value) 
-      : reference.location.value;
+  if (reference.source.type === 'youtube') {
+    const seconds = reference.source.location?.value || 0;
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     const timestamp = `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     return `[${timestamp}]`;
   }
   
-  return `[${reference.sourceTitle} on page ${reference.location.value}]`;
+  return `[${reference.source.title} on page ${reference.source.location?.value}]`;
 };
 
 export const parseReferenceTag = (tag: string): Reference | null => {
@@ -39,16 +36,17 @@ export const parseReferenceTag = (tag: string): Reference | null => {
     
     // Handle YouTube format
     if (parts[0] === 'youtube' && parts.length >= 3) {
-      const [_, __, videoUrl, timestamp] = parts;
+      const [_, title, timestamp] = parts;
       return createReference(
-        videoUrl,
         'youtube',
-        'YouTube Video',
+        title,
         {
           type: 'timestamp',
-          value: parseInt(timestamp)
+          value: timestamp.includes(':') 
+            ? convertTimestampToSeconds(timestamp)
+            : parseInt(timestamp)
         },
-        `Reference at ${timestamp} seconds`
+        `Content from video at ${timestamp}`
       );
     }
 
@@ -57,31 +55,27 @@ export const parseReferenceTag = (tag: string): Reference | null => {
       const [sourceType, fileName, pageNumber] = parts;
       console.log('Creating file reference:', { sourceType, fileName, pageNumber });
       
-      // Create reference based on file type
-      if (sourceType === 'txt') {
-        return createReference(
-          fileName,
-          'txt',
-          fileName,
-          {
-            type: 'section',
-            value: parseInt(pageNumber) || pageNumber
-          },
-          `Reference to section ${pageNumber} in ${fileName}`
-        );
-      } else {
-        // Keep existing handling for other file types
-        return createReference(
-          fileName,
-          sourceType as 'pdf' | 'ppt' | 'pptx',
-          fileName,
-          {
-            type: 'page',
-            value: parseInt(pageNumber) || pageNumber
-          },
-          `Reference to page ${pageNumber} in ${fileName}`
-        );
+      const locationType = sourceType === 'txt' 
+        ? 'section' 
+        : sourceType === 'ppt' || sourceType === 'pptx'
+          ? 'slide'
+          : 'page';
+      
+      const value = parseInt(pageNumber);
+      if (isNaN(value)) {
+        console.error('Invalid page/section/slide number:', pageNumber);
+        return null;
       }
+      
+      return createReference(
+        sourceType as ContentSource['type'],
+        fileName,
+        {
+          type: locationType,
+          value
+        },
+        `Content from ${fileName} at ${pageNumber}`
+      );
     }
 
     console.log('Reference tag did not match any format:', tag);
@@ -97,20 +91,18 @@ export const extractReferences = (content: string): { text: string; references: 
   let currentIndex = 0;
 
   const text = content.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
-    console.log('Found reference tag:', match);
     const reference = parseReferenceTag(match);
     if (reference) {
       references.push(reference);
-      const marker = `__REF_MARKER_${references.length - 1}__`;
-      console.log('Created marker:', marker, 'for reference:', reference);
-      return marker;
+      return `__REF_MARKER_${currentIndex++}__`;
     }
-    console.log('Failed to parse reference tag:', match);
     return match;
   });
 
-  console.log('Extracted references:', references);
-  console.log('Processed text:', text);
-
   return { text, references };
+};
+
+const convertTimestampToSeconds = (timestamp: string): number => {
+  const [minutes, seconds] = timestamp.split(':').map(Number);
+  return (minutes * 60) + seconds;
 }; 
