@@ -8,29 +8,32 @@ export const extractReferences = (content: string): { text: string; references: 
   const text = content.replace(/\{\{ref:[^}]+\}\}/g, (match) => {
     console.log('Found reference tag:', match);
     const parts = match.slice(6, -2).split(':');
-    if (parts.length >= 3) {
-      const [type, title, location] = parts;
-      
-      // Create reference based on type
-      const reference: Reference = {
-        text: `Reference from ${title}`,
-        source: {
-          type: type as ContentSource['type'],
-          title: title,
-          location: {
-            type: type === 'youtube' ? 'timestamp' : 'page',
-            value: type === 'youtube' ? parseTimestamp(location) : parseInt(location)
-          }
-        }
-      };
-      
-      references.push(reference);
-      const marker = `__REF_MARKER_${references.length - 1}__`;
-      console.log('Created marker:', marker, 'for reference:', reference);
-      return marker;
+    
+    // Check if the reference format is valid (type:title:location)
+    if (parts.length < 3) {
+      console.warn('Invalid reference format:', match);
+      return match; // Return the original text for invalid references
     }
-    console.log('Failed to parse reference tag:', match);
-    return match;
+    
+    const [type, title, location] = parts;
+    
+    // Create reference based on type
+    const reference: Reference = {
+      text: `Reference from ${title}`,
+      source: {
+        type: type as ContentSource['type'],
+        title: title,
+        location: {
+          type: type === 'youtube' ? 'timestamp' : 'page',
+          value: type === 'youtube' ? parseTimestamp(location) : parseInt(location)
+        }
+      }
+    };
+    
+    references.push(reference);
+    const marker = `__REF_MARKER_${references.length - 1}__`;
+    console.log('Created marker:', marker, 'for reference:', reference);
+    return marker;
   });
 
   console.log('Extracted references:', references);

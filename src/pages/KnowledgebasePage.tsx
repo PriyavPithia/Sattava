@@ -411,18 +411,9 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   
   // Handle reference clicks (for YouTube timestamps, PDF pages, etc.)
   const handleReferenceClick = (reference: Reference) => {
-    // Convert Reference to ContentSource format
-    const contentSource: ContentSource = {
-      type: reference.sourceType,
-      title: reference.sourceTitle,
-      location: {
-        type: reference.location.type,
-        value: typeof reference.location.value === 'string' 
-          ? parseFloat(reference.location.value) 
-          : reference.location.value
-      }
-    };
-    onReferenceClick(contentSource);
+    if (!reference.source) return;
+    
+    onReferenceClick(reference.source);
   };
 
   // Update the content deletion handler
