@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import AudioUploader from './AudioUploader';
+import { AddVideoMethod } from '../types';
 
 // Import our custom editor styles
 import '../styles/editor.css';
@@ -28,8 +29,8 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
+  addVideoMethod: AddVideoMethod;
+  setAddVideoMethod: (method: AddVideoMethod) => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -518,6 +519,17 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           <span>YouTube</span>
         </button>
         <button
+          onClick={() => setAddVideoMethod('youtube_transcript')}
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'youtube_transcript' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <FileText className="w-5 h-5" />
+          <span>YouTube Transcript</span>
+        </button>
+        <button
           onClick={() => setAddVideoMethod('files')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
             addVideoMethod === 'files' 
@@ -586,7 +598,44 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               </button>
             </div>
             <p className="mt-2 text-sm text-gray-500">
-              Paste a YouTube URL to transcribe the video and add it to your knowledgebase.
+              Paste a YouTube URL to add the video to your knowledgebase.
+            </p>
+          </div>
+        )}
+
+        {/* YouTube Transcript Mode */}
+        {addVideoMethod === 'youtube_transcript' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Enter YouTube URL for Transcript
+            </label>
+            <div className="flex">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="flex-1 border border-gray-300 rounded-l px-4 py-2"
+                disabled={isProcessingContent}
+              />
+              <button
+                onClick={onAddVideo}
+                disabled={!url || isProcessingContent}
+                className={`px-4 py-2 rounded-r flex items-center justify-center ${
+                  !url || isProcessingContent
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                {isProcessingContent ? (
+                  <Spinner className="w-5 h-5" />
+                ) : (
+                  <span>Get Transcript</span>
+                )}
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-gray-500">
+              Paste a YouTube URL to extract and add only its transcript to your knowledgebase.
             </p>
           </div>
         )}

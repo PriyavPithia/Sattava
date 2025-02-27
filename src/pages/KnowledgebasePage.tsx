@@ -11,7 +11,7 @@ import QASection from '../components/QASection';
 import { loadChat } from '../utils/database';
 import { 
   VideoItem, ExtractedContent, Message, Collection, 
-  ContentSource, ContentLocation
+  ContentSource, ContentLocation, AddVideoMethod
 } from '../types';
 import { Reference } from '../types/reference';
 import { extractReferences } from '../utils/reference';
@@ -41,7 +41,7 @@ interface KnowledgebasePageProps {
   extractedText: ExtractedContent[];
   currentTimestamp: number;
   onSeek: (timestamp: number) => void;
-  onVideoSelect?: (video: VideoItem) => void;
+  onVideoSelect: (video: VideoItem) => void;
   
   // Transcript viewing settings
   durationFilter: number;
@@ -62,8 +62,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
+  addVideoMethod: AddVideoMethod;
+  setAddVideoMethod: (method: AddVideoMethod) => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;

@@ -23,7 +23,10 @@ import {
   VideoItem, 
   Collection, 
   Message,
-  ExtractedContent 
+  ExtractedContent,
+  ChunkEmbedding,
+  TranscriptResponse,
+  AddVideoMethod
 } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
@@ -97,7 +100,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'files' | 'speech' | 'text'>('youtube');
+  const [addVideoMethod, setAddVideoMethod] = useState<AddVideoMethod>('youtube');
   const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
@@ -170,10 +173,11 @@ function App() {
       // Add to database with transcript
       const content = await addContent(targetCollection.id, {
         title: url,
-        type: 'youtube',
+        type: addVideoMethod === 'youtube_transcript' ? 'txt' : 'youtube',
         url: url,
-        youtube_id: videoId,
-        transcript: JSON.stringify(response.data.transcripts)
+        youtube_id: addVideoMethod === 'youtube' ? videoId : undefined,
+        transcript: addVideoMethod === 'youtube' ? JSON.stringify(response.data.transcripts) : undefined,
+        content: addVideoMethod === 'youtube_transcript' ? response.data.transcripts.map((t: any) => t.text).join('\n') : undefined
       });
 
       // Create the new video item
@@ -181,8 +185,13 @@ function App() {
         id: content.id,
         url,
         title: url,
-        type: 'youtube',
-        transcript: response.data.transcripts
+        type: addVideoMethod === 'youtube_transcript' ? 'txt' : 'youtube',
+        transcript: addVideoMethod === 'youtube' ? response.data.transcripts : undefined,
+        content: addVideoMethod === 'youtube_transcript' ? response.data.transcripts.map((t: any) => t.text).join('\n') : undefined,
+        extractedContent: addVideoMethod === 'youtube_transcript' ? [{
+          text: response.data.transcripts.map((t: any) => t.text).join('\n'),
+          pageNumber: 1
+        }] : undefined
       };
 
       // Update collections
@@ -195,11 +204,23 @@ function App() {
         return updatedCollections;
       });
 
+      // Show success toast
+      setToast({
+        message: `${addVideoMethod === 'youtube' ? 'Video' : 'Transcript'} added successfully`,
+        type: 'success'
+      });
+
       setUrl('');
       setError('');
     } catch (error) {
       console.error('Error adding video:', error);
       setError('Failed to add video. Please try again.');
+      
+      // Show error toast
+      setToast({
+        message: `Failed to add ${addVideoMethod === 'youtube' ? 'video' : 'transcript'}`,
+        type: 'error'
+      });
     } finally {
       setLoading(false);
       setIsProcessingContent(false);

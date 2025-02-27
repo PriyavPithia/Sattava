@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import ContentAddition from '../components/ContentAddition';
-import { Collection, VideoItem } from '../types';
+import { Collection, VideoItem, AddVideoMethod } from '../types';
 import { Plus, FolderPlus, FileText, Youtube, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 
 interface UploadPageProps {
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
+  addVideoMethod: AddVideoMethod;
+  setAddVideoMethod: (method: AddVideoMethod) => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
