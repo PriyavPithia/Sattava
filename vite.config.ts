@@ -11,7 +11,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['pdfjs-dist/build/pdf.worker.entry'],
-    include: ['youtube-transcript']
   },
   build: {
     rollupOptions: {
@@ -20,7 +19,6 @@ export default defineConfig({
           pdfWorker: ['pdfjs-dist/build/pdf.worker.entry'],
         },
       },
-      external: ['youtube-transcript']
     },
   },
   server: {
