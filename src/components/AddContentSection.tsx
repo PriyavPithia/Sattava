@@ -494,8 +494,12 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       
       // Submit the transcription to be added to the knowledge base
       onTextSubmit(JSON.stringify(speechData));
+      
+      // Clear the transcription after submission to prevent duplicate entries
+      setTranscription('');
+      setPermanentTranscript('');
+      setInterimTranscript('');
     }
-    setTranscription(newTranscription);
   };
 
   return (

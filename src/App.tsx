@@ -182,11 +182,14 @@ function App() {
       };
 
       // Update collections
-      setCollections(prev => prev.map(col => 
-        col.id === targetCollection!.id
-          ? { ...col, items: [...col.items, newVideo] }
-          : col
-      ));
+      setCollections(prev => {
+        const updatedCollections = prev.map(col => 
+          col.id === targetCollection!.id
+            ? { ...col, items: [...col.items, newVideo] }
+            : col
+        );
+        return updatedCollections;
+      });
 
       setUrl('');
       setError('');
@@ -677,6 +680,8 @@ function App() {
           const slides = await extractPowerPointContent(file);
           return slides.map(slide => slide.text).join('\n\n');
         } else if (['doc', 'docx'].includes(fileType)) {
+          // For Word documents, we'd need a specific library
+          // This is a placeholder - in a real app, you'd use a library like mammoth.js
           return await file.text(); // Simplified approach
         }
         return '';
@@ -685,18 +690,15 @@ function App() {
       // Process content first
       const processedContent = await processContent();
 
-      // Create a unique ID for the content
-      const contentId = uuidv4();
-
       // Then save to database with the processed content
       const content = await addContent(selectedCollection.id, {
         title: file.name,
         type: fileType,
-        content: processedContent,
-        url: file.name
+        content: processedContent, // Save the processed content
+        url: file.name // Just use the filename as URL
       });
 
-      // Create the final item
+      // Update with real content
       const newItem: VideoItem = {
         id: content.id,
         url: file.name,
@@ -709,17 +711,20 @@ function App() {
         }]
       };
 
-      // Update collections with real item, replacing the temporary one
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? { 
-              ...col, 
-              items: col.items.map(item => 
-                item.id === optimisticId ? newItem : item
-              )
-            }
-          : col
-      ));
+      // Update collections with real item
+      setCollections(prev => {
+        const updatedCollections = prev.map(col => 
+          col.id === selectedCollection.id
+            ? { 
+                ...col, 
+                items: col.items
+                  .filter(item => item.id !== optimisticId)
+                  .concat(newItem)
+              }
+            : col
+        );
+        return updatedCollections;
+      });
 
       if (!selectedVideo) {
         setSelectedVideo(newItem);
@@ -821,16 +826,19 @@ function App() {
       }
 
       // Update the state with the real item
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? {
-              ...col,
-              items: col.items.map(item => 
-                item.id === optimisticId ? newItem : item
-              )
-            }
-          : col
-      ));
+      setCollections(prev => {
+        const updatedCollections = prev.map(col => 
+          col.id === selectedCollection.id
+            ? {
+                ...col,
+                items: col.items.map(item => 
+                  item.id === optimisticId ? newItem : item
+                )
+              }
+            : col
+        );
+        return updatedCollections;
+      });
     } catch (error) {
       console.error('Error processing text:', error);
       setError('Failed to process text');
