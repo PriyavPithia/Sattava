@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
+    include: ['youtube-transcript'],
     exclude: ['pdfjs-dist/build/pdf.worker.entry'],
   },
   build: {
@@ -19,6 +20,7 @@ export default defineConfig({
           pdfWorker: ['pdfjs-dist/build/pdf.worker.entry'],
         },
       },
+      external: ['youtube-transcript']
     },
   },
   server: {

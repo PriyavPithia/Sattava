@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { YoutubeTranscript } from 'youtube-transcript';
 import { Loader2 } from 'lucide-react';
 
 interface YoutubeTranscriptTabProps {
   videoId: string;
   onTranscriptFetched: (transcript: any) => void;
+}
+
+interface TranscriptSegment {
+  text: string;
+  offset: number;
+  duration: number;
 }
 
 const YoutubeTranscriptTab: React.FC<YoutubeTranscriptTabProps> = ({ videoId, onTranscriptFetched }) => {
@@ -15,7 +20,23 @@ const YoutubeTranscriptTab: React.FC<YoutubeTranscriptTabProps> = ({ videoId, on
     try {
       setLoading(true);
       setError(null);
-      const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+      
+      // Use the SearchAPI endpoint that's already set up in the app
+      const response = await fetch(`https://www.searchapi.io/api/v1/search?engine=youtube_transcripts&video_id=${videoId}&api_key=${import.meta.env.VITE_SEARCH_API_KEY}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transcript');
+      }
+
+      const data = await response.json();
+      
+      // Transform the data to match the expected format
+      const transcript = data.transcripts.map((segment: any) => ({
+        text: segment.text,
+        offset: segment.start * 1000, // Convert to milliseconds
+        duration: segment.duration * 1000 // Convert to milliseconds
+      }));
+
       onTranscriptFetched(transcript);
     } catch (err) {
       setError('Failed to fetch transcript. Please make sure the video has captions available.');
