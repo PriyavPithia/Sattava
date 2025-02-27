@@ -764,11 +764,18 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
               <select
                 className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
                 value={selectedVideo?.id || ''}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
+                  // Set navigation lock to prevent unwanted navigation
+                  navigationLockRef.current = true;
                   const video = selectedCollection.items.find(item => item.id === e.target.value);
                   if (video && onVideoSelect) {
                     onVideoSelect(video);
                   }
+                  // Release the lock after a short delay to ensure state updates complete
+                  setTimeout(() => {
+                    navigationLockRef.current = false;
+                  }, 300);
                 }}
               >
                 <option value="" disabled>Select content to view</option>
