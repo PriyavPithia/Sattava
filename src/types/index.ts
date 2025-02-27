@@ -86,4 +86,17 @@ export interface TranscriptSegment {
   offset: number;
   duration: number;
   start?: number;
+}
+
+export interface Content {
+  id: string;
+  project_id: string;
+  user_id: string;
+  title: string;
+  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+  content?: string;
+  url: string;
+  created_at: string;
+  youtube_id?: string;
+  transcript?: string;
 } 

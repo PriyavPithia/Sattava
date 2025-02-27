@@ -26,13 +26,13 @@ import {
   ExtractedContent,
   ChunkEmbedding,
   TranscriptResponse,
-  AddVideoMethod
+  AddVideoMethod,
+  Content
 } from './types';
 import { useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import { createProject, getProjects, addContent, saveChat, loadChat } from './utils/database';
 import { supabase } from './lib/supabase';
-import { Content } from './types/database';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
@@ -44,15 +44,6 @@ const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY || '',
   dangerouslyAllowBrowser: true
 });
-
-interface ChunkEmbedding {
-  text: string;
-  embedding: number[];
-}
-
-interface TranscriptResponse {
-  transcripts: TranscriptSegment[];
-}
 
 // HomeButton props interface
 interface HomeButtonProps {
@@ -146,14 +137,13 @@ function App() {
       setError('');
       const videoId = extractVideoId(url);
       
-      // Get transcript first
-      const response = await axios.get('https://www.searchapi.io/api/v1/search', {
-        params: {
-          engine: 'youtube_transcripts',
-          video_id: videoId,
-          api_key: import.meta.env.VITE_SEARCH_API_KEY
-        }
-      });
+      if (!videoId) {
+        throw new Error('Invalid YouTube URL');
+      }
+
+      // Get transcript using our new endpoint
+      const response = await axios.post('/api/youtube-transcript', { videoId });
+      const transcriptData = response.data.transcript;
 
       // Create a new collection if none is selected
       let targetCollection = selectedCollection;
@@ -176,8 +166,8 @@ function App() {
         type: addVideoMethod === 'youtube_transcript' ? 'txt' : 'youtube',
         url: url,
         youtube_id: addVideoMethod === 'youtube' ? videoId : undefined,
-        transcript: addVideoMethod === 'youtube' ? JSON.stringify(response.data.transcripts) : undefined,
-        content: addVideoMethod === 'youtube_transcript' ? response.data.transcripts.map((t: any) => t.text).join('\n') : undefined
+        transcript: addVideoMethod === 'youtube' ? JSON.stringify(transcriptData) : undefined,
+        content: addVideoMethod === 'youtube_transcript' ? transcriptData.map((t: any) => t.text).join('\n') : undefined
       });
 
       // Create the new video item
@@ -186,10 +176,10 @@ function App() {
         url,
         title: url,
         type: addVideoMethod === 'youtube_transcript' ? 'txt' : 'youtube',
-        transcript: addVideoMethod === 'youtube' ? response.data.transcripts : undefined,
-        content: addVideoMethod === 'youtube_transcript' ? response.data.transcripts.map((t: any) => t.text).join('\n') : undefined,
+        transcript: addVideoMethod === 'youtube' ? transcriptData : undefined,
+        content: addVideoMethod === 'youtube_transcript' ? transcriptData.map((t: any) => t.text).join('\n') : undefined,
         extractedContent: addVideoMethod === 'youtube_transcript' ? [{
-          text: response.data.transcripts.map((t: any) => t.text).join('\n'),
+          text: transcriptData.map((t: any) => t.text).join('\n'),
           pageNumber: 1
         }] : undefined
       };
@@ -197,7 +187,7 @@ function App() {
       // Update collections
       setCollections(prev => {
         const updatedCollections = prev.map(col => 
-          col.id === targetCollection!.id
+          col.id === targetCollection?.id
             ? { ...col, items: [...col.items, newVideo] }
             : col
         );
@@ -214,11 +204,12 @@ function App() {
       setError('');
     } catch (error) {
       console.error('Error adding video:', error);
-      setError('Failed to add video. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add video. Please try again.';
+      setError(errorMessage);
       
       // Show error toast
       setToast({
-        message: `Failed to add ${addVideoMethod === 'youtube' ? 'video' : 'transcript'}`,
+        message: `Failed to add ${addVideoMethod === 'youtube' ? 'video' : 'transcript'}: ${errorMessage}`,
         type: 'error'
       });
     } finally {
@@ -790,113 +781,71 @@ function App() {
 
     try {
       setIsProcessingContent(true);
-      setError('');
-
-      // Check if this is a speech submission
-      let contentType: Content['type'] = 'txt';
-      let contentText = text;
-      let contentTitle = `Text Input (${new Date().toLocaleString()})`;
       
-      try {
-        const parsedData = JSON.parse(text);
-        if (parsedData.type === 'speech' && parsedData.text) {
-          contentType = 'txt'; // Store speech as text content
-          contentText = parsedData.text;
-          contentTitle = `Speech to Text (${new Date().toLocaleString()})`;
-        }
-      } catch (e) {
-        // Not JSON, treat as regular text
-      }
-
-      // Create optimistic update with temporary ID
-      const optimisticId = 'temp-' + Date.now();
+      // Parse the text content
+      let contentType: VideoItem['type'] = 'txt';
+      let contentText = text;
+      let contentTitle = 'Text Note';
+      
+      // Create optimistic ID
+      const optimisticId = `temp-${Date.now()}`;
+      
+      // Create temporary item for optimistic update
       const tempItem: VideoItem = {
         id: optimisticId,
-        url: contentType === 'speech' ? 'speech-input' : 'text-input',
+        url: 'text-input',
         title: contentTitle,
         type: contentType,
         extractedContent: [{
-          text: 'Processing content...',
+          text: contentText,
           pageNumber: 1
         }]
       };
-
-      // Add temporary item to collections
-      setCollections(prev => {
-        const updatedCollections = prev.map(col => 
-          col.id === selectedCollection.id
-            ? {
-                ...col,
-                items: [...col.items, tempItem]
-              }
-            : col
-        );
-        return updatedCollections;
-      });
-
-      // Process the text content
-      const extractedContent = createChunksFromText(contentText);
       
-      // Save to database
+      // Add to database with required title
       const content = await addContent(selectedCollection.id, {
-        title: contentTitle,
         type: contentType,
         content: contentText,
-        url: contentType === 'speech' ? 'speech-input' : 'text-input'
+        url: 'text-input',
+        title: contentTitle
       });
-
+      
       // Create the final item
       const newItem: VideoItem = {
         id: content.id,
-        url: contentType === 'speech' ? 'speech-input' : 'text-input',
+        url: 'text-input',
         title: contentTitle,
         type: contentType,
         content: contentText,
-        extractedContent
+        extractedContent: [{
+          text: contentText,
+          pageNumber: 1
+        }]
       };
-
-      // Update collections state with the real item
+      
+      // Update collections with the final item
       setCollections(prev => {
         const updatedCollections = prev.map(col => 
           col.id === selectedCollection.id
-            ? {
-                ...col,
-                items: col.items
-                  .filter(item => item.id !== optimisticId)
-                  .concat([newItem])
-              }
+            ? { ...col, items: [...col.items.filter(i => i.id !== optimisticId), newItem] }
             : col
         );
         return updatedCollections;
       });
-
-      // Set as selected video if none is selected
-      if (!selectedVideo) {
-        setSelectedVideo(newItem);
-      }
-
+      
       // Show success toast
       setToast({
         message: 'Content added successfully',
         type: 'success'
       });
-
     } catch (error) {
-      console.error('Error processing text:', error);
-      setError('Failed to process text');
+      console.error('Error adding content:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add content';
+      setError(errorMessage);
       
-      // Remove temporary item on error
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? {
-              ...col,
-              items: col.items.filter(item => !item.id.startsWith('temp-'))
-            }
-          : col
-      ));
-
+      // Show error toast
       setToast({
-        message: 'Failed to add content',
+        message: `Failed to add content: ${errorMessage}`,
         type: 'error'
       });
     } finally {
