@@ -85,7 +85,7 @@ export interface TranscriptSegment {
   text: string;
   offset: number;
   duration: number;
-  start?: number;
+  start: number;
 }
 
 export interface Content {
