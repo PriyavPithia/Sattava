@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import axios from 'axios';
-import { FileText, Plus, Home, Upload, UserCircle, LogOut } from 'lucide-react';
+import { FileText, Plus, Home, Upload, UserCircle, LogOut, CheckCircle, XCircle } from 'lucide-react';
 import OpenAI from 'openai';
 import { useNavigate, Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
@@ -110,6 +110,10 @@ function App() {
   const [isProcessingContent, setIsProcessingContent] = useState<boolean>(false);
   const [combinedContent, setCombinedContent] = useState<CombinedContent[]>([]);
   const [chatHistories, setChatHistories] = useState<{ [key: string]: Message[] }>({});
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
 
   // Update PDF.js worker configuration
   GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -694,8 +698,8 @@ function App() {
       const content = await addContent(selectedCollection.id, {
         title: file.name,
         type: fileType,
-        content: processedContent, // Save the processed content
-        url: file.name // Just use the filename as URL
+        content: processedContent,
+        url: file.name
       });
 
       // Update with real content
@@ -730,6 +734,12 @@ function App() {
         setSelectedVideo(newItem);
       }
 
+      // Show success toast
+      setToast({
+        message: 'Content added successfully',
+        type: 'success'
+      });
+
       // Clear input
       if (event.target.value) {
         event.target.value = '';
@@ -738,6 +748,10 @@ function App() {
     } catch (error) {
       console.error('Error processing file:', error);
       setError('Failed to process file. Please try again.');
+      setToast({
+        message: 'Failed to add content',
+        type: 'error'
+      });
       
       // Remove temporary item
       setCollections(prev => prev.map(col => 
@@ -1070,11 +1084,6 @@ function App() {
 
   const handleDeleteContent = async (collectionId: string, contentId: string) => {
     try {
-      // Store item for potential rollback
-      const itemToDelete = collections
-        .find(col => col.id === collectionId)
-        ?.items.find(item => item.id === contentId);
-
       // Delete from database first
       const { error } = await supabase
         .from('content')
@@ -1083,7 +1092,7 @@ function App() {
 
       if (error) throw error;
 
-      // Only update UI after successful database deletion
+      // Update UI after successful database deletion
       setCollections(prev => prev.map(col => 
         col.id === collectionId
           ? { ...col, items: col.items.filter(item => item.id !== contentId) }
@@ -1096,9 +1105,19 @@ function App() {
         setExtractedText([]);
       }
 
+      // Show success toast
+      setToast({
+        message: 'Content deleted successfully',
+        type: 'success'
+      });
+
     } catch (error) {
       console.error('Error deleting content:', error);
       setError('Failed to delete content. Please try again.');
+      setToast({
+        message: 'Failed to delete content',
+        type: 'error'
+      });
     }
   };
 
@@ -1293,6 +1312,16 @@ function App() {
     }
   };
 
+  // Add effect to auto-dismiss toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   if (authLoading) {
     return <div>Loading...</div>;
   }
@@ -1305,6 +1334,20 @@ function App() {
     <Router>
       <HighlightProvider>
         <div className="min-h-screen bg-gray-50">
+          {/* Toast component */}
+          {toast && (
+            <div className={`fixed bottom-4 right-4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white transform transition-transform duration-300 ${
+              toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`}>
+              {toast.type === 'success' ? (
+                <CheckCircle className="w-5 h-5" />
+              ) : (
+                <XCircle className="w-5 h-5" />
+              )}
+              {toast.message}
+            </div>
+          )}
+          
           {/* Navigation */}
           <nav className="bg-white shadow-sm">
             <div className="max-w-7xl mx-auto px-4">
