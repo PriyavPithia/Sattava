@@ -795,31 +795,26 @@ function App() {
 
       // Process the text content
       const extractedContent = createChunksFromText(contentText);
+
+      // Save to database first
+      const content = await addContent(selectedCollection.id, {
+        title: contentTitle,
+        type: contentType,
+        content: contentText,
+        url: contentType === 'speech' ? 'speech-input' : 'text-input'
+      });
       
-      // Create a unique ID for the content
-      const contentId = uuidv4();
-      
-      // Create the final item
+      // Create the final item with the database ID
       const newItem: VideoItem = {
-        id: contentId,
+        id: content.id,
         url: contentType === 'speech' ? 'speech-input' : 'text-input',
         title: contentTitle,
         type: contentType,
+        content: contentText,
         extractedContent
       };
 
-      // Update the database
-      await addToCollection(contentId, selectedCollection.id);
-      
-      // Save the item to the database
-      try {
-        // This is a placeholder for the actual database update
-        console.log('Saving video item:', contentId, newItem);
-      } catch (error) {
-        console.error('Error saving video item:', error);
-      }
-
-      // Update the state with the real item
+      // Update the state with the real item from database
       setCollections(prev => prev.map(col => 
         col.id === selectedCollection.id
           ? {
@@ -830,6 +825,7 @@ function App() {
             }
           : col
       ));
+
     } catch (error) {
       console.error('Error processing text:', error);
       setError('Failed to process text');

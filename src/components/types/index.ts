@@ -3,7 +3,7 @@ export interface VideoItem {
   url: string;
   title: string;
   isEditing?: boolean;
-  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx';
+  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech';
   content?: string;
   extractedContent?: ExtractedContent[];
 }
