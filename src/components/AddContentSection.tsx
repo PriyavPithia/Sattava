@@ -519,15 +519,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           <span>YouTube</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('video')}
+          onClick={() => setAddVideoMethod('youtube_transcript')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'video' 
+            addVideoMethod === 'youtube_transcript' 
               ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Upload className="w-5 h-5" />
-          <span>Upload Video</span>
+          <FileText className="w-5 h-5" />
+          <span>YouTube Transcript</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('files')}
@@ -603,36 +603,39 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Video Upload Mode */}
-        {addVideoMethod === 'video' && (
+        {/* YouTube Transcript Mode */}
+        {addVideoMethod === 'youtube_transcript' && (
           <div>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Enter YouTube URL for Transcript
+            </label>
+            <div className="flex">
               <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="video/*"
-                className="hidden"
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="flex-1 border border-gray-300 rounded-l px-4 py-2"
                 disabled={isProcessingContent}
               />
+              <button
+                onClick={onAddVideo}
+                disabled={!url || isProcessingContent}
+                className={`px-4 py-2 rounded-r flex items-center justify-center ${
+                  !url || isProcessingContent
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
               {isProcessingContent ? (
-                <div className="flex flex-col items-center">
-                  <Spinner className="w-8 h-8 text-blue-500" />
-                  <p className="mt-2 text-sm text-gray-600">Processing video...</p>
-                </div>
-              ) : (
-                <div 
-                  className="flex flex-col items-center cursor-pointer"
-                  onClick={handleFileButtonClick}
-                >
-                  <Upload className="w-12 h-12 text-gray-400" />
-                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload video</p>
-                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
-                </div>
-              )}
+                  <Spinner className="w-5 h-5" />
+                ) : (
+                  <span>Get Transcript</span>
+                )}
+              </button>
             </div>
-            <p className="mt-4 text-sm text-gray-500">
-              Upload video files (MP4, WebM, etc.) to add to your knowledgebase.
+            <p className="mt-2 text-sm text-gray-500">
+              Paste a YouTube URL to extract and add only its transcript to your knowledgebase.
             </p>
           </div>
         )}

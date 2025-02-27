@@ -73,32 +73,6 @@ const HomeButton: React.FC<HomeButtonProps> = ({ onSelectCollection }) => {
   );
 };
 
-// File processing functions
-const processPdfFile = async (file: File): Promise<string> => {
-  const pdfData = await file.arrayBuffer();
-  const pdf = await getDocument(pdfData).promise;
-  const numPages = pdf.numPages;
-  const textContent = [];
-  
-  for (let i = 1; i <= numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    textContent.push(content.items.map((item: any) => item.str).join(' '));
-  }
-  
-  return textContent.join('\n');
-};
-
-const processTextFile = async (file: File): Promise<string> => {
-  return await file.text();
-};
-
-const processPowerPointFile = async (file: File): Promise<string> => {
-  // For now, just return a placeholder message
-  // In a real implementation, you would use a library to extract text from PowerPoint files
-  return `PowerPoint content from ${file.name}`;
-};
-
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [url, setUrl] = useState<string>('');
@@ -167,36 +141,57 @@ function App() {
         throw new Error('Invalid YouTube URL');
       }
 
-      // Create a new video item
-      const newVideo: VideoItem = {
-        id: `video-${Date.now()}`,
-        url: url,
-        title: url,
-        type: 'youtube',
-        youtube_id: videoId
-      };
+      let transcriptData;
+      if (addVideoMethod === 'youtube_transcript') {
+        // Get transcript using our new endpoint
+        const apiUrl = process.env.NODE_ENV === 'production' 
+          ? '/api/youtube-transcript'  // Production URL
+          : 'http://localhost:3000/api/youtube-transcript'; // Development URL
+        
+        const response = await axios.post(apiUrl, { videoId });
+        transcriptData = response.data.transcript;
+        
+        if (!transcriptData) {
+          throw new Error('No transcript data received');
+        }
 
-      // Add to collection
-      if (selectedCollection) {
-        // Update collections state
-        setCollections(prev => prev.map(col => 
-          col.id === selectedCollection.id
-            ? { ...col, items: [newVideo, ...col.items] }
-            : col
-        ));
-
-        // Update selected collection state
-        const updatedCollection = {
-          ...selectedCollection,
-          items: [newVideo, ...selectedCollection.items]
+        // Create a new video item for the transcript
+        const newVideo: VideoItem = {
+          id: `transcript-${Date.now()}`,
+          url: url,
+          title: `YouTube Transcript - ${url}`,
+          type: 'youtube',
+          youtube_id: videoId,
+          transcript: transcriptData
         };
-        setSelectedCollection(updatedCollection);
 
-        // Update in database
-        await handleUpdateProject(selectedCollection.id, selectedCollection.name, selectedCollection.description);
+        // Add to collection
+        if (selectedCollection) {
+          // Update collections state
+          setCollections(prev => prev.map(col => 
+            col.id === selectedCollection.id
+              ? { ...col, items: [newVideo, ...col.items] }
+              : col
+          ));
+
+          // Update selected collection state
+          const updatedCollection = {
+            ...selectedCollection,
+            items: [newVideo, ...selectedCollection.items]
+          };
+          setSelectedCollection(updatedCollection);
+
+          // Update in database
+          await handleUpdateProject(selectedCollection.id, selectedCollection.name, selectedCollection.description);
+        }
+
+        setSelectedVideo(newVideo);
+        setRawResponse({ transcripts: transcriptData });
+      } else {
+        // Handle regular YouTube video processing
+        // ... existing YouTube video processing code ...
       }
 
-      setSelectedVideo(newVideo);
       setLoading(false);
       setIsProcessingContent(false);
       setUrl('');
@@ -642,62 +637,56 @@ function App() {
     try {
       setIsProcessingContent(true);
       setError('');
+      let fileType = file.name.split('.').pop()?.toLowerCase() as Content['type'];
 
-      // Create an optimistic ID for the temporary item
-      const optimisticId = `temp-${Date.now()}`;
-
-      // Determine file type
-      let fileType: VideoItem['type'];
-      if (file.type.startsWith('video/')) {
-        fileType = 'local';
-      } else if (file.name.endsWith('.pdf')) {
-        fileType = 'pdf';
-      } else if (file.name.endsWith('.txt')) {
-        fileType = 'txt';
-      } else if (file.name.endsWith('.ppt')) {
-        fileType = 'ppt';
-      } else if (file.name.endsWith('.pptx')) {
-        fileType = 'pptx';
-      } else {
-        throw new Error('Unsupported file type');
-      }
-
-      // Create a temporary item
+      // Create optimistic update with a temporary ID
+      const optimisticId = 'temp-' + Date.now();
       const tempItem: VideoItem = {
         id: optimisticId,
-        url: file.name,
+        url: URL.createObjectURL(file),
         title: file.name,
-        type: fileType
+        type: fileType,
+        extractedContent: [{
+          text: 'Processing content...',
+          pageNumber: 1
+        }]
       };
 
       // Add temporary item to collections
-      setCollections(prev => prev.map(col => 
-        col.id === selectedCollection.id
-          ? { ...col, items: [tempItem, ...col.items] }
-          : col
-      ));
+      setCollections(prev => {
+        const updatedCollections = prev.map(col => 
+          col.id === selectedCollection.id
+            ? { ...col, items: [...col.items, tempItem] }
+            : col
+        );
+        return updatedCollections;
+      });
 
-      let processedContent = '';
-
-      // Process file based on type
-      if (fileType === 'local') {
-        // For video files, we'll just store the file metadata
-        processedContent = JSON.stringify({
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          lastModified: file.lastModified
-        });
-      } else if (fileType === 'pdf') {
-        // Process PDF file
-        processedContent = await processPdfFile(file);
-      } else if (fileType === 'txt') {
-        // Process text file
-        processedContent = await processTextFile(file);
-      } else if (fileType === 'ppt' || fileType === 'pptx') {
-        // Process PowerPoint file
-        processedContent = await processPowerPointFile(file);
-      }
+      // Process the content
+      const processedContent = await (async () => {
+        if (fileType === 'pdf') {
+          const pdfData = await file.arrayBuffer();
+          const pdf = await getDocument(pdfData).promise;
+          const numPages = pdf.numPages;
+          const textContent = [];
+          
+          for (let i = 1; i <= numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            textContent.push(content.items.map((item: any) => item.str).join(' '));
+          }
+          
+          return textContent.join('\n');
+        } else if (fileType === 'txt') {
+          return await file.text();
+        } else if (['ppt', 'pptx'].includes(fileType)) {
+          const slides = await extractPowerPointContent(file);
+          return slides.map(slide => slide.text).join('\n\n');
+        } else if (['doc', 'docx'].includes(fileType)) {
+          return await file.text();
+        }
+        return '';
+      })();
 
       // Save to database
       const content = await addContent(selectedCollection.id, {
@@ -714,10 +703,10 @@ function App() {
         title: file.name,
         type: fileType,
         content: processedContent,
-        extractedContent: fileType !== 'local' ? [{
+        extractedContent: [{
           text: processedContent,
           pageNumber: 1
-        }] : undefined
+        }]
       };
 
       // Update collections state with the real item
