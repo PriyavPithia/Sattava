@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, FormEvent, useRef } from 'react';
+import React, { useState, ChangeEvent, useRef } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
@@ -46,21 +46,26 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
     console.log('Starting audio transcription...');
 
     const formData = new FormData();
-    formData.append('audio', audioFile);
+    formData.append('file', audioFile); // OpenAI expects 'file', not 'audio'
+    formData.append('model', 'whisper-1'); // Specify the model
 
     try {
-      console.log('Sending request to transcription API...');
-      const response = await axios.post('/api/whisper-transcription', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        // Add timeout and show upload progress
-        timeout: 30000,
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-          console.log(`Upload progress: ${percentCompleted}%`);
-        },
-      });
+      console.log('Sending request to OpenAI Whisper API...');
+      const response = await axios.post(
+        'https://api.openai.com/v1/audio/transcriptions',
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          timeout: 30000,
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+            console.log(`Upload progress: ${percentCompleted}%`);
+          },
+        }
+      );
 
       console.log('Transcription response:', response.data);
       
@@ -68,7 +73,7 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
         throw new Error(response.data.error);
       }
 
-      const newTranscription = response.data.transcription;
+      const newTranscription = response.data.text; // OpenAI returns 'text', not 'transcription'
       setTranscription(newTranscription);
       
       if (onTranscriptionComplete) {
@@ -80,13 +85,13 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
       
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-          errorMessage = 'Could not connect to the server. Please check your internet connection.';
-        } else if (error.response?.status === 405) {
-          errorMessage = 'Invalid request method. Please contact support.';
+          errorMessage = 'Could not connect to OpenAI. Please check your internet connection.';
+        } else if (error.response?.status === 401) {
+          errorMessage = 'Invalid API key. Please check your OpenAI API key configuration.';
         } else if (error.response?.status === 413) {
           errorMessage = 'File is too large. Maximum size is 25MB.';
         } else if (error.response?.data?.error) {
-          errorMessage = error.response.data.error;
+          errorMessage = error.response.data.error.message || error.response.data.error;
         } else if (error.message) {
           errorMessage = error.message;
         }
