@@ -19,7 +19,7 @@ export interface CurrentGroup {
 export interface CombinedContent {
   text: string;
   source: {
-    type: 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech';
+    type: 'youtube' | 'pdf' | 'txt' | 'ppt' | 'pptx';
     title: string;
     location?: string;
   };

@@ -11,7 +11,7 @@ export interface Content {
   project_id: string;
   user_id: string;
   title: string;
-  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx' | 'speech';
+  type: 'youtube' | 'local' | 'pdf' | 'txt' | 'ppt' | 'pptx';
   url?: string;
   content?: string;
   youtube_id?: string;

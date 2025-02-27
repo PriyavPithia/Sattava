@@ -484,20 +484,18 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
   }, [isProcessingContent, editor]);
 
   const handleTranscriptionComplete = (newTranscription: string) => {
-    if (onTextSubmit && newTranscription.trim()) {
-      // Create a speech data object
+    if (onTextSubmit) {
+      // Create a speech data object with the transcription
       const speechData = {
-        text: newTranscription.trim(),
+        text: newTranscription,
         type: 'speech',
         source: 'whisper_transcription'
       };
       
-      // Submit to knowledgebase
+      // Submit the transcription to be added to the knowledge base
       onTextSubmit(JSON.stringify(speechData));
-      
-      // Reset the transcription state
-      setTranscription('');
     }
+    setTranscription(newTranscription);
   };
 
   return (
