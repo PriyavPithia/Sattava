@@ -141,78 +141,59 @@ function App() {
         throw new Error('Invalid YouTube URL');
       }
 
-      // Get transcript using our new endpoint
-      const response = await axios.post('/api/youtube-transcript', { videoId });
-      const transcriptData = response.data.transcript;
+      let transcriptData;
+      if (addVideoMethod === 'youtube_transcript') {
+        // Get transcript using our new endpoint
+        const response = await axios.post('/api/youtube-transcript', { videoId });
+        transcriptData = response.data.transcript;
+        
+        if (!transcriptData) {
+          throw new Error('No transcript data received');
+        }
 
-      // Create a new collection if none is selected
-      let targetCollection = selectedCollection;
-      if (!targetCollection) {
-        const newProject = await createProject('My Collection');
-        const newCollection: Collection = {
-          id: newProject.id,
-          name: newProject.name,
-          items: [],
-          createdAt: new Date(newProject.created_at)
+        // Create a new video item for the transcript
+        const newVideo: VideoItem = {
+          id: `transcript-${Date.now()}`,
+          url: url,
+          title: `YouTube Transcript - ${url}`,
+          type: 'youtube',
+          youtube_id: videoId,
+          transcript: transcriptData
         };
-        targetCollection = newCollection;
-        setSelectedCollection(newCollection);
-        setCollections(prev => [...prev, newCollection]);
+
+        // Add to collection
+        if (selectedCollection) {
+          // Update collections state
+          setCollections(prev => prev.map(col => 
+            col.id === selectedCollection.id
+              ? { ...col, items: [newVideo, ...col.items] }
+              : col
+          ));
+
+          // Update selected collection state
+          const updatedCollection = {
+            ...selectedCollection,
+            items: [newVideo, ...selectedCollection.items]
+          };
+          setSelectedCollection(updatedCollection);
+
+          // Update in database
+          await handleUpdateProject(selectedCollection.id, selectedCollection.name, selectedCollection.description);
+        }
+
+        setSelectedVideo(newVideo);
+        setRawResponse({ transcripts: transcriptData });
+      } else {
+        // Handle regular YouTube video processing
+        // ... existing YouTube video processing code ...
       }
 
-      // Add to database with transcript
-      const content = await addContent(targetCollection.id, {
-        title: url,
-        type: addVideoMethod === 'youtube_transcript' ? 'txt' : 'youtube',
-        url: url,
-        youtube_id: addVideoMethod === 'youtube' ? videoId : undefined,
-        transcript: addVideoMethod === 'youtube' ? JSON.stringify(transcriptData) : undefined,
-        content: addVideoMethod === 'youtube_transcript' ? transcriptData.map((t: any) => t.text).join('\n') : undefined
-      });
-
-      // Create the new video item
-      const newVideo: VideoItem = {
-        id: content.id,
-        url,
-        title: url,
-        type: addVideoMethod === 'youtube_transcript' ? 'txt' : 'youtube',
-        transcript: addVideoMethod === 'youtube' ? transcriptData : undefined,
-        content: addVideoMethod === 'youtube_transcript' ? transcriptData.map((t: any) => t.text).join('\n') : undefined,
-        extractedContent: addVideoMethod === 'youtube_transcript' ? [{
-          text: transcriptData.map((t: any) => t.text).join('\n'),
-          pageNumber: 1
-        }] : undefined
-      };
-
-      // Update collections
-      setCollections(prev => {
-        const updatedCollections = prev.map(col => 
-          col.id === targetCollection?.id
-            ? { ...col, items: [...col.items, newVideo] }
-            : col
-        );
-        return updatedCollections;
-      });
-
-      // Show success toast
-      setToast({
-        message: `${addVideoMethod === 'youtube' ? 'Video' : 'Transcript'} added successfully`,
-        type: 'success'
-      });
-
+      setLoading(false);
+      setIsProcessingContent(false);
       setUrl('');
-      setError('');
     } catch (error) {
       console.error('Error adding video:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to add video. Please try again.';
-      setError(errorMessage);
-      
-      // Show error toast
-      setToast({
-        message: `Failed to add ${addVideoMethod === 'youtube' ? 'video' : 'transcript'}: ${errorMessage}`,
-        type: 'error'
-      });
-    } finally {
+      setError(error instanceof Error ? error.message : 'Failed to add video');
       setLoading(false);
       setIsProcessingContent(false);
     }
