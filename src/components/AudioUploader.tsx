@@ -28,6 +28,13 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
         setError('File size must be less than 25MB');
         return;
       }
+      
+      // Check file type
+      if (!selectedFile.type.startsWith('audio/')) {
+        setError('Please upload an audio file');
+        return;
+      }
+      
       setFile(selectedFile);
       handleSubmit(selectedFile);
     }
@@ -36,16 +43,30 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
   const handleSubmit = async (audioFile: File) => {
     setIsLoading(true);
     setError('');
+    console.log('Starting audio transcription...');
 
     const formData = new FormData();
-    formData.append('audio', audioFile);
+    formData.append('audio', audioFile); // Using 'audio' as the key to match API expectation
 
     try {
+      console.log('Sending request to transcription API...');
       const response = await axios.post('/api/whisper-transcription', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        // Add timeout and show upload progress
+        timeout: 30000,
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+          console.log(`Upload progress: ${percentCompleted}%`);
+        },
       });
+
+      console.log('Transcription response:', response.data);
+      
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
 
       const newTranscription = response.data.transcription;
       setTranscription(newTranscription);
@@ -53,9 +74,21 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({ onTranscriptionComplete }
       if (onTranscriptionComplete) {
         onTranscriptionComplete(newTranscription);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error transcribing audio:', error);
-      setError('Failed to transcribe audio. Please try again.');
+      let errorMessage = 'Failed to transcribe audio. Please try again.';
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 405) {
+          errorMessage = 'Invalid request method. Please contact support.';
+        } else if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
