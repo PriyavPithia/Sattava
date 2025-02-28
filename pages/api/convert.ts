@@ -20,7 +20,24 @@ if (ffmpegStatic) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   console.log('Received request to /api/convert');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', req.headers);
   
   if (req.method !== 'POST') {
     console.log('Method not allowed:', req.method);
@@ -30,6 +47,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Create temp directory in /tmp for Vercel
     const tmpDir = '/tmp';
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
     console.log('Using temp directory:', tmpDir);
 
     // Parse the form data
@@ -76,6 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)
         .toFormat('mp3')
+        .audioCodec('libmp3lame')
         .on('start', (commandLine) => {
           console.log('FFmpeg started with command:', commandLine);
         })
@@ -100,10 +121,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Set response headers
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', audioData.length);
+    res.setHeader('Content-Disposition', `attachment; filename=converted-${Date.now()}.mp3`);
 
     // Send the audio file
     console.log('Sending audio data...');
-    res.send(audioData);
+    res.status(200).send(audioData);
 
     // Clean up files
     console.log('Cleaning up temporary files...');

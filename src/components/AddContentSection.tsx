@@ -515,21 +515,22 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
   const handleVideoSubmit = async () => {
     if (!selectedFile) {
-      console.log('No video file selected');
+      setDebugInfo('No video file selected');
       return;
     }
 
-    const formData = new FormData();
-    formData.append('video', selectedFile);
+    setDebugInfo('Starting video conversion process...');
+    setLoading(true);
 
     try {
-      setLoading(true);
-      console.log('Starting video conversion...');
-      // Get the API URL from environment variable
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || '';
-      console.log('Using API URL:', apiUrl);
-      setDebugInfo(`Sending request to ${apiUrl}/api/convert`);
-      
+      const formData = new FormData();
+      formData.append('video', selectedFile);
+
+      setDebugInfo(`Sending file: ${selectedFile.name} (${selectedFile.type}, ${selectedFile.size} bytes)`);
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+      setDebugInfo(`Using API URL: ${apiUrl}/api/convert`);
+
       const response = await axios.post(`${apiUrl}/api/convert`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -537,61 +538,67 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         responseType: 'arraybuffer',
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-          console.log(`Upload progress: ${percentCompleted}%`);
           setDebugInfo(`Upload progress: ${percentCompleted}%`);
         },
       });
 
-      if (response.data instanceof ArrayBuffer) {
-        setDebugInfo('Received audio data, preparing for transcription...');
-        // Convert the audio data to a blob
-        const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
-        
-        // Create a new FormData for the audio transcription
-        const audioFormData = new FormData();
-        audioFormData.append('audio', audioBlob, 'converted-audio.mp3');
+      setDebugInfo(`Response received - Status: ${response.status}, Type: ${response.headers['content-type']}`);
 
-        setDebugInfo('Sending audio for transcription...');
-        // Send the audio for transcription
-        const transcriptionResponse = await axios.post(`${apiUrl}/api/whisper-transcription`, audioFormData, {
+      if (response.status === 200 && response.data) {
+        const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
+        const audioFile = new File([audioBlob], 'converted-audio.mp3', { type: 'audio/mpeg' });
+
+        setDebugInfo('Audio conversion successful. Starting transcription...');
+
+        // Create a new FormData for the transcription request
+        const transcriptionFormData = new FormData();
+        transcriptionFormData.append('audio', audioFile);
+
+        const transcriptionResponse = await axios.post(`${apiUrl}/api/whisper-transcription`, transcriptionFormData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
 
-        if (transcriptionResponse.data.error) {
-          throw new Error(transcriptionResponse.data.error);
-        }
-
-        setDebugInfo('Transcription completed successfully');
-        // Handle successful transcription
-        if (onTranscriptGenerated) {
+        if (transcriptionResponse.data) {
           onTranscriptGenerated(transcriptionResponse.data);
+          setDebugInfo('Transcription completed successfully');
         }
-      } else {
-        throw new Error('Invalid response format from conversion API');
+      }
+    } catch (error: any) {
+      console.error('Error:', error);
+      let errorMessage = 'An error occurred during processing';
+
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // Server responded with an error
+          const responseData = error.response.data;
+          if (error.response.status === 405) {
+            errorMessage = 'Server endpoint not properly configured. Please check server setup.';
+          } else if (responseData instanceof ArrayBuffer) {
+            // Try to parse the error message from the ArrayBuffer
+            const decoder = new TextDecoder();
+            try {
+              const text = decoder.decode(responseData);
+              const parsed = JSON.parse(text);
+              errorMessage = parsed.error || errorMessage;
+            } catch (e) {
+              errorMessage = 'Error processing server response';
+            }
+          } else {
+            errorMessage = responseData?.error || `Server error: ${error.response.status}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = 'No response received from server. Please check your connection.';
+        } else {
+          // Error setting up the request
+          errorMessage = error.message || 'Error setting up the request';
+        }
       }
 
-    } catch (error) {
-      console.error('Error processing video:', error);
-      let errorMessage = 'Failed to process video. Please try again.';
-      
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 405) {
-          errorMessage = 'Server endpoint not properly configured (405 Method Not Allowed). Please check server setup.';
-        } else if (error.response?.status === 404) {
-          errorMessage = 'API endpoint not found (404). Please check the API URL configuration.';
-        } else if (error.response?.data?.error) {
-          errorMessage = error.response.data.error;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      }
-      
       setDebugInfo(`Error: ${errorMessage}`);
-      if (onError) {
-        onError(errorMessage);
-      }
+      onError(errorMessage);
     } finally {
       setLoading(false);
     }
