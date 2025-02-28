@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { fetchFile } from '@ffmpeg/util';
 
 interface VideoToTextProps {
   onTranscriptionComplete: (transcript: string) => void;
@@ -50,62 +50,34 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   useEffect(() => {
     const initFFmpeg = async () => {
       try {
-        addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
-        
-        // Create FFmpeg instance with logging
+        // Create a new FFmpeg instance
         const ffmpeg = new FFmpeg();
         ffmpegRef.current = ffmpeg;
 
-        // Add logging handler
+        // Set up logging
         ffmpeg.on('log', ({ message }) => {
           console.log('FFmpeg Log:', message);
           addDebugInfo('FFmpeg Log', message);
         });
 
-        // Add progress handler
-        ffmpeg.on('progress', ({ progress }) => {
-          const msg = `Loading FFmpeg: ${(progress * 100).toFixed(0)}%`;
-          console.log(msg);
-          addDebugInfo('FFmpeg Progress', msg);
+        // Set up progress handling
+        ffmpeg.on('progress', ({ progress, time }) => {
+          const progressMsg = `Converting video: ${(progress * 100).toFixed(0)}%`;
+          setProgress(progressMsg);
+          addDebugInfo('Progress', progressMsg);
         });
 
+        addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
+        
         try {
-          // Pre-load the URLs
-          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-          addDebugInfo('FFmpeg Load', `Using base URL: ${baseURL}`);
-
-          const coreURL = await toBlobURL(
-            `${baseURL}/ffmpeg-core.js`,
-            'text/javascript'
-          );
-          const wasmURL = await toBlobURL(
-            `${baseURL}/ffmpeg-core.wasm`,
-            'application/wasm'
-          );
-          const workerURL = await toBlobURL(
-            `${baseURL}/ffmpeg-core.worker.js`,
-            'text/javascript'
-          );
-
-          addDebugInfo('FFmpeg Load', 'Successfully created blob URLs for FFmpeg resources');
-
-          // Load FFmpeg with the blob URLs
-          await ffmpeg.load({
-            coreURL,
-            wasmURL,
-            workerURL
-          });
-          
+          // Load FFmpeg - it will automatically load the required files
+          await ffmpeg.load();
           addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
-          console.log('FFmpeg is ready to use');
         } catch (error) {
           const loadError = error as Error;
           const errorMessage = loadError.message || 'Unknown error during FFmpeg loading';
           addDebugInfo('FFmpeg Error', `Failed to load FFmpeg: ${errorMessage}`);
           console.error('FFmpeg load error:', loadError);
-          if (loadError.stack) {
-            addDebugInfo('FFmpeg Error Stack', loadError.stack);
-          }
           throw new Error(`FFmpeg loading failed: ${errorMessage}`);
         }
       } catch (error) {
@@ -113,9 +85,6 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         const errorMessage = initError.message || 'Unknown initialization error';
         addDebugInfo('FFmpeg Error', `FFmpeg initialization failed: ${errorMessage}`);
         console.error('FFmpeg initialization error:', initError);
-        if (initError.stack) {
-          addDebugInfo('FFmpeg Error Stack', initError.stack);
-        }
         setError(`Failed to initialize video processing: ${errorMessage}`);
       }
     };
