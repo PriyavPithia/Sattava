@@ -50,7 +50,6 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   useEffect(() => {
     const initFFmpeg = async () => {
       try {
-        // Create FFmpeg instance with logging
         const ffmpeg = new FFmpeg();
         ffmpegRef.current = ffmpeg;
 
@@ -60,38 +59,9 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         });
 
         addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
-
+        
         try {
-          // Load FFmpeg with explicit error handling
-          const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
-          
-          // Pre-load the URLs to check availability
-          const [coreResponse, wasmResponse, workerResponse] = await Promise.all([
-            fetch(`${baseURL}/ffmpeg-core.js`),
-            fetch(`${baseURL}/ffmpeg-core.wasm`),
-            fetch(`${baseURL}/ffmpeg-core.worker.js`)
-          ]);
-
-          if (!coreResponse.ok || !wasmResponse.ok || !workerResponse.ok) {
-            throw new Error('Failed to fetch FFmpeg resources');
-          }
-
-          // Convert URLs to blob URLs
-          const [coreURL, wasmURL, workerURL] = await Promise.all([
-            toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript')
-          ]);
-
-          addDebugInfo('FFmpeg Load', 'Successfully created blob URLs for FFmpeg resources');
-
-          // Load FFmpeg with the blob URLs
-          await ffmpeg.load({
-            coreURL,
-            wasmURL,
-            workerURL
-          });
-          
+          await ffmpeg.load();
           addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
         } catch (error) {
           const loadError = error as Error;
