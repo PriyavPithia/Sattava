@@ -9,29 +9,43 @@ import ffmpegStatic from 'ffmpeg-static';
 export const config = {
   api: {
     bodyParser: false,
+    sizeLimit: '25mb',
   },
 };
 
 // Configure ffmpeg path
 if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
+  console.log('FFmpeg path set to:', ffmpegStatic);
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Received request to /api/convert');
+  
   if (req.method !== 'POST') {
+    console.log('Method not allowed:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    // Create temp directory in /tmp for Vercel
+    const tmpDir = '/tmp';
+    console.log('Using temp directory:', tmpDir);
+
     // Parse the form data
     const form = formidable({
+      uploadDir: tmpDir,
       keepExtensions: true,
       maxFileSize: 25 * 1024 * 1024, // 25MB limit
     });
 
+    console.log('Parsing form data...');
     const [fields, files] = await new Promise<[formidable.Fields, formidable.Files]>((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
+        if (err) {
+          console.error('Error parsing form:', err);
+          reject(err);
+        }
         resolve([fields, files]);
       });
     });
@@ -39,38 +53,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get the video file
     const fileArray = files.video;
     if (!fileArray || !Array.isArray(fileArray) || fileArray.length === 0) {
+      console.error('No video file in request');
       return res.status(400).json({ error: 'No video file provided' });
     }
 
     const file = fileArray[0];
-    if (!file.mimetype?.startsWith('video/')) {
-      return res.status(400).json({ error: 'File must be a video' });
-    }
+    console.log('Received file:', file.originalFilename);
 
-    // Create temporary directories if they don't exist
-    const tmpDir = path.join(process.cwd(), 'tmp');
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
+    if (!file.mimetype?.startsWith('video/')) {
+      console.error('Invalid file type:', file.mimetype);
+      return res.status(400).json({ error: 'File must be a video' });
     }
 
     const inputPath = file.filepath;
     const outputPath = path.join(tmpDir, `${Date.now()}-output.mp3`);
+    
+    console.log('Converting video to audio...');
+    console.log('Input path:', inputPath);
+    console.log('Output path:', outputPath);
 
     // Convert video to audio
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)
         .toFormat('mp3')
+        .on('start', (commandLine) => {
+          console.log('FFmpeg started with command:', commandLine);
+        })
+        .on('progress', (progress) => {
+          console.log('Processing:', progress.percent, '% done');
+        })
         .on('error', (err) => {
           console.error('FFmpeg error:', err);
           reject(err);
         })
         .on('end', () => {
+          console.log('FFmpeg processing finished');
           resolve();
         })
         .save(outputPath);
     });
 
     // Read the converted file
+    console.log('Reading converted audio file...');
     const audioData = await fs.promises.readFile(outputPath);
 
     // Set response headers
@@ -78,11 +102,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Content-Length', audioData.length);
 
     // Send the audio file
+    console.log('Sending audio data...');
     res.send(audioData);
 
     // Clean up files
-    fs.unlink(inputPath, () => {});
-    fs.unlink(outputPath, () => {});
+    console.log('Cleaning up temporary files...');
+    try {
+      await fs.promises.unlink(inputPath);
+      await fs.promises.unlink(outputPath);
+      console.log('Temporary files cleaned up');
+    } catch (cleanupError) {
+      console.error('Error cleaning up files:', cleanupError);
+    }
 
   } catch (error) {
     console.error('Error processing video:', error);

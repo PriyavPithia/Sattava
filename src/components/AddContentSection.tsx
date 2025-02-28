@@ -523,9 +523,13 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     formData.append('video', selectedFile);
 
     try {
+      setLoading(true);
       console.log('Starting video conversion...');
-      // Use the full URL for the API endpoint
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      // Get the API URL from environment variable
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || '';
+      console.log('Using API URL:', apiUrl);
+      setDebugInfo(`Sending request to ${apiUrl}/api/convert`);
+      
       const response = await axios.post(`${apiUrl}/api/convert`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -539,6 +543,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       });
 
       if (response.data instanceof ArrayBuffer) {
+        setDebugInfo('Received audio data, preparing for transcription...');
         // Convert the audio data to a blob
         const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
         
@@ -546,6 +551,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         const audioFormData = new FormData();
         audioFormData.append('audio', audioBlob, 'converted-audio.mp3');
 
+        setDebugInfo('Sending audio for transcription...');
         // Send the audio for transcription
         const transcriptionResponse = await axios.post(`${apiUrl}/api/whisper-transcription`, audioFormData, {
           headers: {
@@ -557,6 +563,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           throw new Error(transcriptionResponse.data.error);
         }
 
+        setDebugInfo('Transcription completed successfully');
         // Handle successful transcription
         if (onTranscriptGenerated) {
           onTranscriptGenerated(transcriptionResponse.data);
@@ -565,13 +572,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         throw new Error('Invalid response format from conversion API');
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error processing video:', error);
       let errorMessage = 'Failed to process video. Please try again.';
       
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 405) {
-          errorMessage = 'Server endpoint not properly configured. Please check server setup.';
+          errorMessage = 'Server endpoint not properly configured (405 Method Not Allowed). Please check server setup.';
+        } else if (error.response?.status === 404) {
+          errorMessage = 'API endpoint not found (404). Please check the API URL configuration.';
         } else if (error.response?.data?.error) {
           errorMessage = error.response.data.error;
         } else if (error.message) {
@@ -583,6 +592,8 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       if (onError) {
         onError(errorMessage);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
