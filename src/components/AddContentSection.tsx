@@ -566,7 +566,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
       {/* Input Area */}
       <div className="p-6">
-        {/* YouTube Mode */}
         {addVideoMethod === 'youtube' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -603,16 +602,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Video Upload Mode */}
-        {addVideoMethod === 'video' && (
-          <VideoToText
-            onTranscriptionComplete={handleTranscriptionComplete}
-            onError={onError}
-            isProcessingContent={isProcessingContent}
-          />
-        )}
-
-        {/* Files Mode */}
         {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -646,7 +635,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Speech to Text Mode */}
         {addVideoMethod === 'speech' && (
           <div>
             {!isSpeechSupported ? (
@@ -748,7 +736,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Input Text Mode - renamed to Notes */}
         {addVideoMethod === 'text' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -878,6 +865,16 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             <p className="mt-2 text-sm text-gray-500">
               Add formatted notes directly to your knowledge base for quick reference.
             </p>
+          </div>
+        )}
+
+        {addVideoMethod === 'video' && (
+          <div className="space-y-4">
+            <VideoToText
+              onTranscriptionComplete={onTranscriptGenerated}
+              onError={onError}
+              isProcessingContent={isProcessingContent}
+            />
           </div>
         )}
       </div>
