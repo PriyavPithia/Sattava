@@ -61,6 +61,7 @@
     "@eslint/js": "^9.9.1",
     "@tailwindcss/typography": "^0.5.16",
     "@types/dompurify": "^3.0.5",
+    "@types/fluent-ffmpeg": "^2.1.27",
     "@types/lodash": "^4.17.15",
     "@types/next": "^9.0.0",
     "@types/node": "^22.13.4",

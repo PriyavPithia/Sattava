@@ -519,19 +519,27 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       return;
     }
     setLoading(true);
-    setDebugInfo('Converting video to audio...');
+    setDebugInfo('Starting video conversion process...');
     
     const formData = new FormData();
     formData.append('video', selectedFile);
     
+    setDebugInfo(`Preparing to send file: ${selectedFile.name} (${selectedFile.type}), size: ${selectedFile.size} bytes`);
+    
     try {
-      // First, try to convert the video
+      setDebugInfo('Sending request to /api/convert...');
       const res = await axios.post('/api/convert', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
         responseType: 'blob',
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+          setDebugInfo(`Upload progress: ${percentCompleted}%`);
+        },
       });
+      
+      setDebugInfo(`Response received - status: ${res.status}, type: ${res.data.type}`);
       
       if (!res.data) {
         throw new Error('No data received from conversion');
@@ -540,7 +548,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
       const blob = res.data;
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
-      setDebugInfo('Video converted successfully');
+      setDebugInfo('Video converted successfully. Audio blob created.');
       
       // After successful conversion, trigger the transcription
       if (onTranscriptGenerated) {
@@ -548,13 +556,19 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         const audioFormData = new FormData();
         audioFormData.append('audio', audioFile);
         
-        setDebugInfo('Starting transcription...');
+        setDebugInfo('Starting transcription process...');
         try {
           const transcriptResponse = await axios.post('/api/whisper-transcription', audioFormData, {
             headers: {
               'Content-Type': 'multipart/form-data',
             },
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+              setDebugInfo(`Transcription upload progress: ${percentCompleted}%`);
+            },
           });
+          
+          setDebugInfo(`Transcription response received - status: ${transcriptResponse.status}`);
           
           if (!transcriptResponse.data) {
             throw new Error('No transcription data received');
@@ -565,7 +579,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 
             axios.isAxiosError(error) && error.response ? 
-              `Transcription failed: ${error.response.status} ${error.response.statusText}` : 
+              `Transcription failed: ${error.response.status} ${error.response.statusText}\nDetails: ${JSON.stringify(error.response.data)}` : 
               'Unknown transcription error';
           setDebugInfo(`Transcription error: ${errorMessage}`);
           onError('Error transcribing audio');
@@ -574,7 +588,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message :
         axios.isAxiosError(error) && error.response ?
-          `Conversion failed: ${error.response.status} ${error.response.statusText}` :
+          `Conversion failed: ${error.response.status} ${error.response.statusText}\nDetails: ${JSON.stringify(error.response.data)}` :
           'Unknown conversion error';
       setDebugInfo(`Error: ${errorMessage}`);
       onError('Error converting video to audio');
