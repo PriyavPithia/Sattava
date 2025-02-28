@@ -1,37 +1,21 @@
-import path from "path"
-import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
- 
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   optimizeDeps: {
-    exclude: ['pdfjs-dist/build/pdf.worker.entry'],
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          pdfWorker: ['pdfjs-dist/build/pdf.worker.entry'],
-        },
-      },
-    },
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
   },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
   },
-})
+});

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { fetchFile } from '@ffmpeg/util';
 
 interface VideoToTextProps {
   onTranscriptionComplete: (transcript: string) => void;
@@ -56,52 +56,17 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         // Configure FFmpeg with specific options
         ffmpeg.on('log', ({ message }) => {
           console.log('FFmpeg Log:', message);
+          addDebugInfo('FFmpeg Log', message);
         });
 
-        // Load FFmpeg with more specific configuration
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
         
-        // Add debug info for CORS headers
-        const corsHeaders = {
-          'Cross-Origin-Opener-Policy': document.querySelector('meta[name="coop"]')?.getAttribute('content') || 'same-origin',
-          'Cross-Origin-Embedder-Policy': document.querySelector('meta[name="coep"]')?.getAttribute('content') || 'require-corp'
-        };
-        addDebugInfo('CORS Config', `Headers: ${JSON.stringify(corsHeaders)}`);
-
         try {
-          const coreResponse = await fetch(`${baseURL}/ffmpeg-core.js`);
-          const wasmResponse = await fetch(`${baseURL}/ffmpeg-core.wasm`);
-          const workerResponse = await fetch(`${baseURL}/ffmpeg-core.worker.js`);
-
-          if (!coreResponse.ok || !wasmResponse.ok || !workerResponse.ok) {
-            throw new Error('Failed to fetch FFmpeg resources');
-          }
-
-          const coreURL = await toBlobURL(
-            `${baseURL}/ffmpeg-core.js`,
-            'text/javascript'
-          );
-          const wasmURL = await toBlobURL(
-            `${baseURL}/ffmpeg-core.wasm`,
-            'application/wasm'
-          );
-          const workerURL = await toBlobURL(
-            `${baseURL}/ffmpeg-core.worker.js`,
-            'text/javascript'
-          );
-
-          addDebugInfo('FFmpeg Config', 'Successfully created blob URLs for FFmpeg resources');
-
-          await ffmpeg.load({
-            coreURL,
-            wasmURL,
-            workerURL,
-          });
-
+          await ffmpeg.load();
           addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
         } catch (error) {
           const loadError = error as Error;
-          addDebugInfo('FFmpeg Error', `Failed to load FFmpeg resources: ${loadError.message}`);
+          addDebugInfo('FFmpeg Error', `Failed to load FFmpeg: ${loadError.message}`);
           console.error('FFmpeg load error:', loadError);
           throw loadError;
         }
