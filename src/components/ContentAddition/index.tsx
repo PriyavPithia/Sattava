@@ -369,19 +369,19 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
 
         {/* YouTube Tab */}
         {addVideoMethod === 'youtube' && (
-          <div>
-            <h2 className="text-sm font-medium mb-2">YouTube URL</h2>
+        <div>
+          <h2 className="text-sm font-medium mb-2">YouTube URL</h2>
             <div className="flex">
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://www.youtube.com/watch?v=..."
                 className="flex-1 border border-gray-300 rounded-l px-4 py-2"
-              />
-              <button
-                onClick={onAddVideo}
-                disabled={isProcessingContent}
+          />
+        <button
+          onClick={onAddVideo}
+          disabled={isProcessingContent}
                 className="px-4 py-2 bg-blue-600 text-white rounded-r"
               >
                 Process
@@ -502,9 +502,9 @@ const ContentAddition: React.FC<ContentAdditionProps> = ({
                     >
                       <X className="w-4 h-4" />
                       <span>Clear</span>
-                    </button>
-                  </div>
-                  
+        </button>
+      </div>
+
                   {isRecording && (
                     <div className="flex items-center gap-2 text-blue-600 mb-4">
                       <Loader2 className="w-4 h-4 animate-spin" />
