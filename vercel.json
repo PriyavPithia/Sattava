@@ -35,5 +35,16 @@
         }
       ]
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "FFMPEG_PATH": "/usr/bin/ffmpeg"
+    }
+  },
+  "functions": {
+    "api/video-to-audio.ts": {
+      "memory": 3008,
+      "maxDuration": 60
+    }
+  }
 } 

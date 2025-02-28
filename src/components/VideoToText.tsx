@@ -1,17 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
 
 interface VideoToTextProps {
   onTranscriptionComplete: (transcript: string) => void;
   onError: (error: string) => void;
   isProcessingContent: boolean;
-}
-
-interface ProgressEvent {
-  progress: number;
-  time: number;
 }
 
 interface DebugInfo {
@@ -27,15 +20,12 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   onError,
   isProcessingContent
 }) => {
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [audioFile, setAudioFile] = useState<Blob | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>('');
   const [debugInfo, setDebugInfo] = useState<DebugInfo[]>([]);
   const [showDebug, setShowDebug] = useState<boolean>(false);
 
-  const ffmpegRef = useRef<FFmpeg | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addDebugInfo = (stage: string, details: string) => {
@@ -46,60 +36,13 @@ const VideoToText: React.FC<VideoToTextProps> = ({
     }]);
   };
 
-  // Initialize FFmpeg once when component mounts
-  useEffect(() => {
-    const initFFmpeg = async () => {
-      try {
-        // Create a new FFmpeg instance
-        const ffmpeg = new FFmpeg();
-        ffmpegRef.current = ffmpeg;
+  const handleFileClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
-        // Set up logging
-        ffmpeg.on('log', ({ message }) => {
-          console.log('FFmpeg Log:', message);
-          addDebugInfo('FFmpeg Log', message);
-        });
-
-        // Set up progress handling
-        ffmpeg.on('progress', ({ progress, time }) => {
-          const progressMsg = `Converting video: ${(progress * 100).toFixed(0)}%`;
-          setProgress(progressMsg);
-          addDebugInfo('Progress', progressMsg);
-        });
-
-        addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
-        
-        try {
-          // Load FFmpeg - it will automatically load the required files
-          await ffmpeg.load();
-          addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
-        } catch (error) {
-          const loadError = error as Error;
-          const errorMessage = loadError.message || 'Unknown error during FFmpeg loading';
-          addDebugInfo('FFmpeg Error', `Failed to load FFmpeg: ${errorMessage}`);
-          console.error('FFmpeg load error:', loadError);
-          throw new Error(`FFmpeg loading failed: ${errorMessage}`);
-        }
-      } catch (error) {
-        const initError = error as Error;
-        const errorMessage = initError.message || 'Unknown initialization error';
-        addDebugInfo('FFmpeg Error', `FFmpeg initialization failed: ${errorMessage}`);
-        console.error('FFmpeg initialization error:', initError);
-        setError(`Failed to initialize video processing: ${errorMessage}`);
-      }
-    };
-
-    initFFmpeg();
-
-    // Cleanup function
-    return () => {
-      if (ffmpegRef.current) {
-        ffmpegRef.current.terminate();
-      }
-    };
-  }, []);
-
-  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       addDebugInfo('File Selection', `Selected file: ${file.name}, Size: ${(file.size / (1024 * 1024)).toFixed(2)}MB, Type: ${file.type}`);
@@ -110,97 +53,48 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         addDebugInfo('Error', errorMsg);
         return;
       }
-      setVideoFile(file);
-      extractAudio(file);
-    }
-  };
 
-  const handleFileClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const extractAudio = async (file: File) => {
-    setIsLoading(true);
-    setError(null);
-    setProgress('Initializing FFmpeg...');
-    addDebugInfo('FFmpeg Init', 'Starting audio extraction');
-
-    try {
-      const ffmpeg = ffmpegRef.current;
-      if (!ffmpeg || !ffmpeg.loaded) {
-        throw new Error('FFmpeg is not properly initialized. Please try again.');
-      }
-
-      // Log progress
-      ffmpeg.on('progress', (event: ProgressEvent) => {
-        const progressMsg = `Converting video: ${(event.progress * 100).toFixed(0)}%`;
-        setProgress(progressMsg);
-        addDebugInfo('Progress', progressMsg);
-      });
-
-      setProgress('Loading video file...');
-      addDebugInfo('File Processing', 'Writing video file to FFmpeg virtual filesystem');
-      
       try {
-        // Write the video file to FFmpeg's virtual file system
-        const videoData = await fetchFile(file);
-        addDebugInfo('File Processing', `Video data size: ${videoData.byteLength} bytes`);
-        await ffmpeg.writeFile('input.mp4', videoData);
-        addDebugInfo('File Processing', 'Video file written successfully');
+        setIsLoading(true);
+        setError(null);
+        setProgress('Processing video...');
 
-        setProgress('Extracting audio...');
-        addDebugInfo('Audio Extraction', 'Starting audio extraction process');
-        
-        // Extract audio with more detailed error handling
-        const ffmpegArgs = [
-          '-i', 'input.mp4',
-          '-vn',                // Disable video
-          '-acodec', 'libmp3lame',
-          '-ab', '128k',       // Audio bitrate
-          '-ar', '44100',      // Sample rate
-          '-y',                // Overwrite output
-          'output.mp3'
-        ];
-        
-        addDebugInfo('FFmpeg Command', `Executing: ffmpeg ${ffmpegArgs.join(' ')}`);
-        await ffmpeg.exec(ffmpegArgs);
-        addDebugInfo('Audio Extraction', 'FFmpeg command completed successfully');
+        // Create form data for video upload
+        const formData = new FormData();
+        formData.append('video', file);
 
-        addDebugInfo('Audio Extraction', 'Reading extracted audio file');
-        const audioData = await ffmpeg.readFile('output.mp3');
-        if (!audioData) {
-          throw new Error('No audio data was generated');
+        // Send video to server for audio extraction
+        addDebugInfo('Processing', 'Sending video to server for audio extraction');
+        const response = await fetch('/api/video-to-audio', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to process video');
         }
-        
-        const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
-        setAudioFile(audioBlob);
-        addDebugInfo('Audio Extraction', `Audio extracted successfully. Size: ${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB`);
 
-        // Clean up FFmpeg virtual file system
-        await ffmpeg.deleteFile('input.mp4');
-        await ffmpeg.deleteFile('output.mp3');
-        addDebugInfo('Cleanup', 'Cleaned up temporary files');
+        const data = await response.json();
+        addDebugInfo('Processing', 'Audio extraction completed successfully');
+
+        // Convert base64 audio to blob
+        const audioBlob = new Blob(
+          [Buffer.from(data.audio, 'base64')],
+          { type: data.mimeType }
+        );
 
         // Start transcription
         await transcribeAudio(audioBlob);
-      } catch (error) {
-        const processError = error as Error;
-        addDebugInfo('Error', `Failed to process video: ${processError.message}`);
-        throw new Error(`Failed to process video: ${processError.message}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to process video';
+        setError(errorMessage);
+        onError(errorMessage);
+        addDebugInfo('Error', `Processing failed: ${errorMessage}`);
+      } finally {
+        setIsLoading(false);
+        setProgress('');
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to extract audio from the video';
-      setError(errorMessage);
-      onError(errorMessage);
-      addDebugInfo('Error', `Audio extraction failed: ${errorMessage}`);
-      if (err instanceof Error && err.stack) {
-        addDebugInfo('Error Stack', err.stack);
-      }
-    } finally {
-      setIsLoading(false);
-      setProgress('');
     }
   };
 
@@ -239,9 +133,6 @@ const VideoToText: React.FC<VideoToTextProps> = ({
       setError(errorMessage);
       onError(errorMessage);
       addDebugInfo('Error', `Transcription failed: ${errorMessage}`);
-      if (err instanceof Error && err.stack) {
-        addDebugInfo('Error Stack', err.stack);
-      }
     }
   };
 
