@@ -524,41 +524,45 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
     try {
       console.log('Starting video conversion...');
-      const response = await axios.post('/api/convert', formData, {
+      // Use the full URL for the API endpoint
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const response = await axios.post(`${apiUrl}/api/convert`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        responseType: 'arraybuffer',
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
           console.log(`Upload progress: ${percentCompleted}%`);
+          setDebugInfo(`Upload progress: ${percentCompleted}%`);
         },
       });
 
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
+      if (response.data instanceof ArrayBuffer) {
+        // Convert the audio data to a blob
+        const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
+        
+        // Create a new FormData for the audio transcription
+        const audioFormData = new FormData();
+        audioFormData.append('audio', audioBlob, 'converted-audio.mp3');
 
-      // Get the audio blob from the response
-      const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
-      
-      // Create a new FormData for the audio transcription
-      const audioFormData = new FormData();
-      audioFormData.append('audio', audioBlob, 'converted-audio.mp3');
+        // Send the audio for transcription
+        const transcriptionResponse = await axios.post(`${apiUrl}/api/whisper-transcription`, audioFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
 
-      // Send the audio for transcription
-      const transcriptionResponse = await axios.post('/api/whisper-transcription', audioFormData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+        if (transcriptionResponse.data.error) {
+          throw new Error(transcriptionResponse.data.error);
+        }
 
-      if (transcriptionResponse.data.error) {
-        throw new Error(transcriptionResponse.data.error);
-      }
-
-      // Handle successful transcription
-      if (onTranscriptGenerated) {
-        onTranscriptGenerated(transcriptionResponse.data);
+        // Handle successful transcription
+        if (onTranscriptGenerated) {
+          onTranscriptGenerated(transcriptionResponse.data);
+        }
+      } else {
+        throw new Error('Invalid response format from conversion API');
       }
 
     } catch (error: any) {
@@ -575,6 +579,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         }
       }
       
+      setDebugInfo(`Error: ${errorMessage}`);
       if (onError) {
         onError(errorMessage);
       }
