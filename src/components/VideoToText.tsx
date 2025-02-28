@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
+import { toBlobURL, fetchFile } from '@ffmpeg/util';
 
 interface VideoToTextProps {
   onTranscriptionComplete: (transcript: string) => void;
@@ -56,8 +56,13 @@ const VideoToText: React.FC<VideoToTextProps> = ({
           setProgress(`Processing: ${percentage}%`);
         });
 
-        // Load FFmpeg
-        await ffmpeg.load();
+        // Load FFmpeg with the correct URLs
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
+        });
         
         setIsFFmpegLoaded(true);
         addDebugInfo('FFmpeg', 'FFmpeg initialized successfully');
