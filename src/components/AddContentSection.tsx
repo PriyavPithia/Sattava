@@ -1,12 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle, Video } from 'lucide-react';
+import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle } from 'lucide-react';
 import axios from 'axios';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import AudioUploader from './AudioUploader';
-import VideoUploader from './VideoUploader';
 
 // Import our custom editor styles
 import '../styles/editor.css';
@@ -503,205 +502,497 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     }
   };
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setDebugInfo(`Selected file: ${file.name} (${file.type})`);
+  };
+
+  const handleVideoSubmit = async () => {
+    if (!selectedFile) {
+      setDebugInfo('No file selected');
+      return;
+    }
+    setLoading(true);
+    setDebugInfo('Converting video to audio...');
+    
+    const formData = new FormData();
+    formData.append('video', selectedFile);
+    
+    try {
+      const res = await fetch('/api/convert', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Conversion failed: ${res.status} ${res.statusText}`);
+      }
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+      setDebugInfo('Video converted successfully');
+      
+      // After successful conversion, trigger the transcription
+      if (onTranscriptGenerated) {
+        const audioFile = new File([blob], 'converted.mp3', { type: 'audio/mpeg' });
+        const audioFormData = new FormData();
+        audioFormData.append('audio', audioFile);
+        
+        setDebugInfo('Starting transcription...');
+        try {
+          const transcriptResponse = await fetch('/api/whisper-transcription', {
+            method: 'POST',
+            body: audioFormData,
+          });
+          
+          if (!transcriptResponse.ok) {
+            throw new Error('Transcription failed');
+          }
+          
+          const transcriptData = await transcriptResponse.json();
+          onTranscriptGenerated(transcriptData);
+          setDebugInfo('Transcription completed successfully');
+        } catch (error) {
+          setDebugInfo(`Transcription error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          onError('Error transcribing audio');
+        }
+      }
+    } catch (error) {
+      setDebugInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      onError('Error converting video to audio');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex space-x-2 p-4 border-b border-gray-200">
+    <div className="flex flex-col space-y-4">
+      <div className="flex space-x-2 border-b border-gray-200 pb-2">
         <button
           onClick={() => setAddVideoMethod('youtube')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+          className={`flex items-center px-3 py-2 rounded-lg ${
             addVideoMethod === 'youtube'
-              ? 'bg-red-100 text-red-600'
-              : 'hover:bg-gray-100 text-gray-600'
+              ? 'bg-red-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <Youtube className="w-4 h-4" />
-          <span>YouTube</span>
+          <Youtube className="w-5 h-5 mr-2" />
+          YouTube
         </button>
         <button
           onClick={() => setAddVideoMethod('files')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+          className={`flex items-center px-3 py-2 rounded-lg ${
             addVideoMethod === 'files'
-              ? 'bg-red-100 text-red-600'
-              : 'hover:bg-gray-100 text-gray-600'
+              ? 'bg-red-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <Paperclip className="w-4 h-4" />
-          <span>Files</span>
+          <Upload className="w-5 h-5 mr-2" />
+          Files
         </button>
         <button
           onClick={() => setAddVideoMethod('speech')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+          className={`flex items-center px-3 py-2 rounded-lg ${
             addVideoMethod === 'speech'
-              ? 'bg-red-100 text-red-600'
-              : 'hover:bg-gray-100 text-gray-600'
+              ? 'bg-red-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <Mic className="w-4 h-4" />
-          <span>Speech</span>
+          <Mic className="w-5 h-5 mr-2" />
+          Speech
         </button>
         <button
           onClick={() => setAddVideoMethod('text')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+          className={`flex items-center px-3 py-2 rounded-lg ${
             addVideoMethod === 'text'
-              ? 'bg-red-100 text-red-600'
-              : 'hover:bg-gray-100 text-gray-600'
+              ? 'bg-red-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <Type className="w-4 h-4" />
-          <span>Notes</span>
+          <Type className="w-5 h-5 mr-2" />
+          Text
         </button>
         <button
           onClick={() => setAddVideoMethod('video')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+          className={`flex items-center px-3 py-2 rounded-lg ${
             addVideoMethod === 'video'
-              ? 'bg-red-100 text-red-600'
-              : 'hover:bg-gray-100 text-gray-600'
+              ? 'bg-red-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <Video className="w-4 h-4" />
-          <span>Video</span>
+          <FileText className="w-5 h-5 mr-2" />
+          Video
         </button>
       </div>
 
-      <div className="flex-1 p-4 overflow-y-auto">
+      {/* Content based on selected method */}
+      <div className="mt-4">
         {addVideoMethod === 'youtube' && (
-          <div className="space-y-4">
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="Enter YouTube URL..."
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 focus:outline-none"
-            />
-            <button
-              onClick={onAddVideo}
-              disabled={isProcessingContent || !url}
-              className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Enter YouTube URL
+            </label>
+            <div className="flex">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="flex-1 border border-gray-300 rounded-l px-4 py-2"
+                disabled={isProcessingContent}
+              />
+              <button
+                onClick={onAddVideo}
+                disabled={!url || isProcessingContent}
+                className={`px-4 py-2 rounded-r flex items-center justify-center ${
+                  !url || isProcessingContent
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                {isProcessingContent ? (
+                  <Spinner className="w-5 h-5" />
+                ) : (
+                  <span>Process</span>
+                )}
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-gray-500">
+              Paste a YouTube URL to transcribe the video and add it to your knowledgebase.
+            </p>
+          </div>
+        )}
+        
+        {addVideoMethod === 'files' && (
+          <div>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".pdf,.txt,.ppt,.pptx,.doc,.docx"
+                className="hidden"
+                disabled={isProcessingContent}
+              />
               {isProcessingContent ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Spinner />
-                  <span>Processing...</span>
+                <div className="flex flex-col items-center">
+                  <Spinner className="w-8 h-8 text-blue-500" />
+                  <p className="mt-2 text-sm text-gray-600">Processing file...</p>
                 </div>
               ) : (
-                'Add Video'
+                <div 
+                  className="flex flex-col items-center cursor-pointer"
+                  onClick={handleFileButtonClick}
+                >
+                  <Upload className="w-12 h-12 text-gray-400" />
+                  <p className="mt-2 text-sm font-medium text-gray-900">Click to upload files</p>
+                  <p className="mt-1 text-xs text-gray-500">or drag and drop</p>
+                </div>
               )}
-            </button>
+            </div>
+            <p className="mt-4 text-sm text-gray-500">
+              Upload PDF, text files (.txt), PowerPoint (.ppt, .pptx), or Word documents (.doc, .docx).
+            </p>
           </div>
         )}
-
-        {addVideoMethod === 'files' && (
-          <div className="space-y-4">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept=".pdf,.txt,.doc,.docx,.ppt,.pptx"
-              multiple
-            />
-            <button
-              onClick={handleFileButtonClick}
-              disabled={isProcessingContent}
-              className="w-full px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
-            >
-              <div className="flex flex-col items-center gap-2 text-gray-600">
-                <Upload className="w-8 h-8" />
-                <span className="font-medium">Click to upload files</span>
-                <span className="text-sm text-gray-500">
-                  PDF, TXT, DOC, PPT files
-                </span>
-              </div>
-            </button>
-          </div>
-        )}
-
+        
         {addVideoMethod === 'speech' && (
-          <div className="space-y-4">
-            <AudioUploader onTranscriptionComplete={onTranscriptGenerated} />
+          <div>
+            {!isSpeechSupported ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                <p className="text-yellow-700">
+                  Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex gap-6">
+                  <div className="flex-1 rounded-lg p-8">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Live Recording</h3>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-4 mb-4">
+                        <button
+                          onClick={toggleRecording}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-lg ${
+                            isRecording
+                              ? 'bg-red-600 text-white hover:bg-red-700'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                          disabled={isTranscribingAudio}
+                        >
+                          {isRecording ? (
+                            <>
+                              <MicOff className="w-5 h-5" />
+                              <span>Stop Recording</span>
+                            </>
+                          ) : (
+                            <>
+                              <Mic className="w-5 h-5" />
+                              <span>Start Recording</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          onClick={clearTranscription}
+                          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Clear</span>
+                        </button>
+                      </div>
+                      
+                      {isRecording && (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Listening...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg p-8">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Upload Audio File</h3>
+                    <AudioUploader onTranscriptionComplete={handleTranscriptionComplete} />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Transcription 
+                    {isRecording && <span className="text-xs text-blue-500 ml-2">(Recording in progress...)</span>}
+                  </label>
+                  <textarea
+                    value={transcription}
+                    onChange={(e) => setTranscription(e.target.value)}
+                    placeholder="Transcription will appear here. You can edit it if needed."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg h-40"
+                    disabled={isTranscribingAudio}
+                  />
+                  <button
+                    onClick={handleSpeechSubmit}
+                    disabled={!transcription.trim() || isProcessingContent || isTranscribingAudio}
+                    className={`mt-4 px-4 py-2 rounded flex items-center justify-center w-full ${
+                      !transcription.trim() || isProcessingContent || isTranscribingAudio
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
+                  >
+                    {isProcessingContent || isTranscribingAudio ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : null}
+                    <span>Add to Knowledge Base</span>
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <p className="mt-2 text-sm text-gray-500">
+              Record your speech or upload an audio file for transcription.
+            </p>
           </div>
         )}
-
+        
         {addVideoMethod === 'text' && (
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
-                {editor && (
-                  <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Add Notes
+            </label>
+            <div className="mb-4">
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
+                  <div className="flex items-center gap-1">
                     <MenuButton
-                      onClick={() => editor.chain().focus().toggleBold().run()}
-                      isActive={editor.isActive('bold')}
+                      onClick={() => editor?.chain().focus().toggleBold().run()}
+                      isActive={editor?.isActive('bold')}
                       title="Bold"
                     >
                       <Bold className="w-4 h-4" />
                     </MenuButton>
                     <MenuButton
-                      onClick={() => editor.chain().focus().toggleItalic().run()}
-                      isActive={editor.isActive('italic')}
+                      onClick={() => editor?.chain().focus().toggleItalic().run()}
+                      isActive={editor?.isActive('italic')}
                       title="Italic"
                     >
                       <Italic className="w-4 h-4" />
                     </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <div className="flex items-center gap-1">
                     <MenuButton
-                      onClick={() => editor.chain().focus().toggleBulletList().run()}
-                      isActive={editor.isActive('bulletList')}
-                      title="Bullet List"
-                    >
-                      <List className="w-4 h-4" />
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                      isActive={editor.isActive('orderedList')}
-                      title="Numbered List"
-                    >
-                      <ListOrdered className="w-4 h-4" />
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                      isActive={editor.isActive('heading', { level: 1 })}
+                      onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                      isActive={editor?.isActive('heading', { level: 1 })}
                       title="Heading 1"
                     >
                       <Heading1 className="w-4 h-4" />
                     </MenuButton>
                     <MenuButton
-                      onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                      isActive={editor.isActive('heading', { level: 2 })}
+                      onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                      isActive={editor?.isActive('heading', { level: 2 })}
                       title="Heading 2"
                     >
                       <Heading2 className="w-4 h-4" />
                     </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <div className="flex items-center gap-1">
                     <MenuButton
-                      onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                      isActive={editor.isActive('blockquote')}
+                      onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                      isActive={editor?.isActive('bulletList')}
+                      title="Bullet List"
+                    >
+                      <List className="w-4 h-4" />
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                      isActive={editor?.isActive('orderedList')}
+                      title="Numbered List"
+                    >
+                      <ListOrdered className="w-4 h-4" />
+                    </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <div className="flex items-center gap-1">
+                    <MenuButton
+                      onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                      isActive={editor?.isActive('blockquote')}
                       title="Quote"
                     >
                       <Quote className="w-4 h-4" />
                     </MenuButton>
-                  </>
-                )}
+                    <MenuButton
+                      onClick={() => {
+                        const url = window.prompt('Enter the URL');
+                        if (url && editor) {
+                          editor.chain().focus().setLink({ href: url }).run();
+                        }
+                      }}
+                      isActive={editor?.isActive('link')}
+                      title="Add Link"
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                    </MenuButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                  <MenuButton
+                    onClick={addNewParagraph}
+                    title="Add New Paragraph"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                  </MenuButton>
+                </div>
+
+                <div className="p-4 tiptap-editor">
+                  <EditorContent 
+                    editor={editor} 
+                    className="min-h-[120px] prose prose-sm max-w-none focus-within:outline-none" 
+                  />
+                </div>
+
+                <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                  <p className="text-xs text-gray-500">
+                    Tip: Press Enter twice to create a new paragraph, or use the + button in the toolbar
+                  </p>
+                </div>
               </div>
-              <EditorContent editor={editor} className="p-4 min-h-[200px]" />
             </div>
             <button
               onClick={handleTextSubmit}
-              disabled={isProcessingContent || (!editor?.getText())}
-              className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!editor || editor.isEmpty || isProcessingContent}
+              className={`mt-2 px-4 py-2 rounded flex items-center justify-center ${
+                !editor || editor.isEmpty || isProcessingContent
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
             >
               {isProcessingContent ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Spinner />
-                  <span>Processing...</span>
-                </div>
-              ) : (
-                'Add Notes'
-              )}
+                <Spinner className="w-5 h-5 mr-2" />
+              ) : null}
+              <span>Add to Knowledge Base</span>
             </button>
+            <p className="mt-2 text-sm text-gray-500">
+              Add formatted notes directly to your knowledge base for quick reference.
+            </p>
           </div>
         )}
 
         {addVideoMethod === 'video' && (
           <div className="space-y-4">
-            <VideoUploader onTranscriptionComplete={onTranscriptGenerated} />
+            <div className="flex flex-col items-center p-6 border-2 border-dashed border-gray-300 rounded-lg">
+              <input
+                type="file"
+                accept="video/*"
+                onChange={handleVideoFileChange}
+                className="hidden"
+                ref={fileInputRef}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                disabled={loading}
+              >
+                <Upload className="w-5 h-5 mr-2" />
+                Select Video
+              </button>
+              {selectedFile && (
+                <div className="mt-2 text-sm text-gray-600">
+                  Selected: {selectedFile.name}
+                </div>
+              )}
+              <button
+                onClick={handleVideoSubmit}
+                disabled={!selectedFile || loading}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin inline" />
+                    Converting...
+                  </>
+                ) : (
+                  'Convert Video'
+                )}
+              </button>
+            </div>
+
+            {audioUrl && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Converted Audio:</h3>
+                <audio controls src={audioUrl} className="w-full"></audio>
+                <a
+                  href={audioUrl}
+                  download="converted.mp3"
+                  className="mt-2 inline-block text-red-600 hover:text-red-700"
+                >
+                  Download Audio
+                </a>
+              </div>
+            )}
+
+            {/* Debug Section */}
+            {debugInfo && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Debug Info:</h3>
+                <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                  {debugInfo}
+                </pre>
+              </div>
+            )}
           </div>
         )}
       </div>
