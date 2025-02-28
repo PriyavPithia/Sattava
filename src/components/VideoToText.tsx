@@ -75,18 +75,41 @@ const VideoToText: React.FC<VideoToTextProps> = ({
     addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
 
     try {
-      // Initialize FFmpeg
+      // Initialize FFmpeg with specific configuration
       const ffmpeg = new FFmpeg();
       ffmpegRef.current = ffmpeg;
       
       addDebugInfo('FFmpeg Load', 'Loading FFmpeg WASM modules');
-      // Load FFmpeg
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      addDebugInfo('FFmpeg Load', 'FFmpeg WASM modules loaded successfully');
+      
+      try {
+        // Load FFmpeg with more specific configuration
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        
+        addDebugInfo('FFmpeg Config', 'Fetching WASM and core modules');
+        const [coreURL, wasmURL] = await Promise.all([
+          toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+        ]);
+        
+        addDebugInfo('FFmpeg Config', 'Configuring FFmpeg with WASM modules');
+        await ffmpeg.load({
+          coreURL,
+          wasmURL,
+          workerURL: `${baseURL}/ffmpeg-core.worker.js`,
+        });
+        
+        addDebugInfo('FFmpeg Load', 'FFmpeg WASM modules loaded successfully');
+      } catch (error) {
+        const loadError = error as Error;
+        addDebugInfo('FFmpeg Error', `Failed to load FFmpeg: ${loadError.message}`);
+        throw new Error(`Failed to initialize FFmpeg: ${loadError.message}`);
+      }
+
+      // Check if FFmpeg is loaded
+      if (!ffmpeg.loaded) {
+        addDebugInfo('FFmpeg Error', 'FFmpeg failed to load properly');
+        throw new Error('FFmpeg failed to initialize properly');
+      }
 
       // Log progress
       ffmpeg.on('progress', (event: ProgressEvent) => {
@@ -102,36 +125,66 @@ const VideoToText: React.FC<VideoToTextProps> = ({
 
       setProgress('Loading video file...');
       addDebugInfo('File Processing', 'Writing video file to FFmpeg virtual filesystem');
-      // Write the video file to FFmpeg's virtual file system
-      await ffmpeg.writeFile('input.mp4', await fetchFile(file));
+      
+      try {
+        // Write the video file to FFmpeg's virtual file system
+        const videoData = await fetchFile(file);
+        addDebugInfo('File Processing', `Video data size: ${videoData.byteLength} bytes`);
+        await ffmpeg.writeFile('input.mp4', videoData);
+        addDebugInfo('File Processing', 'Video file written successfully');
+      } catch (error) {
+        const writeError = error as Error;
+        addDebugInfo('File Error', `Failed to process video file: ${writeError.message}`);
+        throw new Error(`Failed to process video file: ${writeError.message}`);
+      }
 
       setProgress('Extracting audio...');
       addDebugInfo('Audio Extraction', 'Starting audio extraction process');
-      // Extract audio from the video with more detailed logging
-      await ffmpeg.exec([
-        '-i', 'input.mp4',
-        '-vn', // Disable video
-        '-acodec', 'libmp3lame',
-        '-ab', '128k',
-        '-ar', '44100',
-        '-y', // Overwrite output file if exists
-        'output.mp3'
-      ]);
+      
+      try {
+        // Extract audio with more detailed error handling
+        const ffmpegArgs = [
+          '-i', 'input.mp4',
+          '-vn',                // Disable video
+          '-acodec', 'libmp3lame',
+          '-ab', '128k',       // Audio bitrate
+          '-ar', '44100',      // Sample rate
+          '-y',                // Overwrite output
+          'output.mp3'
+        ];
+        
+        addDebugInfo('FFmpeg Command', `Executing: ffmpeg ${ffmpegArgs.join(' ')}`);
+        await ffmpeg.exec(ffmpegArgs);
+        addDebugInfo('Audio Extraction', 'FFmpeg command completed successfully');
+      } catch (error) {
+        const execError = error as Error;
+        addDebugInfo('FFmpeg Error', `Failed to execute FFmpeg command: ${execError.message}`);
+        throw new Error(`Failed to extract audio: ${execError.message}`);
+      }
 
-      addDebugInfo('Audio Extraction', 'Reading extracted audio file');
-      // Read the extracted audio file
-      const audioData = await ffmpeg.readFile('output.mp3');
-      const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
-      setAudioFile(audioBlob);
-      addDebugInfo('Audio Extraction', `Audio extracted successfully. Size: ${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB`);
+      try {
+        addDebugInfo('Audio Extraction', 'Reading extracted audio file');
+        const audioData = await ffmpeg.readFile('output.mp3');
+        if (!audioData) {
+          throw new Error('No audio data was generated');
+        }
+        
+        const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
+        setAudioFile(audioBlob);
+        addDebugInfo('Audio Extraction', `Audio extracted successfully. Size: ${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB`);
 
-      // Clean up FFmpeg virtual file system
-      await ffmpeg.deleteFile('input.mp4');
-      await ffmpeg.deleteFile('output.mp3');
-      addDebugInfo('Cleanup', 'Cleaned up temporary files');
+        // Clean up FFmpeg virtual file system
+        await ffmpeg.deleteFile('input.mp4');
+        await ffmpeg.deleteFile('output.mp3');
+        addDebugInfo('Cleanup', 'Cleaned up temporary files');
 
-      // Start transcription
-      await transcribeAudio(audioBlob);
+        // Start transcription
+        await transcribeAudio(audioBlob);
+      } catch (error) {
+        const readError = error as Error;
+        addDebugInfo('File Error', `Failed to read audio file: ${readError.message}`);
+        throw new Error(`Failed to process extracted audio: ${readError.message}`);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to extract audio from the video';
       setError(errorMessage);
@@ -143,6 +196,17 @@ const VideoToText: React.FC<VideoToTextProps> = ({
     } finally {
       setIsLoading(false);
       setProgress('');
+      
+      // Clean up FFmpeg instance
+      if (ffmpegRef.current) {
+        try {
+          await ffmpegRef.current.terminate();
+          addDebugInfo('Cleanup', 'FFmpeg instance terminated');
+        } catch (error) {
+          const terminateError = error as Error;
+          addDebugInfo('Warning', `Failed to terminate FFmpeg: ${terminateError.message}`);
+        }
+      }
     }
   };
 
