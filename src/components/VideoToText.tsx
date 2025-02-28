@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 interface VideoToTextProps {
   onTranscriptionComplete: (transcript: string) => void;
@@ -25,6 +27,8 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   const [progress, setProgress] = useState<string>('');
   const [debugInfo, setDebugInfo] = useState<DebugInfo[]>([]);
   const [showDebug, setShowDebug] = useState<boolean>(false);
+  const [ffmpeg] = useState(() => new FFmpeg());
+  const [isFFmpegLoaded, setIsFFmpegLoaded] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,6 +40,38 @@ const VideoToText: React.FC<VideoToTextProps> = ({
     }]);
   };
 
+  // Initialize FFmpeg
+  useEffect(() => {
+    const loadFFmpeg = async () => {
+      try {
+        addDebugInfo('FFmpeg', 'Starting FFmpeg initialization');
+        
+        // Configure FFmpeg
+        ffmpeg.on('log', ({ message }) => {
+          addDebugInfo('FFmpeg Log', message);
+        });
+
+        ffmpeg.on('progress', ({ progress }) => {
+          const percentage = Math.round(progress * 100);
+          setProgress(`Processing: ${percentage}%`);
+        });
+
+        // Load FFmpeg
+        await ffmpeg.load();
+        
+        setIsFFmpegLoaded(true);
+        addDebugInfo('FFmpeg', 'FFmpeg initialized successfully');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error during FFmpeg loading';
+        setError(errorMessage);
+        onError(`Failed to initialize video processing: ${errorMessage}`);
+        addDebugInfo('FFmpeg Error', errorMessage);
+      }
+    };
+
+    loadFFmpeg();
+  }, [onError]);
+
   const handleFileClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -43,6 +79,11 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   };
 
   const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isFFmpegLoaded) {
+      setError('FFmpeg is not initialized yet. Please wait and try again.');
+      return;
+    }
+
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       addDebugInfo('File Selection', `Selected file: ${file.name}, Size: ${(file.size / (1024 * 1024)).toFixed(2)}MB, Type: ${file.type}`);
@@ -59,30 +100,30 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         setError(null);
         setProgress('Processing video...');
 
-        // Create form data for video upload
-        const formData = new FormData();
-        formData.append('video', file);
+        // Convert video to audio using FFmpeg
+        const inputFileName = 'input.mp4';
+        const outputFileName = 'output.mp3';
 
-        // Send video to server for audio extraction
-        addDebugInfo('Processing', 'Sending video to server for audio extraction');
-        const response = await fetch('/api/video-to-audio', {
-          method: 'POST',
-          body: formData
-        });
+        // Write the video file to FFmpeg's virtual filesystem
+        ffmpeg.writeFile(inputFileName, await fetchFile(file));
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process video');
-        }
+        // Extract audio using FFmpeg
+        await ffmpeg.exec([
+          '-i', inputFileName,
+          '-vn',                // Disable video
+          '-acodec', 'libmp3lame', // Use MP3 codec
+          '-ab', '128k',        // Audio bitrate
+          '-ar', '44100',       // Sample rate
+          outputFileName
+        ]);
 
-        const data = await response.json();
-        addDebugInfo('Processing', 'Audio extraction completed successfully');
+        // Read the output audio file
+        const audioData = await ffmpeg.readFile(outputFileName);
+        const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
 
-        // Convert base64 audio to blob
-        const audioBlob = new Blob(
-          [Buffer.from(data.audio, 'base64')],
-          { type: data.mimeType }
-        );
+        // Clean up files
+        await ffmpeg.deleteFile(inputFileName);
+        await ffmpeg.deleteFile(outputFileName);
 
         // Start transcription
         await transcribeAudio(audioBlob);
@@ -145,7 +186,7 @@ const VideoToText: React.FC<VideoToTextProps> = ({
           onChange={handleVideoChange}
           accept="video/*"
           className="hidden"
-          disabled={isLoading || isProcessingContent}
+          disabled={isLoading || isProcessingContent || !isFFmpegLoaded}
         />
         {isLoading || isProcessingContent ? (
           <div className="flex flex-col items-center">
