@@ -515,85 +515,69 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
 
   const handleVideoSubmit = async () => {
     if (!selectedFile) {
-      setDebugInfo('No file selected');
+      console.log('No video file selected');
       return;
     }
-    setLoading(true);
-    setDebugInfo('Starting video conversion process...');
-    
+
     const formData = new FormData();
     formData.append('video', selectedFile);
-    
-    setDebugInfo(`Preparing to send file: ${selectedFile.name} (${selectedFile.type}), size: ${selectedFile.size} bytes`);
-    
+
     try {
-      setDebugInfo('Sending request to /api/convert...');
-      const res = await axios.post('/api/convert', formData, {
+      console.log('Starting video conversion...');
+      const response = await axios.post('/api/convert', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        responseType: 'blob',
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-          setDebugInfo(`Upload progress: ${percentCompleted}%`);
+          console.log(`Upload progress: ${percentCompleted}%`);
         },
       });
-      
-      setDebugInfo(`Response received - status: ${res.status}, type: ${res.data.type}`);
-      
-      if (!res.data) {
-        throw new Error('No data received from conversion');
+
+      if (response.data.error) {
+        throw new Error(response.data.error);
       }
+
+      // Get the audio blob from the response
+      const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
       
-      const blob = res.data;
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-      setDebugInfo('Video converted successfully. Audio blob created.');
-      
-      // After successful conversion, trigger the transcription
+      // Create a new FormData for the audio transcription
+      const audioFormData = new FormData();
+      audioFormData.append('audio', audioBlob, 'converted-audio.mp3');
+
+      // Send the audio for transcription
+      const transcriptionResponse = await axios.post('/api/whisper-transcription', audioFormData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (transcriptionResponse.data.error) {
+        throw new Error(transcriptionResponse.data.error);
+      }
+
+      // Handle successful transcription
       if (onTranscriptGenerated) {
-        const audioFile = new File([blob], 'converted.mp3', { type: 'audio/mpeg' });
-        const audioFormData = new FormData();
-        audioFormData.append('audio', audioFile);
-        
-        setDebugInfo('Starting transcription process...');
-        try {
-          const transcriptResponse = await axios.post('/api/whisper-transcription', audioFormData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-            onUploadProgress: (progressEvent) => {
-              const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-              setDebugInfo(`Transcription upload progress: ${percentCompleted}%`);
-            },
-          });
-          
-          setDebugInfo(`Transcription response received - status: ${transcriptResponse.status}`);
-          
-          if (!transcriptResponse.data) {
-            throw new Error('No transcription data received');
-          }
-          
-          onTranscriptGenerated(transcriptResponse.data);
-          setDebugInfo('Transcription completed successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 
-            axios.isAxiosError(error) && error.response ? 
-              `Transcription failed: ${error.response.status} ${error.response.statusText}\nDetails: ${JSON.stringify(error.response.data)}` : 
-              'Unknown transcription error';
-          setDebugInfo(`Transcription error: ${errorMessage}`);
-          onError('Error transcribing audio');
+        onTranscriptGenerated(transcriptionResponse.data);
+      }
+
+    } catch (error: any) {
+      console.error('Error processing video:', error);
+      let errorMessage = 'Failed to process video. Please try again.';
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 405) {
+          errorMessage = 'Server endpoint not properly configured. Please check server setup.';
+        } else if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.message) {
+          errorMessage = error.message;
         }
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message :
-        axios.isAxiosError(error) && error.response ?
-          `Conversion failed: ${error.response.status} ${error.response.statusText}\nDetails: ${JSON.stringify(error.response.data)}` :
-          'Unknown conversion error';
-      setDebugInfo(`Error: ${errorMessage}`);
-      onError('Error converting video to audio');
-    } finally {
-      setLoading(false);
+      
+      if (onError) {
+        onError(errorMessage);
+      }
     }
   };
 

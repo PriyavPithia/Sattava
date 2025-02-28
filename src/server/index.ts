@@ -110,21 +110,25 @@ app.post('/api/convert', upload.single('video'), async (req: Request, res: Respo
         .save(outputPath);
     });
 
-    console.log('Sending converted file');
-    res.sendFile(outputPath, (err) => {
-      if (err) {
-        console.error('Error sending file:', err);
-      }
-      // Clean up files
-      console.log('Cleaning up temporary files');
-      fs.unlink(inputPath, (err) => {
-        if (err) console.error('Error deleting input file:', err);
-        else console.log('Input file deleted:', inputPath);
-      });
-      fs.unlink(outputPath, (err) => {
-        if (err) console.error('Error deleting output file:', err);
-        else console.log('Output file deleted:', outputPath);
-      });
+    console.log('Reading converted file');
+    const audioData = await fs.promises.readFile(outputPath);
+    
+    console.log('Setting response headers');
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', audioData.length);
+    
+    console.log('Sending audio data');
+    res.send(audioData);
+
+    // Clean up files after sending response
+    console.log('Cleaning up temporary files');
+    fs.unlink(inputPath, (err) => {
+      if (err) console.error('Error deleting input file:', err);
+      else console.log('Input file deleted:', inputPath);
+    });
+    fs.unlink(outputPath, (err) => {
+      if (err) console.error('Error deleting output file:', err);
+      else console.log('Output file deleted:', outputPath);
     });
   } catch (error) {
     console.error('Conversion error:', error);
