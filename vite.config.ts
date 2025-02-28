@@ -18,4 +18,15 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          ffmpeg: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+        }
+      }
+    }
+  },
+  publicDir: 'public',
+  assetsInclude: ['**/*.wasm']
 });

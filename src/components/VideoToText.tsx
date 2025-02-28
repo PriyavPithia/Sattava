@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface VideoToTextProps {
   onTranscriptionComplete: (transcript: string) => void;
@@ -50,10 +50,10 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   useEffect(() => {
     const initFFmpeg = async () => {
       try {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
         const ffmpeg = new FFmpeg();
         ffmpegRef.current = ffmpeg;
 
-        // Configure FFmpeg with specific options
         ffmpeg.on('log', ({ message }) => {
           console.log('FFmpeg Log:', message);
           addDebugInfo('FFmpeg Log', message);
@@ -62,7 +62,12 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
         
         try {
-          await ffmpeg.load();
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript')
+          });
+          
           addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
         } catch (error) {
           const loadError = error as Error;
