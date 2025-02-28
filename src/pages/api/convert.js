@@ -10,7 +10,7 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 
 export const config = {
   api: {
-    bodyParser: false, // Disable default body parser to handle multipart/form-data
+    bodyParser: false, // Disable default body parser to handle multipart/form-dat
   },
 };
 
