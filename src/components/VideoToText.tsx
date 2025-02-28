@@ -50,7 +50,7 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   useEffect(() => {
     const initFFmpeg = async () => {
       try {
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        // Create FFmpeg instance with logging
         const ffmpeg = new FFmpeg();
         ffmpegRef.current = ffmpeg;
 
@@ -60,25 +60,52 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         });
 
         addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
-        
+
         try {
+          // Load FFmpeg with explicit error handling
+          const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+          
+          // Pre-load the URLs to check availability
+          const [coreResponse, wasmResponse, workerResponse] = await Promise.all([
+            fetch(`${baseURL}/ffmpeg-core.js`),
+            fetch(`${baseURL}/ffmpeg-core.wasm`),
+            fetch(`${baseURL}/ffmpeg-core.worker.js`)
+          ]);
+
+          if (!coreResponse.ok || !wasmResponse.ok || !workerResponse.ok) {
+            throw new Error('Failed to fetch FFmpeg resources');
+          }
+
+          // Convert URLs to blob URLs
+          const [coreURL, wasmURL, workerURL] = await Promise.all([
+            toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript')
+          ]);
+
+          addDebugInfo('FFmpeg Load', 'Successfully created blob URLs for FFmpeg resources');
+
+          // Load FFmpeg with the blob URLs
           await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript')
+            coreURL,
+            wasmURL,
+            workerURL
           });
           
           addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
         } catch (error) {
           const loadError = error as Error;
-          addDebugInfo('FFmpeg Error', `Failed to load FFmpeg: ${loadError.message}`);
+          const errorMessage = loadError.message || 'Unknown error during FFmpeg loading';
+          addDebugInfo('FFmpeg Error', `Failed to load FFmpeg: ${errorMessage}`);
           console.error('FFmpeg load error:', loadError);
-          throw loadError;
+          throw new Error(`FFmpeg loading failed: ${errorMessage}`);
         }
       } catch (error) {
         const initError = error as Error;
-        addDebugInfo('FFmpeg Error', `FFmpeg initialization failed: ${initError.message}`);
+        const errorMessage = initError.message || 'Unknown initialization error';
+        addDebugInfo('FFmpeg Error', `FFmpeg initialization failed: ${errorMessage}`);
         console.error('FFmpeg initialization error:', initError);
+        setError(`Failed to initialize video processing: ${errorMessage}`);
       }
     };
 

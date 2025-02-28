@@ -10,19 +10,26 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@ffmpeg/core-mt'],
   },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
     },
+    cors: {
+      origin: '*',
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204
+    }
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks: {
-          ffmpeg: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+          ffmpeg: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@ffmpeg/core-mt']
         }
       }
     }
