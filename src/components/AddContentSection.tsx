@@ -1,12 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle, Video } from 'lucide-react';
+import { Upload, Youtube, FileText, Paperclip, Mic, MicOff, Type, X, Settings, Loader2, Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Link as LinkIcon, PlusCircle } from 'lucide-react';
 import axios from 'axios';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import AudioUploader from './AudioUploader';
-import VideoToText from './VideoToText';
 
 // Import our custom editor styles
 import '../styles/editor.css';
@@ -29,8 +28,8 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text' | 'video';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text' | 'video') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -530,17 +529,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           <span>Upload Files</span>
         </button>
         <button
-          onClick={() => setAddVideoMethod('video')}
-          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
-            addVideoMethod === 'video' 
-              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
-              : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <Video className="w-5 h-5" />
-          <span>Video Upload</span>
-        </button>
-        <button
           onClick={() => setAddVideoMethod('speech')}
           className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
             addVideoMethod === 'speech' 
@@ -603,16 +591,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
-        {/* Video Upload Mode */}
-        {addVideoMethod === 'video' && (
-          <VideoToText
-            onTranscriptionComplete={handleTranscriptionComplete}
-            onError={onError}
-            isProcessingContent={isProcessingContent}
-          />
-        )}
-
-        {/* Files Mode */}
+        {/* Consolidated Files Mode */}
         {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">

@@ -1,34 +1,33 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
-
+import path from "path"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
+ 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   optimizeDeps: {
-    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
-  },
-  server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Resource-Policy': 'cross-origin',
-    },
-    cors: true
+    exclude: ['pdfjs-dist/build/pdf.worker.entry'],
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks: {
-          ffmpeg: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
-        }
-      }
-    }
+          pdfWorker: ['pdfjs-dist/build/pdf.worker.entry'],
+        },
+      },
+    },
   },
-  publicDir: 'public',
-  assetsInclude: ['**/*.wasm']
-});
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+})
