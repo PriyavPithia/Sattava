@@ -525,16 +525,19 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     formData.append('video', selectedFile);
     
     try {
-      const res = await fetch('/api/convert', {
-        method: 'POST',
-        body: formData,
+      // First, try to convert the video
+      const res = await axios.post('/api/convert', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        responseType: 'blob',
       });
       
-      if (!res.ok) {
-        throw new Error(`Conversion failed: ${res.status} ${res.statusText}`);
+      if (!res.data) {
+        throw new Error('No data received from conversion');
       }
       
-      const blob = await res.blob();
+      const blob = res.data;
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
       setDebugInfo('Video converted successfully');
@@ -547,25 +550,33 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         
         setDebugInfo('Starting transcription...');
         try {
-          const transcriptResponse = await fetch('/api/whisper-transcription', {
-            method: 'POST',
-            body: audioFormData,
+          const transcriptResponse = await axios.post('/api/whisper-transcription', audioFormData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
           });
           
-          if (!transcriptResponse.ok) {
-            throw new Error('Transcription failed');
+          if (!transcriptResponse.data) {
+            throw new Error('No transcription data received');
           }
           
-          const transcriptData = await transcriptResponse.json();
-          onTranscriptGenerated(transcriptData);
+          onTranscriptGenerated(transcriptResponse.data);
           setDebugInfo('Transcription completed successfully');
         } catch (error) {
-          setDebugInfo(`Transcription error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          const errorMessage = error instanceof Error ? error.message : 
+            axios.isAxiosError(error) && error.response ? 
+              `Transcription failed: ${error.response.status} ${error.response.statusText}` : 
+              'Unknown transcription error';
+          setDebugInfo(`Transcription error: ${errorMessage}`);
           onError('Error transcribing audio');
         }
       }
     } catch (error) {
-      setDebugInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message :
+        axios.isAxiosError(error) && error.response ?
+          `Conversion failed: ${error.response.status} ${error.response.statusText}` :
+          'Unknown conversion error';
+      setDebugInfo(`Error: ${errorMessage}`);
       onError('Error converting video to audio');
     } finally {
       setLoading(false);
