@@ -50,6 +50,7 @@ const VideoToText: React.FC<VideoToTextProps> = ({
   useEffect(() => {
     const initFFmpeg = async () => {
       try {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
         const ffmpeg = new FFmpeg();
         ffmpegRef.current = ffmpeg;
 
@@ -61,8 +62,14 @@ const VideoToText: React.FC<VideoToTextProps> = ({
         addDebugInfo('FFmpeg Init', 'Starting FFmpeg initialization');
         
         try {
-          await ffmpeg.load();
-          addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully');
+          // Load FFmpeg with the correct WASM files
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
+          });
+          
+          addDebugInfo('FFmpeg Load', 'FFmpeg loaded successfully with WASM files');
         } catch (error) {
           const loadError = error as Error;
           const errorMessage = loadError.message || 'Unknown error during FFmpeg loading';
