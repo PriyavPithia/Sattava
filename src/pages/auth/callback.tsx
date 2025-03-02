@@ -14,7 +14,13 @@ const AuthCallback = () => {
         if (error) throw error;
         
         if (session) {
-          navigate('/', { replace: true });
+          if (window.opener) {
+            // We're in a popup
+            window.close();
+          } else {
+            // We're in the main window
+            navigate('/', { replace: true });
+          }
         }
       } catch (err: any) {
         console.error('Auth callback error:', err);

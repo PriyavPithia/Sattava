@@ -57,35 +57,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      // Show loading state immediately
-      const loadingToast = document.createElement('div');
-      loadingToast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded shadow-lg';
-      loadingToast.textContent = 'Connecting to Google...';
-      document.body.appendChild(loadingToast);
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: false,
           queryParams: {
             access_type: 'online',
-            // Remove prompt to speed up the process if user is already logged into Google
-            // prompt: 'select_account'
+            response_type: 'token',
+            prompt: 'consent'
           }
         }
       });
 
       if (error) {
-        document.body.removeChild(loadingToast);
         console.error('Login failed:', error.message);
         throw error;
       }
 
-      // If we have a URL, redirect to it
       if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        document.body.removeChild(loadingToast);
+        // Open in a popup window
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(
+          data.url,
+          'Google Sign In',
+          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+        );
+
+        if (popup) {
+          // Poll for popup closure
+          const checkPopup = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(checkPopup);
+              window.location.reload();
+            }
+          }, 1000);
+        } else {
+          // Fallback if popup was blocked
+          window.location.href = data.url;
+        }
       }
     } catch (error) {
       console.error('Error during Google sign in:', error);
