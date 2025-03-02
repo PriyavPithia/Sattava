@@ -57,8 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      // Use a direct window.location approach instead of iframe
-      window.location.href = `${supabase.auth.getUrl()}/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Error during Google sign in:', error);
       throw error;
