@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Chrome } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,8 +16,8 @@ const Login: React.FC = () => {
       setError('');
       setLoading(true);
       await signIn(email, password);
-    } catch (err) {
-      setError('Failed to sign in');
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in');
       console.error(err);
     } finally {
       setLoading(false);
@@ -95,6 +96,13 @@ const Login: React.FC = () => {
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
+            </div>
+            
+            <div className="text-sm text-center">
+              Don't have an account?{' '}
+              <Link to="/signup" className="font-medium text-red-600 hover:text-red-500">
+                Sign up
+              </Link>
             </div>
           </form>
 

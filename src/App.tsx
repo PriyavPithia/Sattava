@@ -35,6 +35,7 @@ import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
 import NavLink from './components/NavLink';
+import SignUp from './pages/SignUp';
 
 
 const openai = new OpenAI({
@@ -1415,6 +1416,8 @@ function App() {
           <main className="max-w-7xl mx-auto px-4 py-6">
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
               <Route 
                 path="/knowledgebase" 
                 element={

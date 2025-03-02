@@ -9,6 +9,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  isNewUser: boolean;
+  setIsNewUser: (value: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     // Check active sessions and sets the user
@@ -54,17 +57,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-          queryParams: {
-            prompt: 'select_account'
-          }
-        }
-      });
-      
-      if (error) throw error;
+      // Use a direct window.location approach instead of iframe
+      window.location.href = `${supabase.auth.getUrl()}/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`;
     } catch (error) {
       console.error('Error during Google sign in:', error);
       throw error;
@@ -90,7 +84,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signUp, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signIn, 
+      signInWithGoogle, 
+      signUp, 
+      signOut,
+      isNewUser,
+      setIsNewUser
+    }}>
       {children}
     </AuthContext.Provider>
   );
