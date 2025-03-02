@@ -44,13 +44,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          skipBrowserRedirect: true // This prevents automatic redirect
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Open the URL in a new window/tab
+      if (data?.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+        // Alternatively, redirect the current page:
+        // window.location.href = data.url;
       }
-    });
-    if (error) throw error;
+    } catch (error) {
+      console.error('Error during Google sign in:', error);
+      throw error;
+    }
   };
 
   const signUp = async (email: string, password: string) => {
