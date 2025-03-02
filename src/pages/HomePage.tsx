@@ -25,6 +25,10 @@ const HomePage = () => {
         different sections of the application.
       </p>
       
+      <p className="text-sm text-gray-500 mt-4">
+        If you experience issues with Google Sign-In, please use email/password authentication.
+      </p>
+      
       <div className="mt-8">
         <button
           onClick={handleSignOut}
