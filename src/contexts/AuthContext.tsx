@@ -60,20 +60,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
-          skipBrowserRedirect: false,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
+            access_type: 'online',
             prompt: 'select_account'
           }
         }
       });
-      
+
       if (error) {
         console.error('Login failed:', error.message);
         throw error;
       }
-      
-      console.log('Login successful:', data);
+
+      // If we have a URL, redirect to it
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (error) {
       console.error('Error during Google sign in:', error);
       throw error;

@@ -35,6 +35,7 @@ import UploadPage from './pages/UploadPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
 import NavLink from './components/NavLink';
 import SignUp from './pages/SignUp';
+import AuthCallback from './pages/auth/callback';
 
 
 const openai = new OpenAI({
@@ -1415,6 +1416,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route 
             path="/knowledgebase" 
             element={
