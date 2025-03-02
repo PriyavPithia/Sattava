@@ -49,18 +49,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
-          skipBrowserRedirect: true // This prevents automatic redirect
+          // Don't skip browser redirect - let Supabase handle it
         }
       });
       
       if (error) throw error;
       
-      // Open the URL in a new window/tab
-      if (data?.url) {
-        window.open(data.url, '_blank', 'noopener,noreferrer');
-        // Alternatively, redirect the current page:
-        // window.location.href = data.url;
-      }
+      // No need to manually redirect - Supabase will handle it
     } catch (error) {
       console.error('Error during Google sign in:', error);
       throw error;
