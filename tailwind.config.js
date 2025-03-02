@@ -5,7 +5,16 @@ export default {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['Geist', 'sans-serif'],
+  			sans: [
+  				'system-ui',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'Segoe UI',
+  				'Roboto',
+  				'Helvetica Neue',
+  				'Arial',
+  				'sans-serif'
+  			],
   			geist: ['Geist', 'sans-serif'],
   		},
   		borderRadius: {
