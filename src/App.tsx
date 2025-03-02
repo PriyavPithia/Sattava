@@ -2,7 +2,7 @@ import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import axios from 'axios';
 import { FileText, Plus, Home, Upload, UserCircle, LogOut, CheckCircle, XCircle } from 'lucide-react';
 import OpenAI from 'openai';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation, Routes, Route } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import { getDocument } from 'pdfjs-dist';
@@ -30,7 +30,6 @@ import Login from './pages/Login';
 import { createProject, getProjects, addContent, saveChat, loadChat } from './utils/database';
 import { supabase } from './lib/supabase';
 import { Content } from './types/database';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
@@ -1359,212 +1358,210 @@ function App() {
   }
 
   return (
-    <Router>
-      <HighlightProvider>
-        <div className="min-h-screen bg-gray-50">
-          {/* Toast component */}
-          {toast && (
-            <div className={`fixed bottom-4 right-4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white transform transition-transform duration-300 ${
-              toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-            }`}>
-              {toast.type === 'success' ? (
-                <CheckCircle className="w-5 h-5" />
-              ) : (
-                <XCircle className="w-5 h-5" />
-              )}
-              {toast.message}
-            </div>
-          )}
+    <HighlightProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Toast component */}
+        {toast && (
+          <div className={`fixed bottom-4 right-4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white transform transition-transform duration-300 ${
+            toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <XCircle className="w-5 h-5" />
+            )}
+            {toast.message}
+          </div>
+        )}
+        
+        {/* Navigation */}
+        <nav className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+          <div className="flex items-center space-x-4">
+            <HomeButton onSelectCollection={setSelectedCollection} />
+            <Link 
+              to="/"
+              className={`flex items-center px-4 py-2 ${location.pathname === '/' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+              onClick={() => {
+                setSelectedCollection(null);
+                setSelectedVideo(null);
+                setMessages([]);
+              }}
+            >
+              Knowledgebase
+            </Link>
+            <Link 
+              to="/upload"
+              className={`flex items-center px-4 py-2 ${location.pathname === '/upload' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              Upload
+            </Link>
+            <Link 
+              to="/debug"
+              className={`flex items-center px-4 py-2 ${location.pathname === '/debug' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              Debug
+            </Link>
+          </div>
           
-          {/* Navigation */}
-          <nav className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <HomeButton onSelectCollection={setSelectedCollection} />
-              <Link 
-                to="/"
-                className={`flex items-center px-4 py-2 ${location.pathname === '/' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
-                onClick={() => {
-                  setSelectedCollection(null);
-                  setSelectedVideo(null);
-                  setMessages([]);
-                }}
-              >
-                Knowledgebase
-              </Link>
-              <Link 
-                to="/upload"
-                className={`flex items-center px-4 py-2 ${location.pathname === '/upload' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
-              >
-                Upload
-              </Link>
-              <Link 
-                to="/debug"
-                className={`flex items-center px-4 py-2 ${location.pathname === '/debug' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
-              >
-                Debug
-              </Link>
-            </div>
-            
-            {/* User section */}
-            <div className="flex items-center space-x-4">
-              <UserCircle className="w-6 h-6 text-gray-600" />
-              <button
-                onClick={signOut}
-                className="ml-4 text-gray-600 hover:text-gray-900"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </nav>
+          {/* User section */}
+          <div className="flex items-center space-x-4">
+            <UserCircle className="w-6 h-6 text-gray-600" />
+            <button
+              onClick={signOut}
+              className="ml-4 text-gray-600 hover:text-gray-900"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </nav>
 
-          {/* Main content */}
-          <main className="max-w-7xl mx-auto px-4 py-6">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route 
-                path="/knowledgebase" 
-                element={
-                  <KnowledgebasePage
-                    collections={collections}
-                    selectedCollection={selectedCollection}
-                    onSelectCollection={setSelectedCollection}
-                    onCreateProject={handleCreateProject}
-                    onUpdateProject={handleUpdateProject}
-                    onDeleteProject={handleDeleteProject}
-                    onDeleteContent={handleDeleteContent}
-                    selectedVideo={selectedVideo}
-                    rawResponse={rawResponse}
-                    loadingTranscript={loadingTranscript}
-                    extractedText={extractedText}
-                    currentTimestamp={currentTimestamp}
-                    onSeek={setCurrentTimestamp}
-                    onVideoSelect={handleSelectVideo}
-                    durationFilter={durationFilter}
-                    onDurationFilterChange={setDurationFilter}
-                    formatTime={formatTime}
-                    groupTranscriptsByDuration={groupTranscriptsByDuration}
-                    calculateTotalDuration={calculateTotalDuration}
-                    formatDurationLabel={formatDurationLabel}
-                    messages={messages}
-                    question={question}
-                    askingQuestion={askingQuestion}
-                    onQuestionChange={setQuestion}
-                    onAskQuestion={handleAskQuestion}
-                    onReferenceClick={handleReferenceClick}
-                    onGenerateNotes={handleGenerateNotes}
-                    generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod}
-                    setAddVideoMethod={setAddVideoMethod}
-                    url={url}
-                    setUrl={setUrl}
-                    onAddVideo={handleAddVideo}
-                    onTranscriptGenerated={handleTranscriptGenerated}
-                    onError={setError}
-                    onFileSelect={handleFileSelect}
-                    isProcessingContent={isProcessingContent}
-                    loadChat={loadChat}
-                    setMessages={setMessages}
-                  />
-                } 
-              />
-              <Route 
-                path="/knowledgebase/:id" 
-                element={
-                  <KnowledgebasePage
-                    collections={collections}
-                    selectedCollection={selectedCollection}
-                    onSelectCollection={setSelectedCollection}
-                    onCreateProject={handleCreateProject}
-                    onUpdateProject={handleUpdateProject}
-                    onDeleteProject={handleDeleteProject}
-                    onDeleteContent={handleDeleteContent}
-                    selectedVideo={selectedVideo}
-                    rawResponse={rawResponse}
-                    loadingTranscript={loadingTranscript}
-                    extractedText={extractedText}
-                    currentTimestamp={currentTimestamp}
-                    onSeek={setCurrentTimestamp}
-                    onVideoSelect={handleSelectVideo}
-                    durationFilter={durationFilter}
-                    onDurationFilterChange={setDurationFilter}
-                    formatTime={formatTime}
-                    groupTranscriptsByDuration={groupTranscriptsByDuration}
-                    calculateTotalDuration={calculateTotalDuration}
-                    formatDurationLabel={formatDurationLabel}
-                    messages={messages}
-                    question={question}
-                    askingQuestion={askingQuestion}
-                    onQuestionChange={setQuestion}
-                    onAskQuestion={handleAskQuestion}
-                    onReferenceClick={handleReferenceClick}
-                    onGenerateNotes={handleGenerateNotes}
-                    generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod}
-                    setAddVideoMethod={setAddVideoMethod}
-                    url={url}
-                    setUrl={setUrl}
-                    onAddVideo={handleAddVideo}
-                    onTranscriptGenerated={handleTranscriptGenerated}
-                    onError={setError}
-                    onFileSelect={handleFileSelect}
-                    isProcessingContent={isProcessingContent}
-                    loadChat={loadChat}
-                    setMessages={setMessages}
-                  />
-                } 
-              />
-              <Route 
-                path="/knowledgebase/:id/:mode" 
-                element={
-                  <KnowledgebasePage
-                    collections={collections}
-                    selectedCollection={selectedCollection}
-                    onSelectCollection={setSelectedCollection}
-                    onCreateProject={handleCreateProject}
-                    onUpdateProject={handleUpdateProject}
-                    onDeleteProject={handleDeleteProject}
-                    onDeleteContent={handleDeleteContent}
-                    selectedVideo={selectedVideo}
-                    rawResponse={rawResponse}
-                    loadingTranscript={loadingTranscript}
-                    extractedText={extractedText}
-                    currentTimestamp={currentTimestamp}
-                    onSeek={setCurrentTimestamp}
-                    onVideoSelect={handleSelectVideo}
-                    durationFilter={durationFilter}
-                    onDurationFilterChange={setDurationFilter}
-                    formatTime={formatTime}
-                    groupTranscriptsByDuration={groupTranscriptsByDuration}
-                    calculateTotalDuration={calculateTotalDuration}
-                    formatDurationLabel={formatDurationLabel}
-                    messages={messages}
-                    question={question}
-                    askingQuestion={askingQuestion}
-                    onQuestionChange={setQuestion}
-                    onAskQuestion={handleAskQuestion}
-                    onReferenceClick={handleReferenceClick}
-                    onGenerateNotes={handleGenerateNotes}
-                    generatingNotes={generatingNotes}
-                    addVideoMethod={addVideoMethod}
-                    setAddVideoMethod={setAddVideoMethod}
-                    url={url}
-                    setUrl={setUrl}
-                    onAddVideo={handleAddVideo}
-                    onTranscriptGenerated={handleTranscriptGenerated}
-                    onError={setError}
-                    onFileSelect={handleFileSelect}
-                    isProcessingContent={isProcessingContent}
-                    loadChat={loadChat}
-                    setMessages={setMessages}
-                  />
-                } 
-              />
-              <Route path="/debug" element={<DebugPage />} />
-            </Routes>
-          </main>
-        </div>
-      </HighlightProvider>
-    </Router>
+        {/* Main content */}
+        <main className="max-w-7xl mx-auto px-4 py-6">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route 
+              path="/knowledgebase" 
+              element={
+                <KnowledgebasePage
+                  collections={collections}
+                  selectedCollection={selectedCollection}
+                  onSelectCollection={setSelectedCollection}
+                  onCreateProject={handleCreateProject}
+                  onUpdateProject={handleUpdateProject}
+                  onDeleteProject={handleDeleteProject}
+                  onDeleteContent={handleDeleteContent}
+                  selectedVideo={selectedVideo}
+                  rawResponse={rawResponse}
+                  loadingTranscript={loadingTranscript}
+                  extractedText={extractedText}
+                  currentTimestamp={currentTimestamp}
+                  onSeek={setCurrentTimestamp}
+                  onVideoSelect={handleSelectVideo}
+                  durationFilter={durationFilter}
+                  onDurationFilterChange={setDurationFilter}
+                  formatTime={formatTime}
+                  groupTranscriptsByDuration={groupTranscriptsByDuration}
+                  calculateTotalDuration={calculateTotalDuration}
+                  formatDurationLabel={formatDurationLabel}
+                  messages={messages}
+                  question={question}
+                  askingQuestion={askingQuestion}
+                  onQuestionChange={setQuestion}
+                  onAskQuestion={handleAskQuestion}
+                  onReferenceClick={handleReferenceClick}
+                  onGenerateNotes={handleGenerateNotes}
+                  generatingNotes={generatingNotes}
+                  addVideoMethod={addVideoMethod}
+                  setAddVideoMethod={setAddVideoMethod}
+                  url={url}
+                  setUrl={setUrl}
+                  onAddVideo={handleAddVideo}
+                  onTranscriptGenerated={handleTranscriptGenerated}
+                  onError={setError}
+                  onFileSelect={handleFileSelect}
+                  isProcessingContent={isProcessingContent}
+                  loadChat={loadChat}
+                  setMessages={setMessages}
+                />
+              } 
+            />
+            <Route path="/debug" element={<DebugPage />} />
+            <Route 
+              path="/knowledgebase/:id" 
+              element={
+                <KnowledgebasePage
+                  collections={collections}
+                  selectedCollection={selectedCollection}
+                  onSelectCollection={setSelectedCollection}
+                  onCreateProject={handleCreateProject}
+                  onUpdateProject={handleUpdateProject}
+                  onDeleteProject={handleDeleteProject}
+                  onDeleteContent={handleDeleteContent}
+                  selectedVideo={selectedVideo}
+                  rawResponse={rawResponse}
+                  loadingTranscript={loadingTranscript}
+                  extractedText={extractedText}
+                  currentTimestamp={currentTimestamp}
+                  onSeek={setCurrentTimestamp}
+                  onVideoSelect={handleSelectVideo}
+                  durationFilter={durationFilter}
+                  onDurationFilterChange={setDurationFilter}
+                  formatTime={formatTime}
+                  groupTranscriptsByDuration={groupTranscriptsByDuration}
+                  calculateTotalDuration={calculateTotalDuration}
+                  formatDurationLabel={formatDurationLabel}
+                  messages={messages}
+                  question={question}
+                  askingQuestion={askingQuestion}
+                  onQuestionChange={setQuestion}
+                  onAskQuestion={handleAskQuestion}
+                  onReferenceClick={handleReferenceClick}
+                  onGenerateNotes={handleGenerateNotes}
+                  generatingNotes={generatingNotes}
+                  addVideoMethod={addVideoMethod}
+                  setAddVideoMethod={setAddVideoMethod}
+                  url={url}
+                  setUrl={setUrl}
+                  onAddVideo={handleAddVideo}
+                  onTranscriptGenerated={handleTranscriptGenerated}
+                  onError={setError}
+                  onFileSelect={handleFileSelect}
+                  isProcessingContent={isProcessingContent}
+                  loadChat={loadChat}
+                  setMessages={setMessages}
+                />
+              } 
+            />
+            <Route 
+              path="/knowledgebase/:id/:mode" 
+              element={
+                <KnowledgebasePage
+                  collections={collections}
+                  selectedCollection={selectedCollection}
+                  onSelectCollection={setSelectedCollection}
+                  onCreateProject={handleCreateProject}
+                  onUpdateProject={handleUpdateProject}
+                  onDeleteProject={handleDeleteProject}
+                  onDeleteContent={handleDeleteContent}
+                  selectedVideo={selectedVideo}
+                  rawResponse={rawResponse}
+                  loadingTranscript={loadingTranscript}
+                  extractedText={extractedText}
+                  currentTimestamp={currentTimestamp}
+                  onSeek={setCurrentTimestamp}
+                  onVideoSelect={handleSelectVideo}
+                  durationFilter={durationFilter}
+                  onDurationFilterChange={setDurationFilter}
+                  formatTime={formatTime}
+                  groupTranscriptsByDuration={groupTranscriptsByDuration}
+                  calculateTotalDuration={calculateTotalDuration}
+                  formatDurationLabel={formatDurationLabel}
+                  messages={messages}
+                  question={question}
+                  askingQuestion={askingQuestion}
+                  onQuestionChange={setQuestion}
+                  onAskQuestion={handleAskQuestion}
+                  onReferenceClick={handleReferenceClick}
+                  onGenerateNotes={handleGenerateNotes}
+                  generatingNotes={generatingNotes}
+                  addVideoMethod={addVideoMethod}
+                  setAddVideoMethod={setAddVideoMethod}
+                  url={url}
+                  setUrl={setUrl}
+                  onAddVideo={handleAddVideo}
+                  onTranscriptGenerated={handleTranscriptGenerated}
+                  onError={setError}
+                  onFileSelect={handleFileSelect}
+                  isProcessingContent={isProcessingContent}
+                  loadChat={loadChat}
+                  setMessages={setMessages}
+                />
+              } 
+            />
+          </Routes>
+        </main>
+      </div>
+    </HighlightProvider>
   );
 }
 
