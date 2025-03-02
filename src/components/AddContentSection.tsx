@@ -28,8 +28,8 @@ const Spinner: React.FC<SpinnerProps> = ({ className = "w-5 h-5" }) => (
 );
 
 interface AddContentSectionProps {
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text' | 'video';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text' | 'video') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -502,170 +502,59 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
     }
   };
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-    setDebugInfo(`Selected file: ${file.name} (${file.type})`);
-  };
-
-  const handleVideoSubmit = async () => {
-    if (!selectedFile) {
-      setDebugInfo('No video file selected');
-      return;
-    }
-
-    setDebugInfo('Starting video conversion process...');
-    setLoading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('video', selectedFile);
-
-      setDebugInfo(`Sending file: ${selectedFile.name} (${selectedFile.type}, ${selectedFile.size} bytes)`);
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-      setDebugInfo(`Using API URL: ${apiUrl}/api/convert`);
-
-      const response = await axios.post(`${apiUrl}/api/convert`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        responseType: 'arraybuffer',
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-          setDebugInfo(`Upload progress: ${percentCompleted}%`);
-        },
-      });
-
-      setDebugInfo(`Response received - Status: ${response.status}, Type: ${response.headers['content-type']}`);
-
-      if (response.status === 200 && response.data) {
-        const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
-        const audioFile = new File([audioBlob], 'converted-audio.mp3', { type: 'audio/mpeg' });
-
-        setDebugInfo('Audio conversion successful. Starting transcription...');
-
-        // Create a new FormData for the transcription request
-        const transcriptionFormData = new FormData();
-        transcriptionFormData.append('audio', audioFile);
-
-        const transcriptionResponse = await axios.post(`${apiUrl}/api/whisper-transcription`, transcriptionFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        if (transcriptionResponse.data) {
-          onTranscriptGenerated(transcriptionResponse.data);
-          setDebugInfo('Transcription completed successfully');
-        }
-      }
-    } catch (error: any) {
-      console.error('Error:', error);
-      let errorMessage = 'An error occurred during processing';
-
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          // Server responded with an error
-          const responseData = error.response.data;
-          if (error.response.status === 405) {
-            errorMessage = 'Server endpoint not properly configured. Please check server setup.';
-          } else if (responseData instanceof ArrayBuffer) {
-            // Try to parse the error message from the ArrayBuffer
-            const decoder = new TextDecoder();
-            try {
-              const text = decoder.decode(responseData);
-              const parsed = JSON.parse(text);
-              errorMessage = parsed.error || errorMessage;
-            } catch (e) {
-              errorMessage = 'Error processing server response';
-            }
-          } else {
-            errorMessage = responseData?.error || `Server error: ${error.response.status}`;
-          }
-        } else if (error.request) {
-          // Request was made but no response received
-          errorMessage = 'No response received from server. Please check your connection.';
-        } else {
-          // Error setting up the request
-          errorMessage = error.message || 'Error setting up the request';
-        }
-      }
-
-      setDebugInfo(`Error: ${errorMessage}`);
-      onError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="flex flex-col space-y-4">
-      <div className="flex space-x-2 border-b border-gray-200 pb-2">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      {/* Content Type Selector */}
+      <div className="flex border-b border-gray-200">
         <button
           onClick={() => setAddVideoMethod('youtube')}
-          className={`flex items-center px-3 py-2 rounded-lg ${
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
             addVideoMethod === 'youtube' 
-              ? 'bg-red-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Youtube className="w-5 h-5 mr-2" />
-          YouTube
+          <Youtube className="w-5 h-5" />
+          <span>YouTube</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('files')}
-          className={`flex items-center px-3 py-2 rounded-lg ${
-            addVideoMethod === 'files'
-              ? 'bg-red-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'files' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Upload className="w-5 h-5 mr-2" />
-          Files
+          <FileText className="w-5 h-5" />
+          <span>Upload Files</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('speech')}
-          className={`flex items-center px-3 py-2 rounded-lg ${
-            addVideoMethod === 'speech'
-              ? 'bg-red-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'speech' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Mic className="w-5 h-5 mr-2" />
-          Speech
+          <Mic className="w-5 h-5" />
+          <span>Speech to Text</span>
         </button>
         <button
           onClick={() => setAddVideoMethod('text')}
-          className={`flex items-center px-3 py-2 rounded-lg ${
-            addVideoMethod === 'text'
-              ? 'bg-red-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
+          className={`flex-1 py-3 px-4 flex items-center justify-center space-x-2 ${
+            addVideoMethod === 'text' 
+              ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' 
+              : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
-          <Type className="w-5 h-5 mr-2" />
-          Text
-        </button>
-        <button
-          onClick={() => setAddVideoMethod('video')}
-          className={`flex items-center px-3 py-2 rounded-lg ${
-            addVideoMethod === 'video'
-              ? 'bg-red-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
-        >
-          <FileText className="w-5 h-5 mr-2" />
-          Video
+          <Type className="w-5 h-5" />
+          <span>Notes</span>
         </button>
       </div>
 
-      {/* Content based on selected method */}
-      <div className="mt-4">
+      {/* Input Area */}
+      <div className="p-6">
+        {/* YouTube Mode */}
         {addVideoMethod === 'youtube' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -702,6 +591,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
           </div>
         )}
 
+        {/* Consolidated Files Mode */}
         {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -734,7 +624,8 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             </p>
           </div>
         )}
-        
+
+        {/* Speech to Text Mode */}
         {addVideoMethod === 'speech' && (
           <div>
             {!isSpeechSupported ? (
@@ -745,7 +636,9 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Change to flex row layout */}
                 <div className="flex gap-6">
+                  {/* Live Recording Section */}
                   <div className="flex-1 rounded-lg p-8">
                     <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Live Recording</h3>
                     <div className="flex flex-col items-center">
@@ -790,12 +683,14 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
                     </div>
                   </div>
 
+                  {/* Audio File Upload Section */}
                   <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg p-8">
                     <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">Upload Audio File</h3>
                     <AudioUploader onTranscriptionComplete={handleTranscriptionComplete} />
                   </div>
                 </div>
 
+                {/* Transcription Display */}
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Transcription 
@@ -831,13 +726,15 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             </p>
           </div>
         )}
-        
+
+        {/* Input Text Mode - renamed to Notes */}
         {addVideoMethod === 'text' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Add Notes
             </label>
             <div className="mb-4">
+              {/* TipTap Rich Text Editor */}
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50">
                   <div className="flex items-center gap-1">
@@ -960,71 +857,6 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             <p className="mt-2 text-sm text-gray-500">
               Add formatted notes directly to your knowledge base for quick reference.
             </p>
-          </div>
-        )}
-
-        {addVideoMethod === 'video' && (
-          <div className="space-y-4">
-            <div className="flex flex-col items-center p-6 border-2 border-dashed border-gray-300 rounded-lg">
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleVideoFileChange}
-                className="hidden"
-                ref={fileInputRef}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                disabled={loading}
-              >
-                <Upload className="w-5 h-5 mr-2" />
-                Select Video
-              </button>
-              {selectedFile && (
-                <div className="mt-2 text-sm text-gray-600">
-                  Selected: {selectedFile.name}
-                </div>
-              )}
-              <button
-                onClick={handleVideoSubmit}
-                disabled={!selectedFile || loading}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin inline" />
-                    Converting...
-                  </>
-                ) : (
-                  'Convert Video'
-                )}
-              </button>
-            </div>
-
-            {audioUrl && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Converted Audio:</h3>
-                <audio controls src={audioUrl} className="w-full"></audio>
-                <a
-                  href={audioUrl}
-                  download="converted.mp3"
-                  className="mt-2 inline-block text-red-600 hover:text-red-700"
-                >
-                  Download Audio
-                </a>
-              </div>
-            )}
-
-            {/* Debug Section */}
-            {debugInfo && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Debug Info:</h3>
-                <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                  {debugInfo}
-                </pre>
-              </div>
-            )}
           </div>
         )}
       </div>

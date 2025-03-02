@@ -9,7 +9,6 @@ import PDFViewer from '../components/PDFViewer';
 import ReferencedAnswer from '../components/ReferencedAnswer';
 import QASection from '../components/QASection';
 import { loadChat } from '../utils/database';
-import { supabase } from '../lib/supabase';
 import { 
   VideoItem, ExtractedContent, Message, Collection, 
   ContentSource, ContentLocation
@@ -63,8 +62,8 @@ interface KnowledgebasePageProps {
   generatingNotes: boolean;
   
   // Content addition
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text' | 'video';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text' | 'video') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
@@ -186,8 +185,6 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
     type: 'success' | 'error';
   } | null>(null);
   const [editingCollectionName, setEditingCollectionName] = useState<string | null>(null);
-  // Add a debug info state
-  const [debugInfo, setDebugInfo] = useState<string>('');
   // Add a navigation lock ref to prevent double navigation
   const navigationLockRef = useRef(false);
   
@@ -356,42 +353,13 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const handleCreateCollection = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      console.log('Creating new knowledge base:', newName, newDescription);
-      setDebugInfo(`Attempting to create knowledge base: ${newName}`);
-      
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error('User not authenticated');
-        setDebugInfo('Error: User not authenticated. Please log in again.');
-        onError('User not authenticated. Please log in again.');
-        return;
-      }
-      
-      console.log('User authenticated:', session.user.id);
-      setDebugInfo(`User authenticated: ${session.user.id}`);
-      
       await onCreateProject(newName, newDescription);
       setIsCreatingCollection(false);
       setNewName('');
       setNewDescription('');
-      setDebugInfo(`Knowledge base created successfully: ${newName}`);
-      
-      // Show success toast
-      setToast({
-        message: 'Knowledge base created successfully',
-        type: 'success'
-      });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating knowledge base:', error);
-      setDebugInfo(`Error creating knowledge base: ${error?.message || 'Unknown error'}`);
-      onError(`Failed to create knowledge base: ${error?.message || 'Unknown error'}`);
-      
-      // Show error toast
-      setToast({
-        message: `Failed to create knowledge base: ${error?.message || 'Unknown error'}`,
-        type: 'error'
-      });
+      onError('Failed to create knowledge base');
     }
   };
   
@@ -445,9 +413,14 @@ const KnowledgebasePage: React.FC<KnowledgebasePageProps> = ({
   const handleReferenceClick = (reference: Reference) => {
     // Convert Reference to ContentSource format
     const contentSource: ContentSource = {
-      type: reference.source.type,
-      title: reference.source.title,
-      location: reference.source.location
+      type: reference.sourceType,
+      title: reference.sourceTitle,
+      location: {
+        type: reference.location.type,
+        value: typeof reference.location.value === 'string' 
+          ? parseFloat(reference.location.value) 
+          : reference.location.value
+      }
     };
     onReferenceClick(contentSource);
   };
