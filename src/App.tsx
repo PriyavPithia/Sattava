@@ -1391,10 +1391,20 @@ function App() {
                 <div className="flex items-center">
                   <UserCircle className="w-6 h-6 text-gray-600" />
                   <button
-                    onClick={signOut}
-                    className="ml-4 text-gray-600 hover:text-gray-900"
+                    onClick={async () => {
+                      try {
+                        await signOut();
+                        // No need to navigate as the AuthContext will handle redirecting to login
+                      } catch (error) {
+                        console.error('Error signing out:', error);
+                        setError('Failed to sign out');
+                      }
+                    }}
+                    className="ml-4 text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                    title="Sign Out"
                   >
                     <LogOut className="w-5 h-5" />
+                    <span className="hidden sm:inline">Sign Out</span>
                   </button>
                 </div>
               </div>
