@@ -34,8 +34,8 @@ interface SpeechRecognition extends EventTarget {
 }
 
 interface ContentAdditionProps {
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text' | 'video';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text' | 'video') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;

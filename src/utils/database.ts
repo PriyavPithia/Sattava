@@ -3,30 +3,41 @@ import { Project, Content } from '../types/database';
 import { Message, Chat } from '../types';
 
 export const createProject = async (name: string, description?: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  console.log('Creating project:', name, description);
   
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('User not authenticated in createProject');
+      throw new Error('User not authenticated');
+    }
+    
+    console.log('User authenticated in createProject:', user.id);
+    
+    const { data, error } = await supabase
+      .from('projects')
+      .insert([
+        {
+          name,
+          description,
+          user_id: user.id
+        }
+      ])
+      .select('*')
+      .single();
 
-  const { data, error } = await supabase
-    .from('projects')
-    .insert([
-      {
-        name,
-        description,
-        user_id: user.id
-      }
-    ])
-    .select('*')
-    .single();
-
-  if (error) {
-    console.error('Error creating project:', error);
+    if (error) {
+      console.error('Error creating project:', error);
+      throw error;
+    }
+    
+    console.log('Project created successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error in createProject:', error);
     throw error;
   }
-  
-  return data;
 };
 
 export const getProjects = async () => {

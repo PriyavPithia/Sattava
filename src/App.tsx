@@ -2,7 +2,7 @@ import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import axios from 'axios';
 import { FileText, Plus, Home, Upload, UserCircle, LogOut, CheckCircle, XCircle } from 'lucide-react';
 import OpenAI from 'openai';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import { getDocument } from 'pdfjs-dist';
@@ -35,6 +35,7 @@ import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
 import KnowledgebasePage from './pages/KnowledgebasePage';
 import NavLink from './components/NavLink';
+import DebugPage from './pages/DebugPage';
 
 
 const openai = new OpenAI({
@@ -97,7 +98,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState<boolean>(false);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(false);
-  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'files' | 'speech' | 'text'>('youtube');
+  const [addVideoMethod, setAddVideoMethod] = useState<'youtube' | 'files' | 'speech' | 'text' | 'video'>('youtube');
   const [addFileMethod, setAddFileMethod] = useState<'file'>('file');
   const [currentTimestamp, setCurrentTimestamp] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<ExtractedContent[]>([]);
@@ -114,6 +115,7 @@ function App() {
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+  const location = useLocation();
 
   // Update PDF.js worker configuration
   GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -1341,6 +1343,13 @@ function App() {
     }
   }, [toast]);
 
+  // Add this function if it doesn't exist
+  const handleKnowledgebaseNavClick = () => {
+    setSelectedCollection(null);
+    setSelectedVideo(null);
+    setMessages([]);
+  };
+
   if (authLoading) {
     return <div>Loading...</div>;
   }
@@ -1368,36 +1377,43 @@ function App() {
           )}
           
           {/* Navigation */}
-          <nav className="bg-white shadow-sm">
-            <div className="max-w-7xl mx-auto px-4">
-              <div className="flex justify-between h-16">
-                <div className="flex">
-                  <HomeButton 
-                    onSelectCollection={setSelectedCollection}
-                  />
-                  <Link 
-                    to="/knowledgebase"
-                    onClick={() => {
-                      setSelectedCollection(null);
-                      setSelectedVideo(null);
-                      setMessages([]);
-                    }}
-                    className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900"
-                  >
-                    <FileText className="w-5 h-5 mr-2" />
-                    Knowledgebase
-                  </Link>
-                </div>
-                <div className="flex items-center">
-                  <UserCircle className="w-6 h-6 text-gray-600" />
-                  <button
-                    onClick={signOut}
-                    className="ml-4 text-gray-600 hover:text-gray-900"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+          <nav className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+            <div className="flex items-center space-x-4">
+              <HomeButton onSelectCollection={setSelectedCollection} />
+              <Link 
+                to="/"
+                className={`flex items-center px-4 py-2 ${location.pathname === '/' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+                onClick={() => {
+                  setSelectedCollection(null);
+                  setSelectedVideo(null);
+                  setMessages([]);
+                }}
+              >
+                Knowledgebase
+              </Link>
+              <Link 
+                to="/upload"
+                className={`flex items-center px-4 py-2 ${location.pathname === '/upload' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Upload
+              </Link>
+              <Link 
+                to="/debug"
+                className={`flex items-center px-4 py-2 ${location.pathname === '/debug' ? 'text-red-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Debug
+              </Link>
+            </div>
+            
+            {/* User section */}
+            <div className="flex items-center space-x-4">
+              <UserCircle className="w-6 h-6 text-gray-600" />
+              <button
+                onClick={signOut}
+                className="ml-4 text-gray-600 hover:text-gray-900"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </nav>
 
@@ -1543,6 +1559,7 @@ function App() {
                   />
                 } 
               />
+              <Route path="/debug" element={<DebugPage />} />
             </Routes>
           </main>
         </div>

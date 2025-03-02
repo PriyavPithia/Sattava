@@ -4,8 +4,8 @@ import { Collection, VideoItem } from '../types';
 import { Plus, FolderPlus, FileText, Youtube, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 
 interface UploadPageProps {
-  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text';
-  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text') => void;
+  addVideoMethod: 'youtube' | 'files' | 'speech' | 'text' | 'video';
+  setAddVideoMethod: (method: 'youtube' | 'files' | 'speech' | 'text' | 'video') => void;
   url: string;
   setUrl: (url: string) => void;
   onAddVideo: () => void;
