@@ -57,18 +57,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      // Show loading state immediately
+      const loadingToast = document.createElement('div');
+      loadingToast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded shadow-lg';
+      loadingToast.textContent = 'Connecting to Google...';
+      document.body.appendChild(loadingToast);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'online',
-            prompt: 'select_account'
+            // Remove prompt to speed up the process if user is already logged into Google
+            // prompt: 'select_account'
           }
         }
       });
 
       if (error) {
+        document.body.removeChild(loadingToast);
         console.error('Login failed:', error.message);
         throw error;
       }
@@ -76,6 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If we have a URL, redirect to it
       if (data?.url) {
         window.location.href = data.url;
+      } else {
+        document.body.removeChild(loadingToast);
       }
     } catch (error) {
       console.error('Error during Google sign in:', error);
