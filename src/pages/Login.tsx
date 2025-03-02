@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Chrome } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,8 +15,8 @@ const Login: React.FC = () => {
       setError('');
       setLoading(true);
       await signIn(email, password);
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+    } catch (err) {
+      setError('Failed to sign in');
       console.error(err);
     } finally {
       setLoading(false);
@@ -25,8 +24,6 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    if (loading) return; // Prevent multiple clicks
-    
     try {
       setError('');
       setLoading(true);
@@ -34,7 +31,8 @@ const Login: React.FC = () => {
     } catch (err) {
       setError('Failed to sign in with Google');
       console.error(err);
-      setLoading(false); // Only reset loading on error
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,13 +96,6 @@ const Login: React.FC = () => {
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </div>
-            
-            <div className="text-sm text-center">
-              Don't have an account?{' '}
-              <Link to="/signup" className="font-medium text-red-600 hover:text-red-500">
-                Sign up
-              </Link>
-            </div>
           </form>
 
           <div className="mt-6">
@@ -123,17 +114,8 @@ const Login: React.FC = () => {
                 disabled={loading}
                 className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
               >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
-                    <span>Connecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Chrome className="w-5 h-5" />
-                    <span>Sign in with Google</span>
-                  </>
-                )}
+                <Chrome className="w-5 h-5" />
+                Sign in with Google
               </button>
             </div>
           </div>

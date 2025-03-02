@@ -4,24 +4,5 @@
       "source": "/(.*)",
       "destination": "/"
     }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; connect-src 'self' https://*.supabase.co https://*.google.com https://apis.google.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.google.com; style-src 'self' 'unsafe-inline' https://*.supabase.co https://*.google.com; font-src 'self' data:; frame-src 'self' https://*.supabase.co https://*.google.com; img-src 'self' data: https://*.supabase.co https://*.google.com https://*.gstatic.com https://*.googleapis.com; media-src 'self'; worker-src 'self' blob:; manifest-src 'self'; form-action 'self' https://*.supabase.co https://*.google.com; frame-ancestors 'self'; sandbox allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    }
   ]
 } 
