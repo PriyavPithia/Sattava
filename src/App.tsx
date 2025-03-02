@@ -1391,10 +1391,31 @@ function App() {
                 <div className="flex items-center">
                   <UserCircle className="w-6 h-6 text-gray-600" />
                   <button
-                    onClick={signOut}
-                    className="ml-4 text-gray-600 hover:text-gray-900"
+                    onClick={async () => {
+                      try {
+                        await signOut();
+                        // Clear any local state after logout
+                        setSelectedCollection(null);
+                        setSelectedVideo(null);
+                        setMessages([]);
+                        // Show success toast
+                        setToast({
+                          type: 'success',
+                          message: 'Successfully logged out'
+                        });
+                      } catch (error) {
+                        console.error('Error signing out:', error);
+                        setToast({
+                          type: 'error',
+                          message: 'Failed to log out. Please try again.'
+                        });
+                      }
+                    }}
+                    className="ml-4 flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Log out"
                   >
                     <LogOut className="w-5 h-5" />
+                    <span className="hidden sm:inline">Logout</span>
                   </button>
                 </div>
               </div>
