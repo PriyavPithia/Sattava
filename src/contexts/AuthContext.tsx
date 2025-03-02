@@ -57,18 +57,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: window.location.origin,
+          skipBrowserRedirect: false,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
+            prompt: 'select_account'
           }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Login failed:', error.message);
+        throw error;
+      }
+      
+      console.log('Login successful:', data);
     } catch (error) {
       console.error('Error during Google sign in:', error);
       throw error;
@@ -85,7 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      // Force a page reload to clear any cached state
+      // Clear any cached state
+      setUser(null);
+      // Use window.location.href for a full page refresh
       window.location.href = '/login';
     } catch (error) {
       console.error('Error during sign out:', error);
