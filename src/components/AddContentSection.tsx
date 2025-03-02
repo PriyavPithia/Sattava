@@ -610,7 +610,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
         <button
           onClick={() => setAddVideoMethod('youtube')}
           className={`flex items-center px-3 py-2 rounded-lg ${
-            addVideoMethod === 'youtube'
+            addVideoMethod === 'youtube' 
               ? 'bg-red-600 text-white'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
@@ -701,7 +701,7 @@ const AddContentSection: React.FC<AddContentSectionProps> = ({
             </p>
           </div>
         )}
-        
+
         {addVideoMethod === 'files' && (
           <div>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
